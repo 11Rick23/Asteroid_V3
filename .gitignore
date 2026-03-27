@@ -248,3 +248,7 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,windows,linux,python
+
+# プロジェクト独自
+logs/
+config.yaml

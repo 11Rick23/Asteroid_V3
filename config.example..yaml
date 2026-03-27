@@ -1,0 +1,3 @@
+# 読み込むモジュール
+MODULE_LIST:
+  AUTH: true

@@ -1,0 +1,29 @@
+[project]
+name = "asteroid-v3"
+version = "0.1.0"
+description = "Discordサーバー『ナメック星』にて使用する専属BOT（3代目）"
+readme = "../README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "discord-py>=2.7.1",
+    "pydantic>=2.12.5",
+    "python-dotenv>=1.2.2",
+    "ruamel-yaml>=0.19.1",
+]
+
+[tool.ruff]
+# 1行の最大文字数
+# GitHubのコードレビュー幅が119文字らしい
+line-length = 119
+
+[tool.ruff.lint]
+# チェックするエラーの種類
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
