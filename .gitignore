@@ -252,3 +252,6 @@ $RECYCLE.BIN/
 # プロジェクト独自
 logs/
 config.yaml
+
+# 一時的な追加
+OLD_Asteroid-V2/
