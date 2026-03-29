@@ -184,7 +184,12 @@ async def birthday_list(interaction: discord.Interaction) -> None:
 
     embed = discord.Embed(color=AsteroidColor.INFO, title=f"{BIRTHDAY_EMOJI} 誕生日リスト")
     for _index, entry in enumerate(future_data[:10]):
-        user = await bot.get_or_fetch_user(entry.user_id)
+        user = bot.get_user(entry.user_id)
+        if user is None:
+            try:
+                user = await bot.fetch_user(entry.user_id)
+            except discord.NotFound:
+                continue
         if user is None:
             continue
         embed.add_field(name=convert_date(today, entry.date), value=user.mention, inline=False)
