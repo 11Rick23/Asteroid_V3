@@ -10,5 +10,9 @@
     },
     "ruff.nativeServer": "on",
     "ruff.organizeImports": true,
-    "ruff.fixAll": true
+    "ruff.fixAll": true,
+    "cSpell.words": [
+        "dicoall",
+        "dissoku"
+    ]
 }
