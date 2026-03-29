@@ -175,13 +175,12 @@ class LevelingSystemCore(commands.Cog):
             title="月間ランキング", description="月間ランキング 今回のTOP10", color=AsteroidColor.INFO
         )
         embed = build_power_ranking_embed(self.bot, monthly_powers, base_embed)[0]
-        for channel_id in self.bot.config.leveling.month_ranking_board_channel_id_list:
-            channel = self.bot.get_channel(channel_id)
-            if channel is not None:
-                await channel.send(
-                    content=f"ということで、今回のtop10は...\n\n{monthly_power_ranking_text}\n\nこのようになりました！おめでとうございます！",
-                    embed=embed,
-                )
+        channel = self.bot.get_channel(self.bot.config.leveling.month_ranking_board_channel_id)
+        if channel is not None:
+            await channel.send(
+                content=f"ということで、今回のtop10は...\n\n{monthly_power_ranking_text}\n\nこのようになりました！おめでとうございます！",
+                embed=embed,
+            )
         await self.bot.db.monthly_powers.truncate_table()
         await self.bot.db.voice_xp_limits.reset_voice_power()
 
@@ -329,13 +328,12 @@ class LevelingSystemCore(commands.Cog):
     @update_ranking_board.before_loop
     async def setup_ranking_board(self) -> None:
         await self.bot.wait_until_ready()
-        for channel_id in self.bot.config.leveling.ranking_board_channel_id_list:
-            channel = self.bot.get_channel(channel_id)
-            if channel is not None:
-                message = await channel.send(
-                    embed=discord.Embed(title="ランキングボード", description="更新待機中", color=AsteroidColor.INFO)
-                )
-                self.ranking_board_messages.append(message)
+        channel = self.bot.get_channel(self.bot.config.leveling.ranking_board_channel_id)
+        if channel is not None:
+            message = await channel.send(
+                embed=discord.Embed(title="ランキングボード", description="更新待機中", color=AsteroidColor.INFO)
+            )
+            self.ranking_board_messages.append(message)
 
     @update_ranking_board.after_loop
     async def cleanup_ranking_board(self) -> None:

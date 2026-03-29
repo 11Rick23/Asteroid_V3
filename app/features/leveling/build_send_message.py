@@ -49,7 +49,7 @@ async def send_prestige_up_message(
 
 async def send_prestige_announce(bot: AsteroidBot, member: discord.Member, prestige: int) -> None:
     prestige_role_ids = bot.config.leveling.prestige_roles_id_list
-    prestige_announce_channel_ids = bot.config.leveling.prestige_announce_channel_id_list
+    prestige_announce_channel_id = bot.config.leveling.prestige_announce_channel_id
     prestige_role = None
     if prestige_role_ids:
         prestige_roles = sorted(
@@ -59,15 +59,16 @@ async def send_prestige_announce(bot: AsteroidBot, member: discord.Member, prest
         )
         if prestige_roles:
             prestige_role = member.guild.get_role(prestige_roles[0].role_id)
-    for channel_id in prestige_announce_channel_ids:
-        channel = bot.get_channel(channel_id)
-        if channel is None:
-            continue
-        await channel.send(
-            f"> {member.mention}さんが"
-            f"{prestige_role.mention if prestige_role else f'プレステージ{prestige}'}を達成しました！\n"
-            "> おめでとうございます！"
-        )
+    if prestige_announce_channel_id == 0:
+        return
+    channel = bot.get_channel(prestige_announce_channel_id)
+    if channel is None:
+        return
+    await channel.send(
+        f"> {member.mention}さんが"
+        f"{prestige_role.mention if prestige_role else f'プレステージ{prestige}'}を達成しました！\n"
+        "> おめでとうございます！"
+    )
 
 
 def build_star_grade_embed(user: discord.abc.User, star_grade: StarGradeData | StarGradeRankingData) -> discord.Embed:

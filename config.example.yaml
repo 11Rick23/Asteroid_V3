@@ -85,9 +85,9 @@ leveling:
   - prestige: 3
     role_id: 0000000000000000000
 
-  prestige_announce_channel_id_list: []
-  ranking_board_channel_id_list: []
-  month_ranking_board_channel_id_list: []
+  prestige_announce_channel_id: 0000000000000000000
+  ranking_board_channel_id: 0000000000000000000
+  month_ranking_board_channel_id: 0000000000000000000
   top1_role_id: 0000000000000000000
   top10_role_id: 0000000000000000000
   true_top_ranker_role_id: 0000000000000000000
