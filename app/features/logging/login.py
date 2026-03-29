@@ -36,7 +36,7 @@ class LogIn(commands.Cog):
         embed.set_thumbnail(url=self.bot.user.display_avatar.url)
         embed.add_field(name="ID", value=str(self.bot.user.id), inline=True)
         embed.add_field(
-            name="Creation Date (JST)",
+            name="作成日時 (JST)",
             value=str(self.bot.user.created_at.astimezone(ZoneInfo("Asia/Tokyo"))),
             inline=True,
         )

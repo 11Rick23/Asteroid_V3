@@ -150,7 +150,7 @@ class Starboard(commands.Cog):
         if images:
             embed.set_image(url=images[0])
         if files:
-            embed.add_field(name="Attachments", value="\n".join(files))
+            embed.add_field(name="添付ファイル", value="\n".join(files))
         return f"{self.get_star_emoji(star_amount)} **{star_amount}** {starred_message.channel.mention}", embed
 
     def get_star_emoji(self, star_amount: int) -> str:
