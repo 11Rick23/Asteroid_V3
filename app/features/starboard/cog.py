@@ -213,18 +213,12 @@ async def migrate_starboard(interaction: discord.Interaction) -> None:
         star_amount = len(star_amount_list)
         await cog.update_starboard(starred_message, star_amount)
 
-        async with bot.db.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                for star_amount_user in star_amount_list:
-                    await cur.execute(
-                        """
-                        INSERT INTO given_stars (user_id, given_star_amount)
-                        VALUES (%s, %s)
-                        ON DUPLICATE KEY UPDATE given_star_amount = given_star_amount + 1
-                        """,
-                        (star_amount_user.id, star_amount),
-                    )
-            await conn.commit()
+        for star_amount_user in star_amount_list:
+            given_star_data = await bot.db.given_stars.get_given_star(star_amount_user.id)
+            if given_star_data is None:
+                await bot.db.given_stars.create_given_star(star_amount_user.id, star_amount)
+            else:
+                await bot.db.given_stars.add_given_star(star_amount_user.id)
         await message.delete()
 
     announce_message = await interaction.followup.send("移行処理が完了しました。")

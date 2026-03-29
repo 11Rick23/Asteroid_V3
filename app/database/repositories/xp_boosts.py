@@ -3,6 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from sqlalchemy import delete, func, select
+
+from app.database.models.xp_boosts import XPBoostModel
+
 
 @dataclass
 class XPBoostData:
@@ -18,65 +22,60 @@ class XPBoosts:
     def __init__(self, db):
         self.db = db
 
+    @staticmethod
+    def _to_data(model: XPBoostModel | None) -> XPBoostData | None:
+        if model is None:
+            return None
+        return XPBoostData(
+            role_id=model.role_id,
+            name=model.name,
+            boost_amount=model.boost_amount,
+            boost_end_time=model.boost_end_time,
+            created_at=model.created_at,
+            updated_at=model.updated_at,
+        )
+
     async def create_table(self) -> None:
-        async with self.db.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute("SHOW TABLES LIKE 'xp_boosts'")
-                if len(await cur.fetchall()) > 0:
-                    return
-                await cur.execute(
-                    "CREATE TABLE IF NOT EXISTS xp_boosts (role_id BIGINT UNSIGNED PRIMARY KEY,"
-                    "name VARCHAR(100) NOT NULL,"
-                    "boost_amount INT UNSIGNED NOT NULL, boost_end_time DATETIME,"
-                    "created_at DATETIME DEFAULT CURRENT_TIMESTAMP, "
-                    "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP on update CURRENT_TIMESTAMP)"
-                )
-                await conn.commit()
+        async with self.db.engine.begin() as conn:
+            await conn.run_sync(lambda sync_conn: XPBoostModel.__table__.create(sync_conn, checkfirst=True))
 
     async def drop_table(self) -> None:
-        async with self.db.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute("DROP TABLE IF EXISTS xp_boosts")
-                await conn.commit()
+        async with self.db.engine.begin() as conn:
+            await conn.run_sync(lambda sync_conn: XPBoostModel.__table__.drop(sync_conn, checkfirst=True))
 
     async def get_xp_boosts(self) -> list[XPBoostData]:
-        async with self.db.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute("SELECT * FROM xp_boosts")
-                result = await cur.fetchall()
-                await conn.commit()
-        return [XPBoostData(*xp_boost) for xp_boost in result]
+        async with self.db.session() as session:
+            result = await session.scalars(select(XPBoostModel))
+            return [self._to_data(xp_boost) for xp_boost in result if xp_boost is not None]
 
     async def get_xp_boost(self, role_id: int) -> XPBoostData | None:
-        async with self.db.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute("SELECT * FROM xp_boosts WHERE role_id = %s", (role_id,))
-                result = await cur.fetchone()
-                await conn.commit()
-        return XPBoostData(*result) if result else None
+        async with self.db.session() as session:
+            return self._to_data(await session.get(XPBoostModel, role_id))
 
     async def create_xp_boost(
         self, role_id: int, name: str, boost_amount: int, boost_end_time: datetime | None
     ) -> None:
-        if boost_end_time is not None:
-            boost_end_time = boost_end_time.strftime("%Y-%m-%d %H:%M:%S.%f")
-
-        async with self.db.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "INSERT INTO xp_boosts (role_id, name, boost_amount, boost_end_time) VALUES (%s, %s, %s, %s)",
-                    (role_id, name, boost_amount, boost_end_time),
+        async with self.db.session() as session:
+            session.add(
+                XPBoostModel(
+                    role_id=role_id,
+                    name=name,
+                    boost_amount=boost_amount,
+                    boost_end_time=boost_end_time,
                 )
-                await conn.commit()
+            )
+            await session.commit()
 
     async def delete_xp_boost(self, role_id: int) -> None:
-        async with self.db.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute("DELETE FROM xp_boosts WHERE role_id = %s ", (role_id,))
-                await conn.commit()
+        async with self.db.session() as session:
+            model = await session.get(XPBoostModel, role_id)
+            if model is not None:
+                await session.delete(model)
+                await session.commit()
 
     async def delete_expired_xp_boosts(self) -> None:
-        async with self.db.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute("DELETE FROM xp_boosts WHERE boost_end_time < NOW()")
-                await conn.commit()
+        async with self.db.session() as session:
+            await session.execute(
+                delete(XPBoostModel).where(XPBoostModel.boost_end_time.is_not(None), XPBoostModel.boost_end_time < func.now())
+            )
+            await session.commit()

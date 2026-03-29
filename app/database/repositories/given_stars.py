@@ -3,6 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from sqlalchemy import select
+
+from app.database.models.given_stars import GivenStarModel
+
 
 @dataclass
 class GivenStarData:
@@ -16,65 +20,52 @@ class GivenStars:
     def __init__(self, db):
         self.db = db
 
+    @staticmethod
+    def _to_data(model: GivenStarModel | None) -> GivenStarData | None:
+        if model is None:
+            return None
+        return GivenStarData(
+            user_id=model.user_id,
+            given_star_amount=model.given_star_amount,
+            created_at=model.created_at,
+            updated_at=model.updated_at,
+        )
+
     async def create_table(self) -> None:
-        async with self.db.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute("SHOW TABLES LIKE 'given_stars'")
-                if len(await cur.fetchall()) > 0:
-                    return
-                await cur.execute(
-                    "CREATE TABLE IF NOT EXISTS given_stars (user_id BIGINT UNSIGNED PRIMARY KEY,"
-                    "given_star_amount INT UNSIGNED,"
-                    "created_at DATETIME DEFAULT CURRENT_TIMESTAMP,"
-                    "updated_at DATETIME DEFAULT CURRENT_TIMESTAMP on update CURRENT_TIMESTAMP)"
-                )
-                await conn.commit()
+        async with self.db.engine.begin() as conn:
+            await conn.run_sync(lambda sync_conn: GivenStarModel.__table__.create(sync_conn, checkfirst=True))
 
     async def drop_table(self) -> None:
-        async with self.db.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute("DROP TABLE IF EXISTS given_stars")
-                await conn.commit()
+        async with self.db.engine.begin() as conn:
+            await conn.run_sync(lambda sync_conn: GivenStarModel.__table__.drop(sync_conn, checkfirst=True))
 
     async def get_given_star(self, user_id: int) -> GivenStarData | None:
-        async with self.db.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute("SELECT * FROM given_stars WHERE user_id = %s", (user_id,))
-                given_star = await cur.fetchone()
-                await conn.commit()
-                return GivenStarData(*given_star) if given_star else None
+        async with self.db.session() as session:
+            return self._to_data(await session.get(GivenStarModel, user_id))
 
     async def get_given_star_ranking(self, limit: int = 10) -> list[GivenStarData]:
-        async with self.db.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute("SELECT * FROM given_stars ORDER BY given_star_amount DESC LIMIT %s", (limit,))
-                given_stars = await cur.fetchall()
-                await conn.commit()
-                return [GivenStarData(*given_star) for given_star in given_stars]
+        async with self.db.session() as session:
+            stmt = select(GivenStarModel).order_by(GivenStarModel.given_star_amount.desc()).limit(limit)
+            given_stars = await session.scalars(stmt)
+            return [self._to_data(given_star) for given_star in given_stars if given_star is not None]
 
     async def create_given_star(self, user_id: int, given_star_amount: int = 1) -> None:
-        async with self.db.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "INSERT INTO given_stars (user_id, given_star_amount) VALUES (%s, %s)",
-                    (user_id, given_star_amount),
-                )
-                await conn.commit()
+        async with self.db.session() as session:
+            session.add(GivenStarModel(user_id=user_id, given_star_amount=given_star_amount))
+            await session.commit()
 
     async def add_given_star(self, user_id: int, given_star_amount: int = 1) -> None:
-        async with self.db.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "UPDATE given_stars SET given_star_amount = given_star_amount + %s WHERE user_id = %s",
-                    (given_star_amount, user_id),
-                )
-                await conn.commit()
+        async with self.db.session() as session:
+            given_star = await session.get(GivenStarModel, user_id)
+            if given_star is None:
+                return
+            given_star.given_star_amount += given_star_amount
+            await session.commit()
 
     async def remove_given_star(self, user_id: int, given_star_amount: int = 1) -> None:
-        async with self.db.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "UPDATE given_stars SET given_star_amount = given_star_amount - %s WHERE user_id = %s",
-                    (given_star_amount, user_id),
-                )
-                await conn.commit()
+        async with self.db.session() as session:
+            given_star = await session.get(GivenStarModel, user_id)
+            if given_star is None:
+                return
+            given_star.given_star_amount -= given_star_amount
+            await session.commit()

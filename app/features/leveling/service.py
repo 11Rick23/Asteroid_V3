@@ -25,8 +25,8 @@ class VoiceXPClaimResult:
 
 
 async def claim_voice_xp_rewards(bot: AsteroidBot, user_id: int) -> VoiceXPClaimResult | None:
-    async with bot.db.pool.acquire() as conn:
-        voice_xp_limit = await bot.db.voice_xp_limits.get_voice_xp_limit_lock(conn, user_id)
+    async with bot.db.session() as session:
+        voice_xp_limit = await bot.db.voice_xp_limits.get_voice_xp_limit_lock(session, user_id)
         if (
             voice_xp_limit is None
             or (voice_xp_limit.voice_shard + voice_xp_limit.bonus_shard + voice_xp_limit.voice_power) < 1
@@ -34,33 +34,33 @@ async def claim_voice_xp_rewards(bot: AsteroidBot, user_id: int) -> VoiceXPClaim
             return None
 
         monthly_power = await bot.db.monthly_powers.get_monthly_power_lock(
-            conn, user_id
-        ) or await bot.db.monthly_powers.create_monthly_power_lock(conn, user_id)
+            session, user_id
+        ) or await bot.db.monthly_powers.create_monthly_power_lock(session, user_id)
         if voice_xp_limit.voice_power > 0:
-            await bot.db.monthly_powers.add_voice_power_lock(conn, monthly_power, voice_xp_limit.voice_power)
+            await bot.db.monthly_powers.add_voice_power_lock(session, monthly_power, voice_xp_limit.voice_power)
 
         star_grade = await bot.db.star_grades.get_star_grade_lock(
-            conn, user_id
-        ) or await bot.db.star_grades.create_star_grade_lock(conn, user_id)
+            session, user_id
+        ) or await bot.db.star_grades.create_star_grade_lock(session, user_id)
         grade_up_amount = 0
         prestige_amount = 0
 
         if voice_xp_limit.voice_shard > 0:
             star_grade, grade_up_amount_voice, prestige_amount_voice = await bot.db.star_grades.add_voice_shard_lock(
-                conn, star_grade, voice_xp_limit.voice_shard
+                session, star_grade, voice_xp_limit.voice_shard
             )
             grade_up_amount += grade_up_amount_voice
             prestige_amount += prestige_amount_voice
 
         if voice_xp_limit.bonus_shard > 0:
             star_grade, grade_up_amount_bonus, prestige_amount_bonus = await bot.db.star_grades.add_bonus_shard_lock(
-                conn, star_grade, voice_xp_limit.bonus_shard
+                session, star_grade, voice_xp_limit.bonus_shard
             )
             grade_up_amount += grade_up_amount_bonus
             prestige_amount += prestige_amount_bonus
 
-        await bot.db.voice_xp_limits.delete_voice_xp_limit_lock(conn, user_id)
-        await conn.commit()
+        await bot.db.voice_xp_limits.delete_voice_xp_limit_lock(session, user_id)
+        await session.commit()
 
     return VoiceXPClaimResult(
         voice_xp_limit=voice_xp_limit,

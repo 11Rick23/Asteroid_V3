@@ -84,11 +84,11 @@ class LevelingSystemCore(commands.Cog):
         if message.channel.type == discord.ChannelType.voice:
             increase = int(increase * self.bot.config.leveling.voice_xp_adjust)
 
-        async with self.bot.db.pool.acquire() as conn:
+        async with self.bot.db.session() as session:
             monthly_power = await self.bot.db.monthly_powers.get_monthly_power_lock(
-                conn, message.author.id
-            ) or await self.bot.db.monthly_powers.create_monthly_power_lock(conn, message.author.id)
-            await self.bot.db.monthly_powers.add_text_power_lock(conn, monthly_power, increase)
+                session, message.author.id
+            ) or await self.bot.db.monthly_powers.create_monthly_power_lock(session, message.author.id)
+            await self.bot.db.monthly_powers.add_text_power_lock(session, monthly_power, increase)
 
             boost_increase = 0
             xp_boosts = await self.bot.db.xp_boosts.get_xp_boosts()
@@ -103,10 +103,10 @@ class LevelingSystemCore(commands.Cog):
                 boost_increase = int(increase * total_boost_amount) - increase
 
             star_grade = await self.bot.db.star_grades.get_star_grade_lock(
-                conn, message.author.id
-            ) or await self.bot.db.star_grades.create_star_grade_lock(conn, message.author.id)
+                session, message.author.id
+            ) or await self.bot.db.star_grades.create_star_grade_lock(session, message.author.id)
             star_grade, grade_up_amount_text, prestige_amount_text = await self.bot.db.star_grades.add_text_shard_lock(
-                conn, star_grade, increase
+                session, star_grade, increase
             )
 
             grade_up_amount_bonus = 0
@@ -116,9 +116,9 @@ class LevelingSystemCore(commands.Cog):
                     star_grade,
                     grade_up_amount_bonus,
                     prestige_amount_bonus,
-                ) = await self.bot.db.star_grades.add_bonus_shard_lock(conn, star_grade, boost_increase)
+                ) = await self.bot.db.star_grades.add_bonus_shard_lock(session, star_grade, boost_increase)
 
-            await conn.commit()
+            await session.commit()
 
         grade_up_amount = grade_up_amount_text + grade_up_amount_bonus
         prestige_amount = prestige_amount_text + prestige_amount_bonus
@@ -206,10 +206,10 @@ class LevelingSystemCore(commands.Cog):
                 if len(voice_active_members) < 2:
                     continue
                 for member in voice_active_members:
-                    async with self.bot.db.pool.acquire() as conn:
+                    async with self.bot.db.session() as session:
                         data = await self.bot.db.voice_xp_limits.get_voice_xp_limit_lock(
-                            conn, member.id
-                        ) or await self.bot.db.voice_xp_limits.create_voice_xp_limit_lock(conn, member.id)
+                            session, member.id
+                        ) or await self.bot.db.voice_xp_limits.create_voice_xp_limit_lock(session, member.id)
                         full_notified = data.full_notify
                         half_notified = data.half_notify
                         increase = random.randint(
@@ -224,7 +224,7 @@ class LevelingSystemCore(commands.Cog):
                                 half_limit_reached,
                                 limit_reached,
                             ) = await self.bot.db.voice_xp_limits.add_voice_power_lock(
-                                conn, data, fix_increase, self.bot.config.leveling.voice_xp_limit
+                                session, data, fix_increase, self.bot.config.leveling.voice_xp_limit
                             )
                             if limit_reached and not full_notified:
                                 await self.voice_limit_reached_send(channel, member)
@@ -253,7 +253,7 @@ class LevelingSystemCore(commands.Cog):
                                 half_limit_reached,
                                 limit_reached,
                             ) = await self.bot.db.voice_xp_limits.add_voice_shard_lock(
-                                conn, data, fix_increase, self.bot.config.leveling.voice_xp_limit
+                                session, data, fix_increase, self.bot.config.leveling.voice_xp_limit
                             )
                             if fix_boost_increase > 0 and not limit_reached:
                                 (
@@ -261,13 +261,13 @@ class LevelingSystemCore(commands.Cog):
                                     half_limit_reached,
                                     limit_reached,
                                 ) = await self.bot.db.voice_xp_limits.add_bonus_shard_lock(
-                                    conn, data, fix_boost_increase, self.bot.config.leveling.voice_xp_limit
+                                    session, data, fix_boost_increase, self.bot.config.leveling.voice_xp_limit
                                 )
                             if limit_reached and not full_notified:
                                 await self.voice_limit_reached_send(channel, member)
                             elif half_limit_reached and not half_notified:
                                 await self.voice_half_limit_reached_send(channel, member)
-                        await conn.commit()
+                        await session.commit()
 
     async def voice_limit_reached_send(self, channel: discord.VoiceChannel, member: discord.Member) -> None:
         await channel.send(
