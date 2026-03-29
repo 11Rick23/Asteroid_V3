@@ -1,0 +1,128 @@
+from __future__ import annotations
+
+import random
+
+import discord
+from captcha.image import ImageCaptcha
+from discord import app_commands
+from discord.ext import commands
+
+from app.common.command_groups import get_bot, register_setup_command
+from app.common.constants import AsteroidColor
+from app.common.utils import generate_timestamp
+from app.core.bot import AsteroidBot
+
+
+class AuthInput(discord.ui.Modal):
+    def __init__(self, bot: AsteroidBot, japanese: bool, number_in_str: str):
+        super().__init__(title="認証" if japanese else "Authenticate", timeout=None)
+        self.bot = bot
+        self.number_in_str = number_in_str
+        self.japanese = japanese
+        self.numbers = discord.ui.TextInput(
+            label="画像の数字" if japanese else "Numbers on the image",
+            placeholder="12345",
+            max_length=5,
+        )
+        self.add_item(self.numbers)
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        if str(self.numbers.value) == self.number_in_str:
+            unauthorized_role = interaction.guild.get_role(self.bot.config["unauthorized_role_id"])
+            if unauthorized_role is not None:
+                await interaction.user.remove_roles(
+                    unauthorized_role,
+                    reason=f"[{generate_timestamp()}] 認証されました。",
+                )
+            await interaction.response.send_message(
+                "<a:welcome1:810069179762737162><a:welcome2:810069191196409856>",
+                ephemeral=True,
+            )
+            welcome_channel_id = self.bot.config.get("welcome_channel_id")
+            channel = interaction.guild.get_channel(welcome_channel_id) if welcome_channel_id else None
+            if channel is not None:
+                await channel.send(f"<@&818789324165873664>\n{interaction.user.mention}さん、ナメック星へようこそ！")
+            return
+
+        await interaction.response.send_message(
+            "認証に失敗しました…… もう一度お試しください。"
+            if self.japanese
+            else "Failed to authenticate... Please try again.",
+            ephemeral=True,
+        )
+
+
+class InputButton(discord.ui.Button):
+    def __init__(self, bot: AsteroidBot, japanese: bool, number_in_str: str):
+        super().__init__(
+            label="数字を入力" if japanese else "Input Numbers",
+            style=discord.ButtonStyle.blurple,
+            custom_id="input_auth_button",
+        )
+        self.bot = bot
+        self.japanese = japanese
+        self.number_in_str = number_in_str
+
+    async def callback(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_modal(AuthInput(self.bot, self.japanese, self.number_in_str))
+
+
+async def auth(bot: AsteroidBot, interaction: discord.Interaction) -> None:
+    japanese = interaction.data and interaction.data.get("custom_id") == "AuthButtonJA"
+    captcha = ImageCaptcha(160, 60)
+    number = str(random.randint(0, 99999))
+    number = number.replace("1", random.choice("0234")).replace("7", random.choice("5689"))
+    image = captcha.generate(number, "png")
+    file = discord.File(image, filename="captcha.png")
+
+    embed = discord.Embed(
+        title="認証してください！" if japanese else "Please Authenticate!",
+        description="ボタンを押して画像に書かれた数字を入力してください。"
+        if japanese
+        else "Please press the button and input the numbers on the image.",
+    )
+    embed.set_image(url="attachment://captcha.png")
+
+    view = discord.ui.View(timeout=300)
+    view.add_item(InputButton(bot, japanese, number))
+    await interaction.response.send_message(embed=embed, file=file, view=view, ephemeral=True)
+
+
+class AuthButton(discord.ui.View):
+    def __init__(self, bot: AsteroidBot, **kwargs):
+        super().__init__(**kwargs)
+        self.bot = bot
+
+    @discord.ui.button(label="認証", style=discord.ButtonStyle.green, custom_id="AuthButtonJA")
+    async def ja_callback(self, interaction: discord.Interaction, _: discord.ui.Button) -> None:
+        await auth(self.bot, interaction)
+
+    @discord.ui.button(label="Authenticate", style=discord.ButtonStyle.green, custom_id="AuthButtonEN")
+    async def en_callback(self, interaction: discord.Interaction, _: discord.ui.Button) -> None:
+        await auth(self.bot, interaction)
+
+
+class Authenticator(commands.Cog):
+    def __init__(self, bot: AsteroidBot):
+        self.bot = bot
+
+    async def cog_load(self) -> None:
+        self.bot.add_view(AuthButton(self.bot, timeout=None))
+
+
+@app_commands.command(name="auth", description="認証用のボタンを設置します。")
+@app_commands.guild_only()
+async def setup_auth(interaction: discord.Interaction) -> None:
+    bot = get_bot(interaction)
+    embed = discord.Embed(
+        title="下のボタンを押して認証してください！",
+        description="Please press the button below to authenticate!!",
+        color=AsteroidColor.DARK_GREEN,
+    )
+    await interaction.channel.send(embed=embed, view=AuthButton(bot, timeout=None))
+    await interaction.response.send_message("認証用のボタンを設置しました！", ephemeral=True)
+
+
+async def setup(bot: AsteroidBot) -> None:
+    register_setup_command(bot, setup_auth)
+    await bot.add_cog(Authenticator(bot))
