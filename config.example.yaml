@@ -1,10 +1,10 @@
 discord:
   token: ""
   guild_ids:
-    - 705003456984907786
+    - 0000000000000000000
   sync_commands_on_startup: true
   register_globally: false
-  activity_name: "ナメック星"
+  activity_name: "アクティビティ名"
   status: "dnd"
 
 database:
@@ -15,9 +15,6 @@ logging:
   level: "INFO"
   debug_log_retention_days: 7
   warning_log_retention_days: 7
-
-log:
-  main_log_channel_id: 0
 
 # アルファベット順で記載！
 features:
@@ -37,28 +34,28 @@ features:
   vc: true
 
 auth:
-  unauthorized_role_id: 1111625117487878215
-  welcome_channel_id: 705051571607830569
+  unauthorized_role_id: 0000000000000000000
+  welcome_channel_id: 0000000000000000000
 
 birthday:
-  birthday_channel_id: 0
-  birthday_role_id: 0
+  birthday_channel_id: 0000000000000000000
+  birthday_role_id: 0000000000000000000
 
 moderation:
-  punishment_board_channel_id: 762713250152185886
-  report_receive_channel_id: 963724252413067274
-  admin_perms_role_id: 956280048007147540
-  member_manage_perms_role_id: 956280045100482670
-  role_manage_perms_role_id: 956272603000102933
-  channel_manage_perms_role_id: 956276057013637140
-  message_manage_perms_role_id: 956280042697162853
-  emoji_manage_perms_role_id: 956276043738673202
-  log_view_perms_role_id: 956276052265668678
-  event_create_perms_role_id: 956272607974547526
-  thread_create_perms_role_id: 956272605470523482
+  punishment_board_channel_id: 0000000000000000000
+  report_receive_channel_id: 0000000000000000000
+  admin_perms_role_id: 0000000000000000000
+  member_manage_perms_role_id: 0000000000000000000
+  role_manage_perms_role_id: 0000000000000000000
+  channel_manage_perms_role_id: 0000000000000000000
+  message_manage_perms_role_id: 0000000000000000000
+  emoji_manage_perms_role_id: 0000000000000000000
+  log_view_perms_role_id: 0000000000000000000
+  event_create_perms_role_id: 0000000000000000000
+  thread_create_perms_role_id: 0000000000000000000
   crime_record_role_id_list: []
-  forbid_role_id: 0
-  mute_role_id: 0
+  forbid_role_id: 0000000000000000000
+  mute_role_id: 0000000000000000000
 
 leveling:
   message_cooldown: 15
@@ -75,24 +72,27 @@ leveling:
   prestige_announce_channel_id_list: []
   ranking_board_channel_id_list: []
   month_ranking_board_channel_id_list: []
-  top1_role_id: 0
-  top10_role_id: 0
-  true_top_ranker_role_id: 0
+  top1_role_id: 0000000000000000000
+  top10_role_id: 0000000000000000000
+  true_top_ranker_role_id: 0000000000000000000
+
+log:
+  main_log_channel_id: 0000000000000000000
 
 starboard:
-  starboard_channel_id: 0
+  starboard_channel_id: 0000000000000000000
 
 vc:
-  voice_create_channel_id: 0
-  voice_category_id: 0
+  voice_create_channel_id: 0000000000000000000
+  voice_category_id: 0000000000000000000
 
 free_category:
-  hall_of_fame_category_id: 0
-  free_category_id: 0
-  minor_category_id: 0
-  fc_archive_category_id: 0
-  side_button_channel_id: 0
-  text_create_channel_id: 0
+  hall_of_fame_category_id: 0000000000000000000
+  free_category_id: 0000000000000000000
+  minor_category_id: 0000000000000000000
+  fc_archive_category_id: 0000000000000000000
+  side_button_channel_id: 0000000000000000000
+  text_create_channel_id: 0000000000000000000
   hall_of_fame_channel_limit: 5
   free_category_channel_limit: 20
   minor_category_channel_limit: 15
@@ -110,4 +110,4 @@ roles:
   ignored_save_role_id_list: []
 
 suggest:
-  suggestion_forum_channel_id: 0
+  suggestion_forum_channel_id: 0000000000000000000
