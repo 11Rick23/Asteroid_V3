@@ -117,7 +117,6 @@ class FreeCategoryService:
     def get_reserved_channel_ids(self) -> set[int]:
         return {
             self.bot.config.free_category.text_create_channel_id,
-            self.bot.config.free_category.side_button_channel_id,
         } - {0}
 
     def get_category_channels(

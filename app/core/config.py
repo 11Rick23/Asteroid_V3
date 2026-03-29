@@ -128,7 +128,6 @@ class FreeCategoryConfig(BaseSection):
     free_category_id: int = 0
     minor_category_id: int = 0
     fc_archive_category_id: int = 0
-    side_button_channel_id: int = 0
     text_create_channel_id: int = 0
     hall_of_fame_channel_limit: int = 5
     free_category_channel_limit: int = 20

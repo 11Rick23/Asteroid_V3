@@ -46,7 +46,6 @@ free_category:
   free_category_id: 0000000000000000000
   minor_category_id: 0000000000000000000
   fc_archive_category_id: 0000000000000000000
-  side_button_channel_id: 0000000000000000000
   text_create_channel_id: 0000000000000000000
   hall_of_fame_channel_limit: 5
   free_category_channel_limit: 20
