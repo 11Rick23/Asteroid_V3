@@ -65,6 +65,9 @@ class LevelingSystemCore(commands.Cog):
         self.update_ranking_board.cancel()
         self.monthly_ranking.cancel()
 
+    async def cleanup_on_shutdown(self) -> None:
+        await self._cleanup_ranking_board_messages()
+
     async def cog_load(self) -> None:
         self.bot.add_view(ClaimVoiceXP(self.bot))
 
@@ -337,6 +340,9 @@ class LevelingSystemCore(commands.Cog):
 
     @update_ranking_board.after_loop
     async def cleanup_ranking_board(self) -> None:
+        await self._cleanup_ranking_board_messages()
+
+    async def _cleanup_ranking_board_messages(self) -> None:
         for message in self.ranking_board_messages:
             try:
                 await message.delete()

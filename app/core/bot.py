@@ -76,5 +76,9 @@ class AsteroidBot(Bot):
         return self.message_cache.get(message_id)
 
     async def close(self) -> None:
+        for cog in self.cogs.values():
+            cleanup = getattr(cog, "cleanup_on_shutdown", None)
+            if cleanup is not None:
+                await cleanup()
         await self.engine.dispose()
         await super().close()
