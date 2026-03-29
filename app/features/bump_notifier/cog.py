@@ -26,9 +26,12 @@ class BumpNotifier(commands.Cog):
     async def on_message_edit(self, before: discord.Message, after: discord.Message) -> None:
         if after.interaction_metadata is None or not after.embeds:
             return
+        first_embed = after.embeds[0]
+        first_field = first_embed.fields[0] if first_embed.fields else None
         if (
             after.author.id == 761562078095867916
-            and "をアップしたよ" in after.embeds[0].fields[0].name
+            and first_field is not None
+            and "をアップしたよ" in first_field.name
             and before.flags.loading
         ):
             embed = discord.Embed(
