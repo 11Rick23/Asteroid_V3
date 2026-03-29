@@ -5,8 +5,8 @@ from discord import app_commands
 from discord.ext import commands
 
 from app.core.bot import AsteroidBot
-from app.features.moderation.service import build_report_embed
-from app.features.moderation.views import ReportResolveView
+from app.features.report.service import build_report_embed
+from app.features.report.views import ReportResolveView
 
 
 class ReportCog(commands.Cog):
