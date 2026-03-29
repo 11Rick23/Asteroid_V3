@@ -23,14 +23,14 @@ features:
   bump_notifier: true
   free_category: true
   leveling: true
+  link_expander: true
   log_login: true
   log_error: true
-  roles: true
-  suggest: true
-  link_expander: true
   punish: true
   report: true
+  roles: true
   starboard: true
+  suggest: true
   vc: true
 
 auth:
@@ -41,21 +41,23 @@ birthday:
   birthday_channel_id: 0000000000000000000
   birthday_role_id: 0000000000000000000
 
-moderation:
-  punishment_board_channel_id: 0000000000000000000
-  report_receive_channel_id: 0000000000000000000
-  admin_perms_role_id: 0000000000000000000
-  member_manage_perms_role_id: 0000000000000000000
-  role_manage_perms_role_id: 0000000000000000000
-  channel_manage_perms_role_id: 0000000000000000000
-  message_manage_perms_role_id: 0000000000000000000
-  emoji_manage_perms_role_id: 0000000000000000000
-  log_view_perms_role_id: 0000000000000000000
-  event_create_perms_role_id: 0000000000000000000
-  thread_create_perms_role_id: 0000000000000000000
-  crime_record_role_id_list: []
-  forbid_role_id: 0000000000000000000
-  mute_role_id: 0000000000000000000
+free_category:
+  hall_of_fame_category_id: 0000000000000000000
+  free_category_id: 0000000000000000000
+  minor_category_id: 0000000000000000000
+  fc_archive_category_id: 0000000000000000000
+  side_button_channel_id: 0000000000000000000
+  text_create_channel_id: 0000000000000000000
+  hall_of_fame_channel_limit: 5
+  free_category_channel_limit: 20
+  minor_category_channel_limit: 15
+  text_create_channel_cooldown_seconds: 86400
+  bump_cooldown_seconds: 30
+  bump_cooldown_seconds_after_bump: 900
+  hall_of_fame_bump_chance: 0.01
+  free_category_bump_chance: 0.05
+  minor_category_bump_chance: 1.0
+  category_move_chance: 0.25
 
 leveling:
   message_cooldown: 15
@@ -79,35 +81,33 @@ leveling:
 log:
   main_log_channel_id: 0000000000000000000
 
-starboard:
-  starboard_channel_id: 0000000000000000000
-
-vc:
-  voice_create_channel_id: 0000000000000000000
-  voice_category_id: 0000000000000000000
-
-free_category:
-  hall_of_fame_category_id: 0000000000000000000
-  free_category_id: 0000000000000000000
-  minor_category_id: 0000000000000000000
-  fc_archive_category_id: 0000000000000000000
-  side_button_channel_id: 0000000000000000000
-  text_create_channel_id: 0000000000000000000
-  hall_of_fame_channel_limit: 5
-  free_category_channel_limit: 20
-  minor_category_channel_limit: 15
-  text_create_channel_cooldown_seconds: 86400
-  bump_cooldown_seconds: 30
-  bump_cooldown_seconds_after_bump: 900
-  hall_of_fame_bump_chance: 0.01
-  free_category_bump_chance: 0.05
-  minor_category_bump_chance: 1.0
-  category_move_chance: 0.25
+moderation:
+  punishment_board_channel_id: 0000000000000000000
+  report_receive_channel_id: 0000000000000000000
+  admin_perms_role_id: 0000000000000000000
+  member_manage_perms_role_id: 0000000000000000000
+  role_manage_perms_role_id: 0000000000000000000
+  channel_manage_perms_role_id: 0000000000000000000
+  message_manage_perms_role_id: 0000000000000000000
+  emoji_manage_perms_role_id: 0000000000000000000
+  log_view_perms_role_id: 0000000000000000000
+  event_create_perms_role_id: 0000000000000000000
+  thread_create_perms_role_id: 0000000000000000000
+  crime_record_role_id_list: []
+  forbid_role_id: 0000000000000000000
+  mute_role_id: 0000000000000000000
 
 roles:
   join_role_id_list: []
   bot_join_role_id_list: []
   ignored_save_role_id_list: []
 
+starboard:
+  starboard_channel_id: 0000000000000000000
+
 suggest:
   suggestion_forum_channel_id: 0000000000000000000
+
+vc:
+  voice_create_channel_id: 0000000000000000000
+  voice_category_id: 0000000000000000000
