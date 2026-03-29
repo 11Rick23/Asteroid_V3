@@ -17,7 +17,7 @@ class LogIn(commands.Cog):
     @commands.Cog.listener()
     async def on_ready(self) -> None:
         await self.bot.wait_until_ready()
-        log_channel_id = self.bot.config.get("main_log_channel_id")
+        log_channel_id = self.bot.config.log.main_log_channel_id
         if not log_channel_id:
             return
 

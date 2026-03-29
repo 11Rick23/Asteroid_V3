@@ -81,7 +81,7 @@ class Starboard(commands.Cog):
             if starred_message_data is None:
                 return
 
-            starboard_channel = self.bot.get_channel(self.bot.config["starboard_channel_id"])
+            starboard_channel = self.bot.get_channel(self.bot.config.starboard.starboard_channel_id)
             if starboard_channel is None:
                 return
             starboard_message = self.bot.get_message(starred_message_data.starboard_message_id)
@@ -101,7 +101,7 @@ class Starboard(commands.Cog):
             await self.bot.db.starred_messages.set_star_amount(message.id, star_amount)
 
     async def update_starboard(self, starred_message: discord.Message, star_amount: int) -> None:
-        starboard_channel = self.bot.get_channel(self.bot.config["starboard_channel_id"])
+        starboard_channel = self.bot.get_channel(self.bot.config.starboard.starboard_channel_id)
         if starboard_channel is None:
             return
 
@@ -166,7 +166,7 @@ async def migrate_starboard(interaction: discord.Interaction) -> None:
     await interaction.response.defer()
 
     old_starboard_channel = bot.get_channel(802172341546123286)
-    new_starboard_channel = bot.get_channel(bot.config["starboard_channel_id"])
+    new_starboard_channel = bot.get_channel(bot.config.starboard.starboard_channel_id)
     if old_starboard_channel is None or new_starboard_channel is None:
         await interaction.followup.send("スターボードチャンネル設定が不足しています。", ephemeral=True)
         return
@@ -239,7 +239,7 @@ async def random_starboard(interaction: discord.Interaction) -> None:
     if random_starred_message_data is None:
         await interaction.response.send_message("ランダムなスターボードを取得できませんでした。", ephemeral=True)
         return
-    starboard_channel = interaction.guild.get_channel(bot.config["starboard_channel_id"])
+    starboard_channel = interaction.guild.get_channel(bot.config.starboard.starboard_channel_id)
     if starboard_channel is None:
         await interaction.response.send_message("スターボードチャンネルが見つかりません。", ephemeral=True)
         return

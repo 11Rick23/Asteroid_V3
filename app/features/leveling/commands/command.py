@@ -76,8 +76,8 @@ async def transfer_mee6(interaction: discord.Interaction, sync_role: bool, prest
         + ("\nプレステージアナウンスが有効です、通常より時間がかかります..." if prestige_announce else "")
     )
 
-    prestige_roles = bot.config["prestige_roles_id_list"]
-    prestige_roles_id = [int(prestige_role["role_id"]) for prestige_role in prestige_roles]
+    prestige_roles = bot.config.leveling.prestige_roles_id_list
+    prestige_roles_id = [prestige_role.role_id for prestige_role in prestige_roles]
 
     for player in data["players"]:
         user_id = int(player["id"])

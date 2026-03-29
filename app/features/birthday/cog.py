@@ -50,9 +50,9 @@ class Birthday(commands.Cog):
 
     @tasks.loop(time=time(hour=0, minute=0, tzinfo=ZoneInfo("Asia/Tokyo")))
     async def announce_birthday(self) -> None:
-        guild_ids = self.bot.config["guild_id_list"]
-        birthday_channel_id = self.bot.config.get("birthday_channel_id")
-        birthday_role_id = self.bot.config.get("birthday_role_id")
+        guild_ids = self.bot.config.discord.guild_ids
+        birthday_channel_id = self.bot.config.birthday.birthday_channel_id
+        birthday_role_id = self.bot.config.birthday.birthday_role_id
         if not guild_ids or not birthday_channel_id or not birthday_role_id:
             return
 

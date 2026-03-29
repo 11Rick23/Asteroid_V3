@@ -35,7 +35,7 @@ class ReportCog(commands.Cog):
             await interaction.edit_original_response(content="サーバー内でのみ使用できます。")
             return
 
-        report_receive_channel = interaction.guild.get_channel(self.bot.config["report_receive_channel_id"])
+        report_receive_channel = interaction.guild.get_channel(self.bot.config.moderation.report_receive_channel_id)
         if report_receive_channel is None:
             await interaction.edit_original_response(content="レポート送信先チャンネルが見つかりませんでした。")
             return

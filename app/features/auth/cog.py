@@ -28,7 +28,7 @@ class AuthInput(discord.ui.Modal):
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         if str(self.numbers.value) == self.number_in_str:
-            unauthorized_role = interaction.guild.get_role(self.bot.config["unauthorized_role_id"])
+            unauthorized_role = interaction.guild.get_role(self.bot.config.auth.unauthorized_role_id)
             if unauthorized_role is not None:
                 await interaction.user.remove_roles(
                     unauthorized_role,
@@ -38,7 +38,7 @@ class AuthInput(discord.ui.Modal):
                 "<a:welcome1:810069179762737162><a:welcome2:810069191196409856>",
                 ephemeral=True,
             )
-            welcome_channel_id = self.bot.config.get("welcome_channel_id")
+            welcome_channel_id = self.bot.config.auth.welcome_channel_id
             channel = interaction.guild.get_channel(welcome_channel_id) if welcome_channel_id else None
             if channel is not None:
                 await channel.send(f"<@&818789324165873664>\n{interaction.user.mention}さん、ナメック星へようこそ！")

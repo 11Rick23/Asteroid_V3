@@ -72,14 +72,16 @@ async def xp_boost(interaction: discord.Interaction) -> None:
 @reward_group.command(name="grade", description="グレードに応じたロール報酬を表示します")
 async def reward_grade(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
-    grade_roles = bot.config["grade_roles_id_list"]
+    grade_roles = bot.config.leveling.grade_roles_id_list
     embed = discord.Embed(
         title="グレードロール報酬", description="グレードに応じたロール報酬を表示します", color=AsteroidColor.INFO
     )
     for grade_role in grade_roles:
-        role = interaction.guild.get_role(grade_role["role_id"])
+        role = interaction.guild.get_role(grade_role.role_id)
         embed.add_field(
-            name=f"Grade. {grade_role['grade']}", value=role.mention if role else "ロールが見つかりません", inline=True
+            name=f"Grade. {grade_role.grade}",
+            value=role.mention if role else "ロールが見つかりません",
+            inline=True,
         )
     await interaction.response.send_message(embed=embed)
 
@@ -87,16 +89,16 @@ async def reward_grade(interaction: discord.Interaction) -> None:
 @reward_group.command(name="prestige", description="プレステージに応じたロール報酬を表示します")
 async def reward_prestige(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
-    prestige_roles = bot.config["prestige_roles_id_list"]
+    prestige_roles = bot.config.leveling.prestige_roles_id_list
     embed = discord.Embed(
         title="プレステージロール報酬",
         description="プレステージに応じたロール報酬を表示します",
         color=AsteroidColor.INFO,
     )
     for prestige_role in prestige_roles:
-        role = interaction.guild.get_role(prestige_role["role_id"])
+        role = interaction.guild.get_role(prestige_role.role_id)
         embed.add_field(
-            name=f"Prestige. {prestige_role['prestige']}",
+            name=f"Prestige. {prestige_role.prestige}",
             value=role.mention if role else "ロールが見つかりません",
             inline=True,
         )

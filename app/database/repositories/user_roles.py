@@ -51,7 +51,7 @@ class UserRoles:
     async def save_user_roles(self, member: discord.Member) -> None:
         await self.delete_user_roles(member.id)
         data = []
-        ignored_save_role_ids = self.db.config.get("ignored_save_role_id_list", [])
+        ignored_save_role_ids = self.db.config.roles.ignored_save_role_id_list
         for role in member.roles:
             if (
                 role == member.guild.default_role

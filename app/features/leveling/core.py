@@ -48,7 +48,7 @@ class LevelingSystemCore(commands.Cog):
     def __init__(self, bot: AsteroidBot):
         self.bot = bot
         self.cooldown: dict[int, float] = {}
-        self.cooldown_time = self.bot.config["message_cooldown"]
+        self.cooldown_time = self.bot.config.leveling.message_cooldown
         self.ranking_board_messages: list[discord.Message] = []
         self.voice_xp_claim.start()
         self.delete_expired_xp_boosts.start()
@@ -67,15 +67,18 @@ class LevelingSystemCore(commands.Cog):
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
         self.bot.remember_message(message)
-        if message.author.bot or message.guild is None or message.guild.id not in self.bot.config["guild_id_list"]:
+        if message.author.bot or message.guild is None or message.guild.id not in self.bot.config.discord.guild_ids:
             return
         if message.author.id in self.cooldown and (self.cooldown[message.author.id] + self.cooldown_time) >= time():
             return
 
         self.cooldown[message.author.id] = time()
-        increase = random.randint(self.bot.config["min_xp_per_message"], self.bot.config["max_xp_per_message"])
+        increase = random.randint(
+            self.bot.config.leveling.min_xp_per_message,
+            self.bot.config.leveling.max_xp_per_message,
+        )
         if message.channel.type == discord.ChannelType.voice:
-            increase = int(increase * self.bot.config["voice_xp_adjust"])
+            increase = int(increase * self.bot.config.leveling.voice_xp_adjust)
 
         async with self.bot.db.pool.acquire() as conn:
             monthly_power = await self.bot.db.monthly_powers.get_monthly_power_lock(
@@ -130,11 +133,11 @@ class LevelingSystemCore(commands.Cog):
         if now.day != 1 or now.hour != 0 or now.minute != 0:
             return
 
-        guild = self.bot.get_guild(self.bot.config["guild_id_list"][0])
+        guild = self.bot.get_guild(self.bot.config.discord.guild_ids[0])
         if guild is None:
             return
-        top1_role = guild.get_role(self.bot.config["top1_role_id"])
-        top10_role = guild.get_role(self.bot.config["top10_role_id"])
+        top1_role = guild.get_role(self.bot.config.leveling.top1_role_id)
+        top10_role = guild.get_role(self.bot.config.leveling.top10_role_id)
         monthly_powers = await self.bot.db.monthly_powers.get_monthly_power_ranking(limit=10)
         remove_top10_role_users_id = [member.id for member in top10_role.members] if top10_role else []
 
@@ -168,7 +171,7 @@ class LevelingSystemCore(commands.Cog):
             title="月間ランキング", description="月間ランキング 今回のTOP10", color=AsteroidColor.INFO
         )
         embed = build_power_ranking_embed(self.bot, monthly_powers, base_embed)[0]
-        for channel_id in self.bot.config["month_ranking_board_channel_id_list"]:
+        for channel_id in self.bot.config.leveling.month_ranking_board_channel_id_list:
             channel = self.bot.get_channel(channel_id)
             if channel is not None:
                 await channel.send(
@@ -206,17 +209,18 @@ class LevelingSystemCore(commands.Cog):
                         full_notified = data.full_notify
                         half_notified = data.half_notify
                         increase = random.randint(
-                            self.bot.config["min_xp_per_voice_minute"], self.bot.config["max_xp_per_voice_minute"]
+                            self.bot.config.leveling.min_xp_per_voice_minute,
+                            self.bot.config.leveling.max_xp_per_voice_minute,
                         )
 
-                        if data.voice_power < self.bot.config["voice_xp_limit"]:
-                            fix_increase = int(increase * self.bot.config["voice_xp_adjust"])
+                        if data.voice_power < self.bot.config.leveling.voice_xp_limit:
+                            fix_increase = int(increase * self.bot.config.leveling.voice_xp_adjust)
                             (
                                 data,
                                 half_limit_reached,
                                 limit_reached,
                             ) = await self.bot.db.voice_xp_limits.add_voice_power_lock(
-                                conn, data, fix_increase, self.bot.config["voice_xp_limit"]
+                                conn, data, fix_increase, self.bot.config.leveling.voice_xp_limit
                             )
                             if limit_reached and not full_notified:
                                 await self.voice_limit_reached_send(channel, member)
@@ -226,7 +230,7 @@ class LevelingSystemCore(commands.Cog):
                                 await self.voice_half_limit_reached_send(channel, member)
                                 half_notified = True
 
-                        if (data.voice_shard + data.bonus_shard) < self.bot.config["voice_xp_limit"]:
+                        if (data.voice_shard + data.bonus_shard) < self.bot.config.leveling.voice_xp_limit:
                             fix_boost_increase = 0
                             if xp_boosts:
                                 total_boost_amount = 0
@@ -237,15 +241,15 @@ class LevelingSystemCore(commands.Cog):
                                 if total_boost_amount < 1:
                                     total_boost_amount += 1
                                 boost_increase = int(increase * total_boost_amount) - increase
-                                fix_boost_increase = int(boost_increase * self.bot.config["voice_xp_adjust"])
+                                fix_boost_increase = int(boost_increase * self.bot.config.leveling.voice_xp_adjust)
 
-                            fix_increase = int(increase * self.bot.config["voice_xp_adjust"])
+                            fix_increase = int(increase * self.bot.config.leveling.voice_xp_adjust)
                             (
                                 data,
                                 half_limit_reached,
                                 limit_reached,
                             ) = await self.bot.db.voice_xp_limits.add_voice_shard_lock(
-                                conn, data, fix_increase, self.bot.config["voice_xp_limit"]
+                                conn, data, fix_increase, self.bot.config.leveling.voice_xp_limit
                             )
                             if fix_boost_increase > 0 and not limit_reached:
                                 (
@@ -253,7 +257,7 @@ class LevelingSystemCore(commands.Cog):
                                     half_limit_reached,
                                     limit_reached,
                                 ) = await self.bot.db.voice_xp_limits.add_bonus_shard_lock(
-                                    conn, data, fix_boost_increase, self.bot.config["voice_xp_limit"]
+                                    conn, data, fix_boost_increase, self.bot.config.leveling.voice_xp_limit
                                 )
                             if limit_reached and not full_notified:
                                 await self.voice_limit_reached_send(channel, member)
@@ -321,7 +325,7 @@ class LevelingSystemCore(commands.Cog):
     @update_ranking_board.before_loop
     async def setup_ranking_board(self) -> None:
         await self.bot.wait_until_ready()
-        for channel_id in self.bot.config["ranking_board_channel_id_list"]:
+        for channel_id in self.bot.config.leveling.ranking_board_channel_id_list:
             channel = self.bot.get_channel(channel_id)
             if channel is not None:
                 message = await channel.send(

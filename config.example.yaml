@@ -17,8 +17,7 @@ logging:
   warning_log_retention_days: 7
 
 log:
-  settings:
-    main_log_channel_id: 0
+  main_log_channel_id: 0
 
 features:
   auth: true
@@ -41,94 +40,77 @@ features:
   leveling_admin: true
 
 auth:
-  settings:
-    unauthorized_role_id: 1111625117487878215
-    welcome_channel_id: 705051571607830569
+  unauthorized_role_id: 1111625117487878215
+  welcome_channel_id: 705051571607830569
 
 birthday:
-  settings:
-    birthday_channel_id: 0
+  birthday_channel_id: 0
+  birthday_role_id: 0
 
 moderation:
-  settings:
-    punishment_board_channel_id: 762713250152185886
-    report_receive_channel_id: 963724252413067274
-    admin_perms_role_id: 956280048007147540
-    member_manage_perms_role_id: 956280045100482670
-    role_manage_perms_role_id: 956272603000102933
-    channel_manage_perms_role_id: 956276057013637140
-    message_manage_perms_role_id: 956280042697162853
-    emoji_manage_perms_role_id: 956276043738673202
-    log_view_perms_role_id: 956276052265668678
-    event_create_perms_role_id: 956272607974547526
-    thread_create_perms_role_id: 956272605470523482
-    crime_record_role_id_list: []
-    forbid_role_id: 0
-    mute_role_id: 0
+  punishment_board_channel_id: 762713250152185886
+  report_receive_channel_id: 963724252413067274
+  admin_perms_role_id: 956280048007147540
+  member_manage_perms_role_id: 956280045100482670
+  role_manage_perms_role_id: 956272603000102933
+  channel_manage_perms_role_id: 956276057013637140
+  message_manage_perms_role_id: 956280042697162853
+  emoji_manage_perms_role_id: 956276043738673202
+  log_view_perms_role_id: 956276052265668678
+  event_create_perms_role_id: 956272607974547526
+  thread_create_perms_role_id: 956272605470523482
+  crime_record_role_id_list: []
+  forbid_role_id: 0
+  mute_role_id: 0
 
 leveling:
-  settings:
-    message_cooldown: 15
-    min_xp_per_message: 10
-    max_xp_per_message: 25
-    min_xp_per_voice_minute: 10
-    max_xp_per_voice_minute: 25
-    voice_xp_limit: 300
-    voice_xp_adjust: 0.3
-    stack_grade_role: false
-    stack_prestige_role: true
-    grade_roles_id_list: []
-    prestige_roles_id_list: []
-    prestige_announce_channel_id_list: []
-    ranking_board_channel_id_list: []
-    month_ranking_board_channel_id_list: []
-    top1_role_id: 0
-    top10_role_id: 0
-    true_top_ranker_role_id: 0
+  message_cooldown: 15
+  min_xp_per_message: 10
+  max_xp_per_message: 25
+  min_xp_per_voice_minute: 10
+  max_xp_per_voice_minute: 25
+  voice_xp_limit: 300
+  voice_xp_adjust: 0.3
+  stack_grade_role: false
+  stack_prestige_role: true
+  grade_roles_id_list: []
+  prestige_roles_id_list: []
+  prestige_announce_channel_id_list: []
+  ranking_board_channel_id_list: []
+  month_ranking_board_channel_id_list: []
+  top1_role_id: 0
+  top10_role_id: 0
+  true_top_ranker_role_id: 0
 
 starboard:
-  settings:
-    starboard_channel_id: 0
+  starboard_channel_id: 0
 
 vc:
-  settings:
-    voice_create_channel_id: 0
-    create_vc_join_channel_id: 0
-    voice_category_id: 0
+  voice_create_channel_id: 0
+  voice_category_id: 0
 
 free_category:
-  settings:
-    hall_of_fame_category_id: 0
-    free_category_id: 0
-    minor_category_id: 0
-    fc_archive_category_id: 0
-    side_button_channel_id: 0
-    text_create_channel_id: 0
-    hall_of_fame_channel_limit: 5
-    free_category_channel_limit: 20
-    minor_category_channel_limit: 15
-    text_create_channel_cooldown_seconds: 86400
-    bump_cooldown_seconds: 30
-    bump_cooldown_seconds_after_bump: 900
-    hall_of_fame_bump_chance: 0.01
-    free_category_bump_chance: 0.05
-    minor_category_bump_chance: 1.0
-    category_move_chance: 0.25
+  hall_of_fame_category_id: 0
+  free_category_id: 0
+  minor_category_id: 0
+  fc_archive_category_id: 0
+  side_button_channel_id: 0
+  text_create_channel_id: 0
+  hall_of_fame_channel_limit: 5
+  free_category_channel_limit: 20
+  minor_category_channel_limit: 15
+  text_create_channel_cooldown_seconds: 86400
+  bump_cooldown_seconds: 30
+  bump_cooldown_seconds_after_bump: 900
+  hall_of_fame_bump_chance: 0.01
+  free_category_bump_chance: 0.05
+  minor_category_bump_chance: 1.0
+  category_move_chance: 0.25
 
 roles:
-  settings:
-    join_role_id_list: []
-    bot_join_role_id_list: []
-    ignored_save_role_id_list: []
+  join_role_id_list: []
+  bot_join_role_id_list: []
+  ignored_save_role_id_list: []
 
 suggest:
-  settings:
-    suggestion_forum_channel_id: 0
-
-bump_notifier:
-  settings: {}
-
-link_expander:
-  settings: {}
-
-legacy: {}
+  suggestion_forum_channel_id: 0

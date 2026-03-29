@@ -38,10 +38,10 @@ class VoiceCreateService:
         self.bot = bot
 
     def get_voice_create_channel_id(self) -> int:
-        return int(self.bot.config.get("voice_create_channel_id", 0) or 0)
+        return self.bot.config.vc.voice_create_channel_id
 
     def get_voice_category_id(self) -> int:
-        return int(self.bot.config.get("voice_category_id", 0) or 0)
+        return self.bot.config.vc.voice_category_id
 
     async def send_interaction_message(
         self,

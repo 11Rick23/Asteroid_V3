@@ -17,7 +17,7 @@ class Error(commands.Cog):
     async def on_app_command_error(
         self, interaction: discord.Interaction, exception: app_commands.AppCommandError
     ) -> None:
-        log_channel_id = self.bot.config.get("main_log_channel_id")
+        log_channel_id = self.bot.config.log.main_log_channel_id
         log_channel = self.bot.get_channel(log_channel_id) if log_channel_id else None
         if log_channel is not None:
             await log_channel.send(f"エラー！\n```python\n{exception}```")

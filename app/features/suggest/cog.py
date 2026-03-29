@@ -17,7 +17,7 @@ async def suggestion_handler(interaction: discord.Interaction, judge: str, reaso
         thread = interaction.channel
         if (
             isinstance(thread.parent, discord.ForumChannel)
-            and thread.parent.id == bot.config["suggestion_forum_channel_id"]
+            and thread.parent.id == bot.config.suggest.suggestion_forum_channel_id
         ):
             await thread.edit(archived=True)
             embed = discord.Embed(

@@ -51,7 +51,7 @@ class FreeCategoryService:
         self.edit_cooldowns: dict[int, float] = {}
 
     def get_creation_cooldown_seconds(self) -> int:
-        return int(self.bot.config.get("text_create_channel_cooldown_seconds", 86400) or 86400)
+        return self.bot.config.free_category.text_create_channel_cooldown_seconds
 
     def get_edit_cooldown_retry_after(self, channel_id: int) -> float:
         expires_at = self.edit_cooldowns.get(channel_id, 0.0)
@@ -110,15 +110,14 @@ class FreeCategoryService:
             return None
         return channel
 
-    def get_category(self, guild: discord.Guild, config_key: str) -> discord.CategoryChannel | None:
-        category_id = int(self.bot.config.get(config_key, 0) or 0)
+    def get_category(self, guild: discord.Guild, category_id: int) -> discord.CategoryChannel | None:
         channel = guild.get_channel(category_id)
         return channel if isinstance(channel, discord.CategoryChannel) else None
 
     def get_reserved_channel_ids(self) -> set[int]:
         return {
-            int(self.bot.config.get("text_create_channel_id", 0) or 0),
-            int(self.bot.config.get("side_button_channel_id", 0) or 0),
+            self.bot.config.free_category.text_create_channel_id,
+            self.bot.config.free_category.side_button_channel_id,
         } - {0}
 
     def get_category_channels(
@@ -149,7 +148,7 @@ class FreeCategoryService:
         await channel.move(end=True, category=category, reason=reason)
 
     async def archive_channel(self, channel: discord.TextChannel, reason: str) -> None:
-        archive_category = self.get_category(channel.guild, "fc_archive_category_id")
+        archive_category = self.get_category(channel.guild, self.bot.config.free_category.fc_archive_category_id)
         if archive_category is None:
             raise ValueError("`fc_archive_category_id` が未設定です。")
 
@@ -168,14 +167,14 @@ class FreeCategoryService:
         await channel.send(embed=embed)
 
     async def prepare_free_category_slot(self, guild: discord.Guild) -> None:
-        free_category = self.get_category(guild, "free_category_id")
-        minor_category = self.get_category(guild, "minor_category_id")
+        free_category = self.get_category(guild, self.bot.config.free_category.free_category_id)
+        minor_category = self.get_category(guild, self.bot.config.free_category.minor_category_id)
         if free_category is None:
             raise ValueError("`free_category_id` が未設定です。")
         if minor_category is None:
             raise ValueError("`minor_category_id` が未設定です。")
 
-        free_limit = int(self.bot.config.get("free_category_channel_limit", 20) or 20)
+        free_limit = self.bot.config.free_category.free_category_channel_limit
         free_channels = self.get_category_channels(free_category, managed_only=True)
         if free_limit > 0 and len(free_channels) >= free_limit and free_channels:
             channel_to_move = free_channels[-1]
@@ -185,7 +184,7 @@ class FreeCategoryService:
                 reason=f"[{generate_timestamp()}] フリーチャンネル作成前の整理。",
             )
 
-        minor_limit = int(self.bot.config.get("minor_category_channel_limit", 15) or 15)
+        minor_limit = self.bot.config.free_category.minor_category_channel_limit
         minor_channels = self.get_category_channels(minor_category, managed_only=True)
         if minor_limit > 0 and len(minor_channels) > minor_limit and minor_channels:
             channel_to_archive = minor_channels[-1]
@@ -197,7 +196,7 @@ class FreeCategoryService:
         if guild is None:
             raise ValueError("サーバー内でのみ利用できます。")
 
-        free_category = self.get_category(guild, "free_category_id")
+        free_category = self.get_category(guild, self.bot.config.free_category.free_category_id)
         if free_category is None:
             raise ValueError("`free_category_id` が未設定です。")
 
@@ -231,36 +230,36 @@ class FreeCategoryService:
         ):
             return
 
-        hall_of_fame = self.get_category(message.guild, "hall_of_fame_category_id")
-        free_category = self.get_category(message.guild, "free_category_id")
-        minor_category = self.get_category(message.guild, "minor_category_id")
+        hall_of_fame = self.get_category(message.guild, self.bot.config.free_category.hall_of_fame_category_id)
+        free_category = self.get_category(message.guild, self.bot.config.free_category.free_category_id)
+        minor_category = self.get_category(message.guild, self.bot.config.free_category.minor_category_id)
         current_category = message.channel.category
 
         if hall_of_fame and current_category.id == hall_of_fame.id:
-            bump_chance = float(self.bot.config.get("hall_of_fame_bump_chance", 0.01) or 0.01)
+            bump_chance = self.bot.config.free_category.hall_of_fame_bump_chance
             min_position = 0
             category_move_chance = 0.0
             category_flag = "hall_of_fame"
         elif free_category and current_category.id == free_category.id:
-            bump_chance = float(self.bot.config.get("free_category_bump_chance", 0.05) or 0.05)
+            bump_chance = self.bot.config.free_category.free_category_bump_chance
             min_position = self.get_free_category_min_position(current_category)
-            category_move_chance = float(self.bot.config.get("category_move_chance", 0.25) or 0.25)
+            category_move_chance = self.bot.config.free_category.category_move_chance
             category_flag = "free_category"
         elif minor_category and current_category.id == minor_category.id:
-            bump_chance = float(self.bot.config.get("minor_category_bump_chance", 1.0) or 1.0)
+            bump_chance = self.bot.config.free_category.minor_category_bump_chance
             min_position = 0
-            category_move_chance = float(self.bot.config.get("category_move_chance", 0.25) or 0.25)
+            category_move_chance = self.bot.config.free_category.category_move_chance
             category_flag = "minor_category"
         else:
             return
 
         if random.random() > bump_chance:
-            self.start_bump_cooldown(message.channel.id, int(self.bot.config.get("bump_cooldown_seconds", 30) or 30))
+            self.start_bump_cooldown(message.channel.id, self.bot.config.free_category.bump_cooldown_seconds)
             return
 
         self.start_bump_cooldown(
             message.channel.id,
-            int(self.bot.config.get("bump_cooldown_seconds_after_bump", 900) or 900),
+            self.bot.config.free_category.bump_cooldown_seconds_after_bump,
         )
 
         channel_position = current_category.channels.index(message.channel)
@@ -291,7 +290,7 @@ class FreeCategoryService:
         if category_flag == "free_category":
             if hall_of_fame is None:
                 return
-            hall_limit = int(self.bot.config.get("hall_of_fame_channel_limit", 5) or 5)
+            hall_limit = self.bot.config.free_category.hall_of_fame_channel_limit
             hall_channels = self.get_category_channels(hall_of_fame, managed_only=True)
             if hall_limit > 0 and len(hall_channels) >= hall_limit and hall_channels:
                 return_channel = hall_channels[-1]
@@ -317,7 +316,7 @@ class FreeCategoryService:
         if category_flag == "minor_category":
             if free_category is None:
                 return
-            free_limit = int(self.bot.config.get("free_category_channel_limit", 20) or 20)
+            free_limit = self.bot.config.free_category.free_category_channel_limit
             free_channels = self.get_category_channels(free_category, managed_only=True)
             if free_limit > 0 and len(free_channels) >= free_limit and free_channels:
                 return_channel = free_channels[-1]
