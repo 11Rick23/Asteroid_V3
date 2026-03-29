@@ -55,7 +55,7 @@ class CreateChannelButtonView(discord.ui.View):
             cooldown_hours = self.service.get_creation_cooldown_seconds() / 3600
             await interaction.response.send_message(
                 content=(
-                    f"{interaction.user.mention}\nチャンネル作成には {cooldown_hours:g} 時間のクールダウンがあります。"
+                    f"チャンネル作成には {cooldown_hours:g} 時間のクールダウンがあります。"
                 ),
                 ephemeral=True,
             )
@@ -68,16 +68,5 @@ def build_creation_embed() -> discord.Embed:
     return discord.Embed(
         title="フリーカテゴリー内に新しいフリーチャンネルの作成",
         description="表示されるモーダルの指示に従って作成してください。",
-        color=AsteroidColor.INFO,
-    )
-
-
-def build_help_embed() -> discord.Embed:
-    return discord.Embed(
-        title="フリーカテゴリー",
-        description=(
-            "`/fc archive`, `/fc edit`, `/fc block`, `/fc unblock`, `/fc op`, `/fc deop`, `/fc purge` を利用できます。"
-            "\nチャンネル作成ボタンは `/setup free_category_button` で設置します。"
-        ),
         color=AsteroidColor.INFO,
     )

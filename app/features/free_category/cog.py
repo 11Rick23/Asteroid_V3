@@ -9,7 +9,7 @@ from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
 
 from .service import block_permissions, get_free_category_service, op_permissions
-from .views import CreateChannelButtonView, build_creation_embed, build_help_embed
+from .views import CreateChannelButtonView, build_creation_embed
 
 free_category_group = app_commands.Group(name="fc", description="フリーカテゴリーに関するコマンド")
 
@@ -27,7 +27,7 @@ class FreeCategory(commands.Cog):
         await self.service.maybe_auto_bump(message)
 
 
-@app_commands.command(name="free_category_button", description="フリーチャンネル作成ボタンの案内を送信します")
+@app_commands.command(name="free_category_button", description="フリーチャンネル作成ボタンを送信します")
 @app_commands.guild_only()
 async def free_category_button(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
@@ -39,13 +39,6 @@ async def free_category_button(interaction: discord.Interaction) -> None:
 
     await channel.send(embed=build_creation_embed(), view=CreateChannelButtonView(service))
     await interaction.response.send_message("チャンネル作成ボタンを送信しました！", ephemeral=True)
-
-
-@free_category_group.command(name="help", description="フリーカテゴリーの使い方を表示します")
-@app_commands.guild_only()
-async def fc_help(interaction: discord.Interaction) -> None:
-    await interaction.response.send_message(embed=build_help_embed(), ephemeral=True)
-
 
 @free_category_group.command(name="archive", description="チャンネルをアーカイブ")
 @app_commands.guild_only()

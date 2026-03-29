@@ -12,6 +12,7 @@
     "ruff.organizeImports": true,
     "ruff.fixAll": true,
     "cSpell.words": [
+        "cooldowns",
         "dicoall",
         "dissoku"
     ]
