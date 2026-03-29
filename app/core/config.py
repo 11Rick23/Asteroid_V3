@@ -73,6 +73,7 @@ class LogConfig(BaseSection):
 class AuthConfig(BaseSection):
     unauthorized_role_id: int = 0
     welcome_channel_id: int = 0
+    welcome_ping_role_id: int = 0
 
 
 class BirthdayConfig(BaseSection):

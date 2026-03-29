@@ -5,6 +5,7 @@ from discord.ext import commands
 
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
+from app.features.welcomer.service import send_return_welcome
 
 
 class JoinRolesCog(commands.Cog):
@@ -39,10 +40,7 @@ class JoinRolesCog(commands.Cog):
                     atomic=False,
                 )
         else:
-            welcome_channel_id = self.bot.config.auth.welcome_channel_id
-            channel = self.bot.get_channel(welcome_channel_id) if welcome_channel_id else None
-            if channel is not None:
-                await channel.send(f"<@&818789324165873664>\n{member.mention}さん、お帰りなさい！")
+            await send_return_welcome(member)
 
 
 async def setup(bot: AsteroidBot) -> None:

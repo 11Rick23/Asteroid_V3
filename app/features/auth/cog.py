@@ -11,6 +11,7 @@ from app.common.command_groups import get_bot, register_setup_command
 from app.common.constants import AsteroidColor
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
+from app.features.welcomer.service import send_first_welcome
 
 WELCOME_ASCII = """```
 █▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀█
@@ -45,10 +46,8 @@ class AuthInput(discord.ui.Modal):
                 WELCOME_ASCII,
                 ephemeral=True,
             )
-            welcome_channel_id = self.bot.config.auth.welcome_channel_id
-            channel = interaction.guild.get_channel(welcome_channel_id) if welcome_channel_id else None
-            if channel is not None:
-                await channel.send(f"<@&818789324165873664>\n{interaction.user.mention}さん、ナメック星へようこそ！")
+            if isinstance(interaction.user, discord.Member):
+                await send_first_welcome(interaction.user)
             return
 
         await interaction.response.send_message(
