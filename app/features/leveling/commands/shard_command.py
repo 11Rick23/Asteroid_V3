@@ -105,5 +105,9 @@ async def reward_prestige(interaction: discord.Interaction) -> None:
     await interaction.response.send_message(embed=embed)
 
 
-async def setup(bot: AsteroidBot) -> None:
+def register_shard_commands(bot: AsteroidBot) -> None:
     register_group(bot, shard_group)
+
+
+async def setup(bot: AsteroidBot) -> None:
+    register_shard_commands(bot)

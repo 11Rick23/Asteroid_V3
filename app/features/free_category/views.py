@@ -55,8 +55,7 @@ class CreateChannelButtonView(discord.ui.View):
             cooldown_hours = self.service.get_creation_cooldown_seconds() / 3600
             await interaction.response.send_message(
                 content=(
-                    f"{interaction.user.mention}\n"
-                    f"チャンネル作成には {cooldown_hours:g} 時間のクールダウンがあります。"
+                    f"{interaction.user.mention}\nチャンネル作成には {cooldown_hours:g} 時間のクールダウンがあります。"
                 ),
                 ephemeral=True,
             )

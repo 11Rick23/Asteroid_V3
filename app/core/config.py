@@ -44,16 +44,12 @@ class FeatureFlags(BaseSection):
     bump_notifier: bool = True
     birthday: bool = True
     link_expander: bool = True
-    moderation_report: bool = True
-    moderation_punish: bool = True
+    report: bool = True
+    punish: bool = True
     starboard: bool = True
     free_category: bool = True
     vc: bool = True
-    leveling_core: bool = True
-    leveling_command: bool = True
-    leveling_power: bool = True
-    leveling_shard: bool = True
-    leveling_admin: bool = True
+    leveling: bool = True
 
 
 class GradeRoleReward(BaseSection):

@@ -19,25 +19,22 @@ logging:
 log:
   main_log_channel_id: 0
 
+# アルファベット順で記載！
 features:
   auth: true
+  birthday: true
+  bump_notifier: true
+  free_category: true
+  leveling: true
   log_login: true
   log_error: true
   roles: true
   suggest: true
-  bump_notifier: true
-  birthday: true
   link_expander: true
-  moderation_report: true
-  moderation_punish: true
+  punish: true
+  report: true
   starboard: true
-  free_category: true
   vc: true
-  leveling_core: true
-  leveling_command: true
-  leveling_shard: true
-  leveling_power: true
-  leveling_admin: true
 
 auth:
   unauthorized_role_id: 1111625117487878215

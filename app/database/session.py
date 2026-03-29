@@ -14,8 +14,7 @@ def _normalize_database_url(database_url: str) -> str:
 
     if url.get_backend_name() == "mysql" and url.get_driver_name() != "aiomysql":
         raise RuntimeError(
-            "MySQL 接続には async ドライバが必要です。"
-            " database.url を 'mysql+aiomysql://...' に設定してください。"
+            "MySQL 接続には async ドライバが必要です。 database.url を 'mysql+aiomysql://...' に設定してください。"
         )
 
     return database_url

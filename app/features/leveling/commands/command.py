@@ -111,7 +111,11 @@ async def transfer_mee6(interaction: discord.Interaction, sync_role: bool, prest
     )
 
 
-async def setup(bot: AsteroidBot) -> None:
+def register_leveling_commands(bot: AsteroidBot) -> None:
     register_command(bot, claim_voice_xp)
     register_command(bot, rank)
     register_setup_command(bot, transfer_mee6)
+
+
+async def setup(bot: AsteroidBot) -> None:
+    register_leveling_commands(bot)

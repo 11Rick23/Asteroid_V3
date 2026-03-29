@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from app.common.constants import AsteroidColor
 from app.features.moderation.service import build_report_embed, build_resolved_report_embed
+
+from app.common.constants import AsteroidColor
 
 
 class FakeAvatar:

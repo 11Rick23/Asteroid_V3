@@ -4,25 +4,22 @@ from collections.abc import Iterator
 
 from .config import AsteroidConfig
 
+# アルファベット順で記載！
 FEATURE_EXTENSION_MAP = (
-    ("log_error", "app.features.logging.error"),
-    ("log_login", "app.features.logging.login"),
     ("auth", "app.features.auth.cog"),
-    ("moderation_punish", "app.features.punish.cog"),
-    ("moderation_report", "app.features.report.cog"),
-    ("vc", "app.features.vc.cog"),
+    ("birthday", "app.features.birthday.cog"),
+    ("bump_notifier", "app.features.bump_notifier.cog"),
     ("free_category", "app.features.free_category.cog"),
+    ("leveling", "app.features.leveling.cog"),
+    ("link_expander", "app.features.link_expander.cog"),
+    ("log_error", "app.features.log.error"),
+    ("log_login", "app.features.log.login"),
+    ("punish", "app.features.punish.cog"),
+    ("report", "app.features.report.cog"),
     ("roles", "app.features.roles.cog"),
     ("starboard", "app.features.starboard.cog"),
-    ("link_expander", "app.features.link_expander.cog"),
-    ("leveling_core", "app.features.leveling.cog"),
-    ("leveling_command", "app.features.leveling.commands.command"),
-    ("leveling_shard", "app.features.leveling.commands.shard_command"),
-    ("leveling_power", "app.features.leveling.commands.power_command"),
-    ("leveling_admin", "app.features.leveling.commands.admin_command"),
-    ("bump_notifier", "app.features.bump_notifier.cog"),
-    ("birthday", "app.features.birthday.cog"),
     ("suggest", "app.features.suggest.cog"),
+    ("vc", "app.features.vc.cog"),
 )
 
 

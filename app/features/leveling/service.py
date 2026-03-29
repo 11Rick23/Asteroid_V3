@@ -27,9 +27,10 @@ class VoiceXPClaimResult:
 async def claim_voice_xp_rewards(bot: AsteroidBot, user_id: int) -> VoiceXPClaimResult | None:
     async with bot.db.pool.acquire() as conn:
         voice_xp_limit = await bot.db.voice_xp_limits.get_voice_xp_limit_lock(conn, user_id)
-        if voice_xp_limit is None or (
-            voice_xp_limit.voice_shard + voice_xp_limit.bonus_shard + voice_xp_limit.voice_power
-        ) < 1:
+        if (
+            voice_xp_limit is None
+            or (voice_xp_limit.voice_shard + voice_xp_limit.bonus_shard + voice_xp_limit.voice_power) < 1
+        ):
             return None
 
         monthly_power = await bot.db.monthly_powers.get_monthly_power_lock(

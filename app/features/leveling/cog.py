@@ -20,6 +20,10 @@ from app.features.leveling.build_send_message import (
     send_prestige_announce,
     send_prestige_up_message,
 )
+from app.features.leveling.commands.admin_command import register_leveling_admin_commands
+from app.features.leveling.commands.command import register_leveling_commands
+from app.features.leveling.commands.power_command import register_power_commands
+from app.features.leveling.commands.shard_command import register_shard_commands
 from app.features.leveling.manage_reward_role import sync_grade_prestige_role
 from app.features.leveling.service import (
     apply_voice_xp_claim_side_effects,
@@ -364,6 +368,14 @@ async def claim_voice_xp_button(interaction: discord.Interaction) -> None:
     await interaction.response.send_message("VC経験値獲得用のボタンを設置しました！", ephemeral=True)
 
 
-async def setup(bot: AsteroidBot) -> None:
+def register_leveling_feature(bot: AsteroidBot) -> None:
+    register_leveling_commands(bot)
+    register_shard_commands(bot)
+    register_power_commands(bot)
+    register_leveling_admin_commands(bot)
     register_setup_command(bot, claim_voice_xp_button)
+
+
+async def setup(bot: AsteroidBot) -> None:
+    register_leveling_feature(bot)
     await bot.add_cog(LevelingSystemCore(bot))

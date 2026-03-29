@@ -32,5 +32,9 @@ async def top(interaction: discord.Interaction) -> None:
     await paginator.respond(interaction)
 
 
-async def setup(bot: AsteroidBot) -> None:
+def register_power_commands(bot: AsteroidBot) -> None:
     register_group(bot, power_group)
+
+
+async def setup(bot: AsteroidBot) -> None:
+    register_power_commands(bot)

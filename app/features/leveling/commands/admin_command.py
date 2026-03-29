@@ -103,5 +103,9 @@ async def reset_power_ranking(interaction: discord.Interaction) -> None:
     await interaction.response.send_message("月間パワーランキングをリセットしました。")
 
 
-async def setup(bot: AsteroidBot) -> None:
+def register_leveling_admin_commands(bot: AsteroidBot) -> None:
     register_group(bot, leveling_admin_group)
+
+
+async def setup(bot: AsteroidBot) -> None:
+    register_leveling_admin_commands(bot)
