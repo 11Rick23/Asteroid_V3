@@ -38,6 +38,35 @@ def test_calculation_prestige_increases_prestige() -> None:
     assert shard == 0
 
 
+def test_calculation_grade_removes_grade_without_losing_progress() -> None:
+    prestige, grade, shard, grade_up_amount, prestige_amount, removed_shard = calculation_grade(0, 10, 50, -1)
+    assert prestige == 0
+    assert grade == 9
+    assert shard == 50
+    assert grade_up_amount == -1
+    assert prestige_amount == 0
+    assert removed_shard == 955
+
+
+def test_calculation_grade_rejects_prestige_boundary() -> None:
+    try:
+        calculation_grade(0, 49, 0, 1)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("calculation_grade should reject grade 50")
+
+
+def test_calculation_prestige_returns_removed_shard_as_positive_amount() -> None:
+    prestige, grade, shard, grade_up_amount, prestige_amount, removed_shard = calculation_prestige(2, 3, 40, -1)
+    assert prestige == 1
+    assert grade == 3
+    assert shard == 40
+    assert grade_up_amount == 50
+    assert prestige_amount == -1
+    assert removed_shard == 268375
+
+
 def test_progress_and_total_helpers() -> None:
     progress, progress_bar = next_grade_progress(1, 77)
     assert isinstance(progress, int)
