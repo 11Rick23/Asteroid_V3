@@ -76,13 +76,15 @@ class MonthlyPowers:
         if include_ranking:
             total_power = text_power + voice_power + action_power
             columns.append(func.rank().over(order_by=total_power.desc()).label("ranking"))
-        return select(*columns).select_from(user_ids).outerjoin(
-            MonthlyPowerModel, MonthlyPowerModel.user_id == user_ids.c.user_id
-        ).outerjoin(MonthlyActionPowerModel, MonthlyActionPowerModel.user_id == user_ids.c.user_id).subquery()
+        return (
+            select(*columns)
+            .select_from(user_ids)
+            .outerjoin(MonthlyPowerModel, MonthlyPowerModel.user_id == user_ids.c.user_id)
+            .outerjoin(MonthlyActionPowerModel, MonthlyActionPowerModel.user_id == user_ids.c.user_id)
+            .subquery()
+        )
 
-    async def _get_or_create_monthly_power_model_lock(
-        self, session: AsyncSession, user_id: int
-    ) -> MonthlyPowerModel:
+    async def _get_or_create_monthly_power_model_lock(self, session: AsyncSession, user_id: int) -> MonthlyPowerModel:
         stmt = select(MonthlyPowerModel).where(MonthlyPowerModel.user_id == user_id).with_for_update()
         model = await session.scalar(stmt)
         if model is not None:
@@ -150,9 +152,7 @@ class MonthlyPowers:
             result = await session.execute(stmt)
             return [self._to_ranking_data(row) for row in result.all()]
 
-    async def create_monthly_power(
-        self, user_id: int, text_power: int = 0, voice_power: int = 0
-    ) -> MonthlyPowerData:
+    async def create_monthly_power(self, user_id: int, text_power: int = 0, voice_power: int = 0) -> MonthlyPowerData:
         async with self.db.session() as session:
             data = await self.create_monthly_power_lock(session, user_id, text_power, voice_power)
             await session.commit()

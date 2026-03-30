@@ -197,7 +197,7 @@ class VoiceCreateService:
                 embed=self.build_control_embed(channel, color),
                 view=self.build_control_view(channel),
             )
-        except (discord.NotFound, discord.Forbidden):
+        except discord.NotFound, discord.Forbidden:
             self.untrack_control_message(channel.id, message_id)
 
     async def send_control_message(

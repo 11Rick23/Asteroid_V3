@@ -103,9 +103,7 @@ def test_monthly_power_aggregated_subquery_references_action_power_table() -> No
 
 
 def test_monthly_power_non_ranking_query_does_not_include_rank_window() -> None:
-    compiled = str(
-        MonthlyPowers._aggregated_subquery(include_ranking=False).select().compile(dialect=mysql.dialect())
-    )
+    compiled = str(MonthlyPowers._aggregated_subquery(include_ranking=False).select().compile(dialect=mysql.dialect()))
 
     assert "monthly_action_powers" in compiled
     assert "rank()" not in compiled.lower()

@@ -60,9 +60,7 @@ class MonthlyActionPowers:
         stmt = select(MonthlyActionPowerModel).where(MonthlyActionPowerModel.user_id == user_id).with_for_update()
         return self._to_data(await session.scalar(stmt))
 
-    async def create_monthly_action_power(
-        self, user_id: int, action_power: int = 0
-    ) -> MonthlyActionPowerData:
+    async def create_monthly_action_power(self, user_id: int, action_power: int = 0) -> MonthlyActionPowerData:
         async with self.db.session() as session:
             data = await self.create_monthly_action_power_lock(session, user_id, action_power)
             await session.commit()
