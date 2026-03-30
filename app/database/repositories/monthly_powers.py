@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import delete, func, select, union
+from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models.monthly_action_powers import MonthlyActionPowerModel
@@ -79,6 +80,28 @@ class MonthlyPowers:
             MonthlyPowerModel, MonthlyPowerModel.user_id == user_ids.c.user_id
         ).outerjoin(MonthlyActionPowerModel, MonthlyActionPowerModel.user_id == user_ids.c.user_id).subquery()
 
+    async def _get_or_create_monthly_power_model_lock(
+        self, session: AsyncSession, user_id: int
+    ) -> MonthlyPowerModel:
+        stmt = select(MonthlyPowerModel).where(MonthlyPowerModel.user_id == user_id).with_for_update()
+        model = await session.scalar(stmt)
+        if model is not None:
+            return model
+
+        # MySQL upsert avoids a PK race when two sessions try to create the first monthly_power row.
+        create_if_missing_stmt = mysql_insert(MonthlyPowerModel).values(user_id=user_id, text_power=0, voice_power=0)
+        await session.execute(
+            create_if_missing_stmt.on_duplicate_key_update(
+                text_power=MonthlyPowerModel.text_power,
+                voice_power=MonthlyPowerModel.voice_power,
+            )
+        )
+
+        model = await session.scalar(stmt)
+        if model is None:
+            raise RuntimeError(f"monthly_powers[{user_id}] の取得に失敗しました。")
+        return model
+
     async def create_table(self) -> None:
         async with self.db.engine.begin() as conn:
             await conn.run_sync(lambda sync_conn: MonthlyPowerModel.__table__.create(sync_conn, checkfirst=True))
@@ -152,11 +175,7 @@ class MonthlyPowers:
     async def add_text_power_lock(
         self, session: AsyncSession, monthly_power_data: MonthlyPowerData, add_text_power: int
     ) -> MonthlyPowerData:
-        model = await session.get(MonthlyPowerModel, monthly_power_data.user_id)
-        if model is None:
-            model = MonthlyPowerModel(user_id=monthly_power_data.user_id, text_power=0, voice_power=0)
-            session.add(model)
-            await session.flush()
+        model = await self._get_or_create_monthly_power_model_lock(session, monthly_power_data.user_id)
         model.text_power += add_text_power
         return MonthlyPowerData(
             monthly_power_data.user_id,
@@ -196,11 +215,7 @@ class MonthlyPowers:
     async def add_voice_power_lock(
         self, session: AsyncSession, monthly_power_data: MonthlyPowerData, add_voice_power: int
     ) -> MonthlyPowerData:
-        model = await session.get(MonthlyPowerModel, monthly_power_data.user_id)
-        if model is None:
-            model = MonthlyPowerModel(user_id=monthly_power_data.user_id, text_power=0, voice_power=0)
-            session.add(model)
-            await session.flush()
+        model = await self._get_or_create_monthly_power_model_lock(session, monthly_power_data.user_id)
         model.voice_power += add_voice_power
         return MonthlyPowerData(
             monthly_power_data.user_id,

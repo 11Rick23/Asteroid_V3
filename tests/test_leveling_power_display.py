@@ -3,8 +3,10 @@ from __future__ import annotations
 from datetime import datetime
 
 import discord
+import pytest
 from sqlalchemy.dialects import mysql
 
+from app.database.models.monthly_powers import MonthlyPowerModel
 from app.database.repositories.monthly_powers import MonthlyPowerRankingData, MonthlyPowers
 from app.database.repositories.star_grades import StarGradeRankingData
 from app.features.leveling.build_send_message import (
@@ -32,6 +34,18 @@ class FakeBot:
 
     def get_user(self, user_id: int) -> FakeUser | None:
         return self.users.get(user_id)
+
+
+class FakeAsyncSession:
+    def __init__(self, scalar_results: list[MonthlyPowerModel | None]) -> None:
+        self.scalar_results = scalar_results
+        self.executed_statements: list[object] = []
+
+    async def scalar(self, _: object) -> MonthlyPowerModel | None:
+        return self.scalar_results.pop(0)
+
+    async def execute(self, statement: object) -> None:
+        self.executed_statements.append(statement)
 
 
 def test_total_monthly_power_includes_action_power() -> None:
@@ -95,3 +109,16 @@ def test_monthly_power_non_ranking_query_does_not_include_rank_window() -> None:
 
     assert "monthly_action_powers" in compiled
     assert "rank()" not in compiled.lower()
+
+
+@pytest.mark.asyncio
+async def test_get_or_create_monthly_power_model_lock_uses_mysql_upsert_for_missing_row() -> None:
+    existing_model = MonthlyPowerModel(user_id=123, text_power=0, voice_power=0)
+    session = FakeAsyncSession([None, existing_model])
+
+    model = await MonthlyPowers(db=None)._get_or_create_monthly_power_model_lock(session, 123)
+
+    assert model is existing_model
+    assert len(session.executed_statements) == 1
+    compiled = str(session.executed_statements[0].compile(dialect=mysql.dialect()))
+    assert "ON DUPLICATE KEY UPDATE" in compiled
