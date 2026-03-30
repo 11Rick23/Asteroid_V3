@@ -103,23 +103,31 @@ class MonthlyActionPowers:
             datetime.now(),
         )
 
-    async def remove_action_power(
-        self, monthly_action_power_data: MonthlyActionPowerData, remove_action_power: int
+    async def remove_action_power_lock(
+        self,
+        session: AsyncSession,
+        monthly_action_power_data: MonthlyActionPowerData,
+        remove_action_power: int,
     ) -> MonthlyActionPowerData:
-        if (monthly_action_power_data.action_power - remove_action_power) < 0:
-            remove_action_power = monthly_action_power_data.action_power
-        async with self.db.session() as session:
-            model = await session.get(MonthlyActionPowerModel, monthly_action_power_data.user_id)
-            if model is None:
-                return monthly_action_power_data
-            model.action_power -= remove_action_power
-            await session.commit()
+        remove_action_power = min(remove_action_power, monthly_action_power_data.action_power)
+        model = await session.get(MonthlyActionPowerModel, monthly_action_power_data.user_id)
+        if model is None:
+            return monthly_action_power_data
+        model.action_power -= remove_action_power
         return MonthlyActionPowerData(
             monthly_action_power_data.user_id,
             monthly_action_power_data.action_power - remove_action_power,
             monthly_action_power_data.created_at,
             datetime.now(),
         )
+
+    async def remove_action_power(
+        self, monthly_action_power_data: MonthlyActionPowerData, remove_action_power: int
+    ) -> MonthlyActionPowerData:
+        async with self.db.session() as session:
+            updated = await self.remove_action_power_lock(session, monthly_action_power_data, remove_action_power)
+            await session.commit()
+            return updated
 
     async def delete_monthly_action_power(self, user_id: int) -> None:
         async with self.db.session() as session:

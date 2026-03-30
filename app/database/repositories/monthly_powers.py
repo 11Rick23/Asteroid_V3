@@ -56,7 +56,7 @@ class MonthlyPowers:
         )
 
     @staticmethod
-    def _aggregated_subquery():
+    def _aggregated_subquery(*, include_ranking: bool = True):
         user_ids = union(
             select(MonthlyPowerModel.user_id.label("user_id")),
             select(MonthlyActionPowerModel.user_id.label("user_id")),
@@ -64,17 +64,18 @@ class MonthlyPowers:
         text_power = func.coalesce(MonthlyPowerModel.text_power, 0)
         voice_power = func.coalesce(MonthlyPowerModel.voice_power, 0)
         action_power = func.coalesce(MonthlyActionPowerModel.action_power, 0)
-        total_power = text_power + voice_power + action_power
-        ranking = func.rank().over(order_by=total_power.desc())
-        return select(
+        columns = [
             user_ids.c.user_id.label("user_id"),
             text_power.label("text_power"),
             voice_power.label("voice_power"),
             action_power.label("action_power"),
             func.coalesce(MonthlyPowerModel.created_at, MonthlyActionPowerModel.created_at).label("created_at"),
             func.coalesce(MonthlyPowerModel.updated_at, MonthlyActionPowerModel.updated_at).label("updated_at"),
-            ranking.label("ranking"),
-        ).select_from(user_ids).outerjoin(
+        ]
+        if include_ranking:
+            total_power = text_power + voice_power + action_power
+            columns.append(func.rank().over(order_by=total_power.desc()).label("ranking"))
+        return select(*columns).select_from(user_ids).outerjoin(
             MonthlyPowerModel, MonthlyPowerModel.user_id == user_ids.c.user_id
         ).outerjoin(MonthlyActionPowerModel, MonthlyActionPowerModel.user_id == user_ids.c.user_id).subquery()
 
@@ -93,7 +94,7 @@ class MonthlyPowers:
 
     async def get_monthly_power(self, user_id: int) -> MonthlyPowerData | None:
         async with self.db.session() as session:
-            aggregated_subquery = self._aggregated_subquery()
+            aggregated_subquery = self._aggregated_subquery(include_ranking=False)
             stmt = select(aggregated_subquery).where(aggregated_subquery.c.user_id == user_id)
             result = await session.execute(stmt)
             return self._to_data(result.one_or_none())

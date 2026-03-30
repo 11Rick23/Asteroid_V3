@@ -102,10 +102,12 @@ async def add_power(
     bot = get_bot(interaction)
     target_value = target.value
     if target_value == "action":
-        action_power = await bot.db.monthly_action_powers.get_monthly_action_power(
-            user.id
-        ) or await bot.db.monthly_action_powers.create_monthly_action_power(user.id)
-        await bot.db.monthly_action_powers.add_action_power(action_power, amount)
+        async with bot.db.session() as session:
+            action_power = await bot.db.monthly_action_powers.get_monthly_action_power_lock(
+                session, user.id
+            ) or await bot.db.monthly_action_powers.create_monthly_action_power_lock(session, user.id)
+            await bot.db.monthly_action_powers.add_action_power_lock(session, action_power, amount)
+            await session.commit()
         power = await bot.db.monthly_powers.get_monthly_power(user.id)
     else:
         power = await bot.db.monthly_powers.get_monthly_power(user.id)
@@ -130,10 +132,12 @@ async def remove_power(
     bot = get_bot(interaction)
     target_value = target.value
     if target_value == "action":
-        action_power = await bot.db.monthly_action_powers.get_monthly_action_power(
-            user.id
-        ) or await bot.db.monthly_action_powers.create_monthly_action_power(user.id)
-        await bot.db.monthly_action_powers.remove_action_power(action_power, amount)
+        async with bot.db.session() as session:
+            action_power = await bot.db.monthly_action_powers.get_monthly_action_power_lock(
+                session, user.id
+            ) or await bot.db.monthly_action_powers.create_monthly_action_power_lock(session, user.id)
+            await bot.db.monthly_action_powers.remove_action_power_lock(session, action_power, amount)
+            await session.commit()
         power = await bot.db.monthly_powers.get_monthly_power(user.id)
     else:
         power = await bot.db.monthly_powers.get_monthly_power(user.id)
