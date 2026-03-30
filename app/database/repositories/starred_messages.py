@@ -55,6 +55,17 @@ class StarredMessages:
         async with self.db.session() as session:
             return self._to_data(await session.get(StarredMessageModel, message_id))
 
+    async def get_all_starred_messages(self) -> list[StarredMessageData]:
+        async with self.db.session() as session:
+            stmt = select(StarredMessageModel).order_by(
+                StarredMessageModel.created_at.asc(),
+                StarredMessageModel.starred_message_id.asc(),
+            )
+            starred_messages = await session.scalars(stmt)
+            return [
+                self._to_data(starred_message) for starred_message in starred_messages if starred_message is not None
+            ]
+
     async def get_random_starred_message(self) -> StarredMessageData | None:
         async with self.db.session() as session:
             stmt = select(StarredMessageModel).order_by(func.rand()).limit(1)
@@ -107,6 +118,13 @@ class StarredMessages:
             model = await session.get(StarredMessageModel, message_id)
             if model is not None:
                 model.star_amount = star_amount
+                await session.commit()
+
+    async def set_starboard_message_id(self, message_id: int, starboard_message_id: int) -> None:
+        async with self.db.session() as session:
+            model = await session.get(StarredMessageModel, message_id)
+            if model is not None:
+                model.starboard_message_id = starboard_message_id
                 await session.commit()
 
     async def delete_starred_message(self, message_id: int) -> None:

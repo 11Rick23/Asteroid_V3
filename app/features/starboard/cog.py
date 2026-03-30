@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from asyncio import sleep
 from logging import getLogger
-from re import findall
 
 import discord
 from discord import app_commands
@@ -192,80 +190,193 @@ class Starboard(commands.Cog):
         return ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"][num]
 
 
-@app_commands.command(name="starboard", description="Carl-botからの移行")
-async def migrate_starboard(interaction: discord.Interaction) -> None:
-    bot = get_bot(interaction)
-    await interaction.response.defer()
-    logger.info(f"スターボード移行を開始します: guild_id={interaction.guild.id if interaction.guild else None}")
+async def _find_existing_bot_message(
+    channel: discord.abc.MessageableChannel, bot_user_id: int
+) -> discord.Message | None:
+    async for message in channel.history(limit=None):
+        if message.author.id == bot_user_id:
+            return message
+    return None
 
-    old_starboard_channel = bot.get_channel(802172341546123286)
-    new_starboard_channel = bot.get_channel(bot.config.starboard.starboard_channel_id)
-    if old_starboard_channel is None or new_starboard_channel is None:
-        logger.warning("スターボード移行に必要なチャンネル設定が不足しています。")
+
+def _build_starboard_setup_summary(total_count: int, recreated_count: int, deleted_count: int) -> str:
+    return (
+        "スターボード再作成が完了しました。\n"
+        f"対象件数: {total_count}\n"
+        f"再作成件数: {recreated_count}\n"
+        f"欠損削除件数: {deleted_count}"
+    )
+
+
+def _build_starboard_setup_error(
+    message: str,
+    total_count: int,
+    recreated_count: int,
+    deleted_count: int,
+    processed_count: int,
+) -> str:
+    return (
+        f"{message}\n"
+        f"対象件数: {total_count}\n"
+        f"処理済み件数: {processed_count}\n"
+        f"再作成件数: {recreated_count}\n"
+        f"欠損削除件数: {deleted_count}"
+    )
+
+
+@app_commands.command(name="starboard", description="旧スターボードを再作成")
+@app_commands.guild_only()
+async def setup_starboard(interaction: discord.Interaction) -> None:
+    bot = get_bot(interaction)
+    await interaction.response.defer(ephemeral=True, thinking=True)
+    logger.info(f"スターボード再作成を開始します: guild_id={interaction.guild.id if interaction.guild else None}")
+
+    if interaction.guild is None or interaction.channel is None:
+        await interaction.followup.send("サーバー内チャンネルで実行してください。", ephemeral=True)
+        return
+
+    source_starboard_channel = interaction.channel
+    target_starboard_channel = interaction.guild.get_channel(bot.config.starboard.starboard_channel_id)
+    if target_starboard_channel is None:
+        logger.warning("スターボード再作成先チャンネルが未設定または未解決です。")
         await interaction.followup.send("スターボードチャンネル設定が不足しています。", ephemeral=True)
         return
 
-    cog = next((c for c in bot.cogs.values() if isinstance(c, Starboard)), None)
-    if cog is None:
-        logger.warning("スターボード移行時に Starboard cog が見つかりませんでした。")
-        await interaction.followup.send("Starboard cog が読み込まれていません。", ephemeral=True)
+    if source_starboard_channel.id == target_starboard_channel.id:
+        await interaction.followup.send(
+            "実行チャンネルとスターボードチャンネルが同一です。別の旧スターボードチャンネルで実行してください。",
+            ephemeral=True,
+        )
         return
 
-    migrated_count = 0
-    async for message in old_starboard_channel.history(limit=None, oldest_first=True):
-        if message.author.id != 235148962103951360:
-            continue
+    if bot.user is None:
+        await interaction.followup.send("BOT ユーザー情報が取得できませんでした。", ephemeral=True)
+        return
 
-        starred_message_data = message.embeds[0].fields[0].value.replace("[Jump!](", "").rsplit(")")[0].split("/")
+    existing_message = await _find_existing_bot_message(target_starboard_channel, bot.user.id)
+    if existing_message is not None:
+        logger.warning(
+            "スターボード再作成を中止しました: reason=destination_already_has_bot_message "
+            f"channel_id={target_starboard_channel.id} message_id={existing_message.id}"
+        )
+        await interaction.followup.send(
+            "新しいスターボードチャンネルに既に BOT の投稿があります。再実行はできません。",
+            ephemeral=True,
+        )
+        return
+
+    starred_messages = await bot.db.starred_messages.get_all_starred_messages()
+    total_count = len(starred_messages)
+    recreated_count = 0
+    deleted_count = 0
+
+    for processed_count, starred_message_data in enumerate(starred_messages, start=1):
         try:
-            source_channel = bot.get_channel(int(starred_message_data[-2]))
-            starred_message = await source_channel.fetch_message(int(starred_message_data[-1]))
+            old_starboard_message = await source_starboard_channel.fetch_message(starred_message_data.starboard_message_id)
+        except discord.NotFound:
+            await bot.db.starred_messages.delete_starred_message(starred_message_data.starred_message_id)
+            deleted_count += 1
+            logger.warning(
+                "旧スターボード投稿が見つからなかったため DB から削除しました: "
+                f"source_channel_id={source_starboard_channel.id} "
+                f"old_starboard_message_id={starred_message_data.starboard_message_id} "
+                f"starred_message_id={starred_message_data.starred_message_id}"
+            )
+            continue
         except discord.Forbidden:
-            continue
-        except Exception:
-            extracted_star_amount = int(findall(r"\d+", message.content)[0])
-            new_embed_dict = message.embeds[0].to_dict()
-            new_embed_dict["fields"][0]["name"] = "元のメッセージ"
-            new_embed_dict["fields"][0]["value"] = f"[リンク]({message.jump_url})"
-            starboard_message = await new_starboard_channel.send(
-                content=message.content,
-                embed=discord.Embed.from_dict(new_embed_dict),
+            logger.warning(
+                "旧スターボード投稿の取得権限がありません: "
+                f"source_channel_id={source_starboard_channel.id} "
+                f"old_starboard_message_id={starred_message_data.starboard_message_id}"
             )
-            await bot.db.starred_messages.create_starred_message(
-                int(starred_message_data[-1]),
-                starboard_message.id,
-                extracted_star_amount,
-                int(message.embeds[0].author.icon_url.split("/")[4]),
-                int(starred_message_data[-2]),
+            await interaction.followup.send(
+                _build_starboard_setup_error(
+                    "旧スターボードチャンネルのメッセージ取得権限がありません。処理を中断しました。",
+                    total_count,
+                    recreated_count,
+                    deleted_count,
+                    processed_count - 1,
+                ),
+                ephemeral=True,
             )
-            migrated_count += 1
-            continue
+            return
+        except discord.HTTPException:
+            logger.exception(
+                "旧スターボード投稿の取得に失敗しました: "
+                f"source_channel_id={source_starboard_channel.id} "
+                f"old_starboard_message_id={starred_message_data.starboard_message_id}"
+            )
+            await interaction.followup.send(
+                _build_starboard_setup_error(
+                    "旧スターボードチャンネルのメッセージ取得に失敗しました。処理を中断しました。",
+                    total_count,
+                    recreated_count,
+                    deleted_count,
+                    processed_count - 1,
+                ),
+                ephemeral=True,
+            )
+            return
 
-        reactions = next((reaction for reaction in starred_message.reactions if str(reaction.emoji) == "⭐"), None)
-        if reactions is None:
-            continue
-        star_amount_list = [
-            user async for user in reactions.users() if not user.bot and user.id != starred_message.author.id
-        ]
-        star_amount = len(star_amount_list)
-        await cog.update_starboard(starred_message, star_amount)
+        try:
+            new_starboard_message = await target_starboard_channel.send(
+                content=old_starboard_message.content,
+                embeds=old_starboard_message.embeds,
+            )
+        except discord.Forbidden:
+            logger.warning(
+                "新スターボードチャンネルへの送信権限がありません: "
+                f"target_channel_id={target_starboard_channel.id}"
+            )
+            await interaction.followup.send(
+                _build_starboard_setup_error(
+                    "新しいスターボードチャンネルへの送信権限がありません。処理を中断しました。",
+                    total_count,
+                    recreated_count,
+                    deleted_count,
+                    processed_count - 1,
+                ),
+                ephemeral=True,
+            )
+            return
+        except discord.HTTPException:
+            logger.exception(
+                "新スターボードチャンネルへの送信に失敗しました: "
+                f"target_channel_id={target_starboard_channel.id}"
+            )
+            await interaction.followup.send(
+                _build_starboard_setup_error(
+                    "新しいスターボードチャンネルへの送信に失敗しました。処理を中断しました。",
+                    total_count,
+                    recreated_count,
+                    deleted_count,
+                    processed_count - 1,
+                ),
+                ephemeral=True,
+            )
+            return
 
-        for star_amount_user in star_amount_list:
-            given_star_data = await bot.db.given_stars.get_given_star(star_amount_user.id)
-            if given_star_data is None:
-                await bot.db.given_stars.create_given_star(star_amount_user.id, star_amount)
-            else:
-                await bot.db.given_stars.add_given_star(star_amount_user.id)
-        await message.delete()
-        migrated_count += 1
+        await bot.db.starred_messages.set_starboard_message_id(
+            starred_message_data.starred_message_id,
+            new_starboard_message.id,
+        )
+        recreated_count += 1
+        logger.debug(
+            "スターボード投稿を再作成しました: "
+            f"starred_message_id={starred_message_data.starred_message_id} "
+            f"old_starboard_message_id={starred_message_data.starboard_message_id} "
+            f"new_starboard_message_id={new_starboard_message.id}"
+        )
 
-    announce_message = await interaction.followup.send("移行処理が完了しました。")
     logger.info(
-        f"スターボード移行が完了しました: guild_id={interaction.guild.id if interaction.guild else None} "
-        f"migrated_count={migrated_count}"
+        "スターボード再作成が完了しました: "
+        f"guild_id={interaction.guild.id} total_count={total_count} "
+        f"recreated_count={recreated_count} deleted_count={deleted_count}"
     )
-    await sleep(3)
-    await announce_message.delete()
+    await interaction.followup.send(
+        _build_starboard_setup_summary(total_count, recreated_count, deleted_count),
+        ephemeral=True,
+    )
 
 
 @starboard_group.command(name="random", description="ランダムなスターボードを送信")
@@ -344,6 +455,6 @@ async def starboard_ranking(interaction: discord.Interaction) -> None:
 
 
 async def setup(bot: AsteroidBot) -> None:
-    register_setup_command(bot, migrate_starboard)
+    register_setup_command(bot, setup_starboard)
     register_group(bot, starboard_group)
     await bot.add_cog(Starboard(bot))
