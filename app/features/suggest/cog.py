@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+from logging import getLogger
+
 import discord
 from discord import app_commands
 
 from app.common.command_groups import get_bot, register_group
 from app.common.constants import AsteroidColor
 from app.core.bot import AsteroidBot
+
+logger = getLogger(__name__)
 
 suggest_group = app_commands.Group(name="suggestion", description="要望に関するコマンド")
 
@@ -27,8 +31,15 @@ async def suggestion_handler(interaction: discord.Interaction, judge: str, reaso
             embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
             embed.add_field(name="理由", value=reason)
             await interaction.followup.send(embed=embed)
+            logger.info(
+                f"要望を処理しました: guild_id={interaction.guild.id if interaction.guild is not None else None} "
+                f"thread_id={thread.id} user_id={interaction.user.id} judge={judge}"
+            )
             return
 
+        logger.warning(
+            f"要望コマンドをフォーラム外スレッドで拒否しました: channel_id={thread.id} user_id={interaction.user.id}"
+        )
         await interaction.followup.send(
             embed=discord.Embed(
                 color=AsteroidColor.WARNING,
@@ -38,6 +49,9 @@ async def suggestion_handler(interaction: discord.Interaction, judge: str, reaso
         )
         return
 
+    logger.warning(
+        f"要望コマンドをスレッド外で拒否しました: channel_id={interaction.channel_id} user_id={interaction.user.id}"
+    )
     await interaction.followup.send(
         embed=discord.Embed(color=AsteroidColor.WARNING, description="このコマンドはスレッドでのみ実行できます。"),
         ephemeral=True,

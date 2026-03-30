@@ -33,11 +33,14 @@ class AsteroidBot(Bot):
         )
 
     async def setup_hook(self) -> None:
+        logger.info("セットアップを開始します。")
         await self._initialize_database()
         await self._load_extensions()
         await self._sync_slash_commands()
+        logger.info("セットアップが完了しました。")
 
     async def _initialize_database(self) -> None:
+        logger.info("データベース初期化を開始します。")
         await self.db.user_roles.create_table()
         await self.db.given_stars.create_table()
         await self.db.starred_messages.create_table()
@@ -48,24 +51,30 @@ class AsteroidBot(Bot):
         await self.db.monthly_powers.create_table()
         await self.db.user_birthdays.create_table()
         self.db.initialized = True
+        logger.info("データベース初期化が完了しました: table_count=9")
 
     async def _load_extensions(self) -> None:
-        for extension in iter_enabled_extensions(self.config):
-            logger.debug("Loading extension %s", extension)
+        extensions = list(iter_enabled_extensions(self.config))
+        for extension in extensions:
+            logger.debug(f"Loading extension {extension}")
             await self.load_extension(extension)
+        logger.info(f"拡張機能の読み込みが完了しました: count={len(extensions)}")
 
     async def _sync_slash_commands(self) -> None:
         if not self.config.discord.sync_commands_on_startup:
+            logger.info("スラッシュコマンド同期をスキップします: sync_commands_on_startup=False")
             return
 
         if self.config.discord.register_globally or not self.config.discord.guild_ids:
             await self.tree.sync()
+            logger.info("スラッシュコマンドをグローバル同期しました。")
             return
 
         for guild_id in self.config.discord.guild_ids:
             guild = discord.Object(id=guild_id)
             self.tree.copy_global_to(guild=guild)
             await self.tree.sync(guild=guild)
+            logger.info(f"スラッシュコマンドをギルド同期しました: guild_id={guild_id}")
 
     def remember_message(self, message: discord.Message) -> None:
         self.message_cache[message.id] = message
@@ -77,9 +86,11 @@ class AsteroidBot(Bot):
         return self.message_cache.get(message_id)
 
     async def close(self) -> None:
+        logger.info("BOT の終了処理を開始します。")
         for cog in self.cogs.values():
             cleanup = getattr(cog, "cleanup_on_shutdown", None)
             if cleanup is not None:
                 await cleanup()
         await self.engine.dispose()
         await super().close()
+        logger.info("BOT の終了処理が完了しました。")

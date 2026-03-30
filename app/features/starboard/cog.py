@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from asyncio import sleep
+from logging import getLogger
 from re import findall
 
 import discord
@@ -12,6 +13,8 @@ from app.common.command_groups import get_bot, register_group, register_setup_co
 from app.common.constants import AsteroidColor
 from app.common.pages import Paginator
 from app.core.bot import AsteroidBot
+
+logger = getLogger(__name__)
 
 starboard_group = app_commands.Group(name="starboard", description="スターボード関連のコマンド")
 
@@ -31,6 +34,7 @@ class Starboard(commands.Cog):
             return
         channel = self.bot.get_channel(event.channel_id)
         if channel is None:
+            logger.warning(f"スターボード対象チャンネルが見つかりませんでした: channel_id={event.channel_id}")
             return
         message = self.bot.get_message(event.message_id) or await channel.fetch_message(event.message_id)
         if message.author.id == event.member.id:
@@ -49,6 +53,10 @@ class Starboard(commands.Cog):
         star_amount = len(users)
         if star_amount < 5:
             return
+        logger.debug(
+            f"スターボード更新条件を満たしました: guild_id={event.guild_id} "
+            f"message_id={message.id} star_amount={star_amount}"
+        )
         await self.update_starboard(message, star_amount)
 
     @commands.Cog.listener()
@@ -57,9 +65,11 @@ class Starboard(commands.Cog):
             return
         guild = self.bot.get_guild(event.guild_id)
         if guild is None:
+            logger.warning(f"スターボード対象ギルドが見つかりませんでした: guild_id={event.guild_id}")
             return
         channel = guild.get_channel(event.channel_id)
         if channel is None:
+            logger.warning(f"スターボード対象チャンネルが見つかりませんでした: channel_id={event.channel_id}")
             return
         message = self.bot.get_message(event.message_id) or await channel.fetch_message(event.message_id)
         if message.author.id == event.user_id:
@@ -83,6 +93,7 @@ class Starboard(commands.Cog):
 
             starboard_channel = self.bot.get_channel(self.bot.config.starboard.starboard_channel_id)
             if starboard_channel is None:
+                logger.warning("スターボードチャンネルが未設定または未解決です。")
                 return
             starboard_message = self.bot.get_message(starred_message_data.starboard_message_id)
             if starboard_message is None:
@@ -91,6 +102,10 @@ class Starboard(commands.Cog):
             if star_amount < 5:
                 await starboard_message.delete()
                 await self.bot.db.starred_messages.delete_starred_message(message.id)
+                logger.debug(
+                    f"スターボード投稿を削除しました: guild_id={guild.id} "
+                    f"message_id={message.id} starboard_message_id={starboard_message.id}"
+                )
                 return
 
             starboard_content, starboard_embed = await self._build_starboard(message, star_amount)
@@ -99,10 +114,15 @@ class Starboard(commands.Cog):
             starboard_embed.set_footer(text=str(message.id))
             await starboard_message.edit(content=starboard_content, embed=starboard_embed)
             await self.bot.db.starred_messages.set_star_amount(message.id, star_amount)
+            logger.debug(
+                f"スターボード投稿を更新しました: guild_id={guild.id} "
+                f"message_id={message.id} starboard_message_id={starboard_message.id} star_amount={star_amount}"
+            )
 
     async def update_starboard(self, starred_message: discord.Message, star_amount: int) -> None:
         starboard_channel = self.bot.get_channel(self.bot.config.starboard.starboard_channel_id)
         if starboard_channel is None:
+            logger.warning("スターボードチャンネルが未設定または未解決です。")
             return
 
         starboard_content, starboard_embed = await self._build_starboard(starred_message, star_amount)
@@ -126,6 +146,12 @@ class Starboard(commands.Cog):
                     starred_message.author.id,
                     starred_message.channel.id,
                 )
+                logger.debug(
+                    "スターボード投稿を作成しました: guild_id="
+                    f"{starred_message.guild.id if starred_message.guild else None} "
+                    f"message_id={starred_message.id} starboard_message_id={first_starboard_message.id} "
+                    f"star_amount={star_amount}"
+                )
                 return
 
             starboard_message = self.bot.get_message(starred_message_data.starboard_message_id)
@@ -133,6 +159,12 @@ class Starboard(commands.Cog):
                 starboard_message = await starboard_channel.fetch_message(starred_message_data.starboard_message_id)
             await starboard_message.edit(content=starboard_content, embed=starboard_embed)
             await self.bot.db.starred_messages.set_star_amount(starred_message.id, star_amount)
+            logger.debug(
+                "スターボード投稿を更新しました: guild_id="
+                f"{starred_message.guild.id if starred_message.guild else None} "
+                f"message_id={starred_message.id} starboard_message_id={starboard_message.id} "
+                f"star_amount={star_amount}"
+            )
 
     async def _build_starboard(self, starred_message: discord.Message, star_amount: int) -> tuple[str, discord.Embed]:
         images: list[str] = []
@@ -164,18 +196,22 @@ class Starboard(commands.Cog):
 async def migrate_starboard(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
     await interaction.response.defer()
+    logger.info(f"スターボード移行を開始します: guild_id={interaction.guild.id if interaction.guild else None}")
 
     old_starboard_channel = bot.get_channel(802172341546123286)
     new_starboard_channel = bot.get_channel(bot.config.starboard.starboard_channel_id)
     if old_starboard_channel is None or new_starboard_channel is None:
+        logger.warning("スターボード移行に必要なチャンネル設定が不足しています。")
         await interaction.followup.send("スターボードチャンネル設定が不足しています。", ephemeral=True)
         return
 
     cog = next((c for c in bot.cogs.values() if isinstance(c, Starboard)), None)
     if cog is None:
+        logger.warning("スターボード移行時に Starboard cog が見つかりませんでした。")
         await interaction.followup.send("Starboard cog が読み込まれていません。", ephemeral=True)
         return
 
+    migrated_count = 0
     async for message in old_starboard_channel.history(limit=None, oldest_first=True):
         if message.author.id != 235148962103951360:
             continue
@@ -202,6 +238,7 @@ async def migrate_starboard(interaction: discord.Interaction) -> None:
                 int(message.embeds[0].author.icon_url.split("/")[4]),
                 int(starred_message_data[-2]),
             )
+            migrated_count += 1
             continue
 
         reactions = next((reaction for reaction in starred_message.reactions if str(reaction.emoji) == "⭐"), None)
@@ -220,8 +257,13 @@ async def migrate_starboard(interaction: discord.Interaction) -> None:
             else:
                 await bot.db.given_stars.add_given_star(star_amount_user.id)
         await message.delete()
+        migrated_count += 1
 
     announce_message = await interaction.followup.send("移行処理が完了しました。")
+    logger.info(
+        f"スターボード移行が完了しました: guild_id={interaction.guild.id if interaction.guild else None} "
+        f"migrated_count={migrated_count}"
+    )
     await sleep(3)
     await announce_message.delete()
 
@@ -231,10 +273,12 @@ async def random_starboard(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
     random_starred_message_data = await bot.db.starred_messages.get_random_starred_message()
     if random_starred_message_data is None:
+        logger.warning("ランダムなスターボードが取得できませんでした: reason=no_data")
         await interaction.response.send_message("ランダムなスターボードを取得できませんでした。", ephemeral=True)
         return
     starboard_channel = interaction.guild.get_channel(bot.config.starboard.starboard_channel_id)
     if starboard_channel is None:
+        logger.warning("ランダムスターボード取得時にチャンネルが見つかりませんでした。")
         await interaction.response.send_message("スターボードチャンネルが見つかりません。", ephemeral=True)
         return
     try:
@@ -242,8 +286,16 @@ async def random_starboard(interaction: discord.Interaction) -> None:
             random_starred_message_data.starboard_message_id
         )
     except discord.NotFound:
+        logger.warning(
+            f"ランダムスターボード取得時にメッセージが見つかりませんでした: "
+            f"message_id={random_starred_message_data.starboard_message_id}"
+        )
         await interaction.response.send_message("ランダムなスターボードを取得できませんでした。", ephemeral=True)
         return
+    logger.debug(
+        f"ランダムなスターボードを送信しました: guild_id={interaction.guild.id if interaction.guild else None} "
+        f"message_id={random_starboard_message.id}"
+    )
     await interaction.response.send_message(
         content=random_starboard_message.content, embeds=random_starboard_message.embeds
     )
@@ -256,6 +308,7 @@ async def starboard_ranking(interaction: discord.Interaction) -> None:
     star_amount_ranking = await bot.db.starred_messages.get_star_amount_ranking(5)
     given_star_ranking = await bot.db.given_stars.get_given_star_ranking(5)
     if len(starred_message_ranking) < 1 or len(star_amount_ranking) < 1 or len(given_star_ranking) < 1:
+        logger.warning("スターボードランキング作成に必要な情報が不足しています。")
         await interaction.response.send_message("ランキングを作成するための情報が不足しています。")
         return
 
@@ -284,6 +337,9 @@ async def starboard_ranking(interaction: discord.Interaction) -> None:
         base_embed.copy().add_field(name="星をたくさん受け取ったユーザー", value="\n".join(raw_5_data_list)),
         base_embed.copy().add_field(name="星をたくさんあげたユーザー", value="\n".join(raw_6_data_list)),
     ]
+    logger.debug(
+        f"スターボードランキングを表示しました: guild_id={interaction.guild.id if interaction.guild else None}"
+    )
     await Paginator(pages=embeds, show_disabled=False).respond(interaction)
 
 

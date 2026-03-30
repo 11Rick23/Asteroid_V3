@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+from logging import getLogger
 
 import discord
 from discord import app_commands
@@ -10,11 +11,29 @@ from app.common.command_groups import get_bot, register_group
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
 
+logger = getLogger(__name__)
+
 punish_group = app_commands.Group(name="punish", description="処罰コマンド")
 
 
 def generate_reason(moderator: discord.Member) -> str:
     return f"[{generate_timestamp()}] {moderator.name} によって処罰が行われました。"
+
+
+def log_punishment_action(
+    action: str,
+    interaction: discord.Interaction,
+    target_id: int,
+    *,
+    probation: str | None = None,
+    duration: str | None = None,
+) -> None:
+    logger.info(
+        f"処罰を実行します: action={action} "
+        f"guild_id={interaction.guild.id if interaction.guild is not None else None} "
+        f"moderator_id={interaction.user.id if interaction.user is not None else None} "
+        f"target_id={target_id} probation={probation} duration={duration}"
+    )
 
 
 async def send_punish_message(
@@ -37,7 +56,7 @@ async def send_punish_message(
     try:
         await user.send(message)
     except discord.Forbidden:
-        pass
+        logger.debug(f"処罰DMの送信に失敗しました: target_id={user.id}")
 
 
 async def give_crime_record_role(
@@ -45,6 +64,7 @@ async def give_crime_record_role(
 ) -> bool:
     member = guild.get_member(user.id)
     if member is None:
+        logger.warning(f"前科ロールの付与対象メンバーが見つかりませんでした: guild_id={guild.id} target_id={user.id}")
         return True
 
     crimes = sum(1 for role in member.roles if role.name.startswith("前科"))
@@ -53,6 +73,12 @@ async def give_crime_record_role(
         role = guild.get_role(crime_roles[crimes])
         if role is not None:
             await member.add_roles(role, reason=generate_reason(moderator))
+            logger.info(f"前科ロールを付与しました: guild_id={guild.id} target_id={user.id} role_id={role.id}")
+        else:
+            logger.warning(
+                f"前科ロールが見つかりませんでした: guild_id={guild.id} "
+                f"target_id={user.id} role_id={crime_roles[crimes]}"
+            )
     return False
 
 
@@ -79,9 +105,11 @@ class PermRoleSelect(discord.ui.Select):
     async def callback(self, interaction: discord.Interaction) -> None:
         guild = interaction.guild
         if guild is None:
+            logger.warning(f"権限剥奪UIをサーバー外で受信しました: target_id={getattr(self.target, 'id', None)}")
             await interaction.response.send_message("サーバー内でのみ使用できます。", ephemeral=True)
             return
 
+        log_punishment_action("権限剥奪", interaction, self.target.id, probation=self.probation)
         await give_crime_record_role(self.bot, guild, self.target, interaction.user)
         roles = [guild.get_role(int(value)) for value in self.values]
         roles = [role for role in roles if role is not None]
@@ -98,6 +126,7 @@ class PermRoleSelect(discord.ui.Select):
 @app_commands.guild_only()
 async def punish_none(interaction: discord.Interaction, defendant: discord.User, content: str, reason: str) -> None:
     bot = get_bot(interaction)
+    log_punishment_action("無し", interaction, defendant.id)
     punishment_board = interaction.guild.get_channel(bot.config.punish.punishment_board_channel_id)
     await punishment_board.send(
         f"```{defendant.name}\n"
@@ -113,6 +142,7 @@ async def punish_none(interaction: discord.Interaction, defendant: discord.User,
 @app_commands.guild_only()
 async def lecture(interaction: discord.Interaction, violator: discord.User, reason: str) -> None:
     bot = get_bot(interaction)
+    log_punishment_action("口頭注意", interaction, violator.id)
     punishment_board = interaction.guild.get_channel(bot.config.punish.punishment_board_channel_id)
     await send_punish_message(punishment_board, violator, reason, "口頭注意", None)
     await interaction.response.send_message("送信完了です！")
@@ -122,6 +152,7 @@ async def lecture(interaction: discord.Interaction, violator: discord.User, reas
 @app_commands.guild_only()
 async def delete(interaction: discord.Interaction, violator: discord.User, reason: str) -> None:
     bot = get_bot(interaction)
+    log_punishment_action("メッセージ削除", interaction, violator.id)
     punishment_board = interaction.guild.get_channel(bot.config.punish.punishment_board_channel_id)
     await send_punish_message(punishment_board, violator, reason, "メッセージ削除", None)
     await interaction.response.send_message("送信完了です！")
@@ -138,17 +169,22 @@ async def timeout(
 ) -> None:
     length = parse(duration)
     if length is None:
+        logger.debug(f"タイムアウト時間の解析に失敗しました: value={duration} moderator_id={interaction.user.id}")
         await interaction.response.send_message(
             f"`{duration}`は無効なフォーマットです！\n対応する単位は: w, d, h, m, s", ephemeral=True
         )
         return
     if length > 2419200:
+        logger.debug(
+            f"タイムアウト時間が長すぎます: duration={duration} seconds={length} moderator_id={interaction.user.id}"
+        )
         await interaction.response.send_message(
             "指定された時間は長すぎます！\nタイムアウトできる最長の期間は28日間（4週間）です。", ephemeral=True
         )
         return
 
     bot = get_bot(interaction)
+    log_punishment_action("タイムアウト", interaction, violator.id, probation=probation, duration=duration)
     failed = await give_crime_record_role(bot, interaction.guild, violator, interaction.user)
     if not failed and probation is None:
         member = interaction.guild.get_member(violator.id)
@@ -169,6 +205,12 @@ async def disrobe(
     interaction: discord.Interaction, violator: discord.Member, reason: str, probation: str | None = None
 ) -> None:
     bot = get_bot(interaction)
+    logger.info(
+        "権限剥奪対象の選択を開始します: "
+        f"guild_id={interaction.guild.id if interaction.guild is not None else None} "
+        f"moderator_id={interaction.user.id if interaction.user is not None else None} "
+        f"target_id={violator.id} probation={probation}"
+    )
     perms_role_id_list = bot.config.permission_roles_id_list.enabled_role_ids()
     options = []
     for role_id in perms_role_id_list:
@@ -190,6 +232,7 @@ async def mute(
     interaction: discord.Interaction, user: discord.User, reason: str, probation: str | None = None
 ) -> None:
     bot = get_bot(interaction)
+    log_punishment_action("MUTE", interaction, user.id, probation=probation)
     failed = await give_crime_record_role(bot, interaction.guild, user, interaction.user)
     if not failed and probation is None:
         mute_role = interaction.guild.get_role(bot.config.punish.mute_role_id)
@@ -210,6 +253,7 @@ async def forbid(
     interaction: discord.Interaction, user: discord.User, reason: str, probation: str | None = None
 ) -> None:
     bot = get_bot(interaction)
+    log_punishment_action("閲覧禁止", interaction, user.id, probation=probation)
     failed = await give_crime_record_role(bot, interaction.guild, user, interaction.user)
     if not failed and probation is None:
         forbid_role = interaction.guild.get_role(bot.config.punish.forbid_role_id)
@@ -230,6 +274,7 @@ async def forbid(
 @app_commands.guild_only()
 async def ban(interaction: discord.Interaction, user: discord.User, reason: str, probation: str | None = None) -> None:
     bot = get_bot(interaction)
+    log_punishment_action("BAN", interaction, user.id, probation=probation)
     punishment_board = interaction.guild.get_channel(bot.config.punish.punishment_board_channel_id)
     await send_punish_message(punishment_board, user, reason, "BAN", probation)
 

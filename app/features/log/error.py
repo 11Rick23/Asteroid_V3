@@ -55,8 +55,8 @@ class Error(commands.Cog):
         original = unwrap_app_command_error(exception)
         traceback_tail = build_traceback_tail(original)
         logger.exception(
-            "App command failed: %s",
-            interaction.command.qualified_name if interaction.command is not None else "unknown",
+            "App command failed: "
+            f"{interaction.command.qualified_name if interaction.command is not None else 'unknown'}",
             exc_info=(type(original), original, original.__traceback__),
         )
 

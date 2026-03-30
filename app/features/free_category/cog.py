@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from logging import getLogger
+
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -10,6 +12,8 @@ from app.core.bot import AsteroidBot
 
 from .service import block_permissions, get_free_category_service, op_permissions
 from .views import CreateChannelButtonView, build_creation_embed
+
+logger = getLogger(__name__)
 
 free_category_group = app_commands.Group(name="fc", description="フリーカテゴリーに関するコマンド")
 
@@ -38,6 +42,11 @@ async def free_category_button(interaction: discord.Interaction) -> None:
         return
 
     await channel.send(embed=build_creation_embed(), view=CreateChannelButtonView(service))
+    logger.debug(
+        "フリーチャンネル作成ボタンを送信しました: "
+        f"guild_id={interaction.guild.id if interaction.guild is not None else None} "
+        f"channel_id={interaction.channel_id} user_id={interaction.user.id if interaction.user is not None else None}"
+    )
     await interaction.response.send_message("チャンネル作成ボタンを送信しました！", ephemeral=True)
 
 
@@ -55,6 +64,10 @@ async def archive(interaction: discord.Interaction) -> None:
     except ValueError as exc:
         await interaction.followup.send(str(exc), ephemeral=True)
         return
+    logger.debug(
+        f"チャンネルをアーカイブしました: guild_id={channel.guild.id} "
+        f"channel_id={channel.id} user_id={interaction.user.id}"
+    )
     await interaction.followup.send("チャンネルをアーカイブしました。", ephemeral=True)
 
 
@@ -80,6 +93,10 @@ async def edit(
 
     retry_after = service.get_edit_cooldown_retry_after(channel.id)
     if retry_after > 0:
+        logger.debug(
+            f"チャンネル編集をクールダウンで拒否しました: channel_id={channel.id} "
+            f"user_id={interaction.user.id} retry_after={round(retry_after, 1)}"
+        )
         await interaction.response.send_message(
             f"このチャンネルの編集はクールダウン中です。`{round(retry_after, 1)}秒後`に再試行してください。",
             ephemeral=True,
@@ -96,6 +113,10 @@ async def edit(
             name=name,
             reason=f"[{generate_timestamp()}] {interaction.user.name} が {old_name} を {name} に変更しました。",
         )
+        logger.debug(
+            f"フリーチャンネル名を変更しました: guild_id={channel.guild.id} "
+            f"channel_id={channel.id} user_id={interaction.user.id}"
+        )
         embed = discord.Embed(
             color=discord.Color.random(),
             title="チャンネル名を変更しました！",
@@ -109,6 +130,10 @@ async def edit(
             topic=topic,
             reason=f"[{generate_timestamp()}] {interaction.user.name} がトピックを変更しました。",
         )
+        logger.debug(
+            f"フリーチャンネルトピックを変更しました: guild_id={channel.guild.id} "
+            f"channel_id={channel.id} user_id={interaction.user.id}"
+        )
         embed = discord.Embed(
             color=discord.Color.random(),
             title="チャンネルトピックを変更しました！",
@@ -121,6 +146,10 @@ async def edit(
         name=name,
         topic=topic,
         reason=f"[{generate_timestamp()}] {interaction.user.name} がチャンネル名とトピックを変更しました。",
+    )
+    logger.debug(
+        f"フリーチャンネル名とトピックを変更しました: guild_id={channel.guild.id} "
+        f"channel_id={channel.id} user_id={interaction.user.id}"
     )
     embed = discord.Embed(
         color=discord.Color.random(),
@@ -145,6 +174,10 @@ async def block(interaction: discord.Interaction, user: discord.Member) -> None:
         overwrite=block_permissions,
         reason=f"[{generate_timestamp()}] {interaction.user.name} が {user.name} をブロックしました。",
     )
+    logger.debug(
+        f"フリーチャンネルでユーザーをブロックしました: guild_id={channel.guild.id} "
+        f"channel_id={channel.id} user_id={interaction.user.id} target_id={user.id}"
+    )
     await interaction.response.send_message(f"`{user.display_name}` をブロックしました！")
 
 
@@ -161,6 +194,10 @@ async def unblock(interaction: discord.Interaction, user: discord.Member) -> Non
         target=user,
         overwrite=None,
         reason=f"[{generate_timestamp()}] {interaction.user.name} が {user.name} のブロックを解除しました。",
+    )
+    logger.debug(
+        f"フリーチャンネルのブロックを解除しました: guild_id={channel.guild.id} "
+        f"channel_id={channel.id} user_id={interaction.user.id} target_id={user.id}"
     )
     await interaction.response.send_message(f"`{user.display_name}` のブロックを解除しました！")
 
@@ -179,6 +216,10 @@ async def op(interaction: discord.Interaction, user: discord.Member) -> None:
         overwrite=op_permissions,
         reason=f"[{generate_timestamp()}] {interaction.user.name} が {user.name} に管理権限を付与しました。",
     )
+    logger.debug(
+        f"フリーチャンネル管理権限を付与しました: guild_id={channel.guild.id} "
+        f"channel_id={channel.id} user_id={interaction.user.id} target_id={user.id}"
+    )
     await interaction.response.send_message(f"`{user.display_name}` にチャンネルの管理権限を付与しました！")
 
 
@@ -196,6 +237,10 @@ async def deop(interaction: discord.Interaction, user: discord.Member) -> None:
         overwrite=None,
         reason=f"[{generate_timestamp()}] {interaction.user.name} が {user.name} の管理権限を剥奪しました。",
     )
+    logger.debug(
+        f"フリーチャンネル管理権限を剥奪しました: guild_id={channel.guild.id} "
+        f"channel_id={channel.id} user_id={interaction.user.id} target_id={user.id}"
+    )
     await interaction.response.send_message(f"`{user.display_name}` からチャンネルの管理権限を剥奪しました！")
 
 
@@ -212,6 +257,10 @@ async def purge(interaction: discord.Interaction, count: app_commands.Range[int,
     deleted_messages = await channel.purge(
         limit=count,
         reason=f"[{generate_timestamp()}] {interaction.user.name} が `/fc purge` を実行しました。",
+    )
+    logger.debug(
+        f"フリーチャンネルのメッセージを削除しました: guild_id={channel.guild.id} "
+        f"channel_id={channel.id} user_id={interaction.user.id} count={len(deleted_messages)}"
     )
     await interaction.followup.send(f"{len(deleted_messages)}件のメッセージを削除しました！", ephemeral=True)
 

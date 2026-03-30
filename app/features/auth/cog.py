@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+from logging import getLogger
 
 import discord
 from captcha.image import ImageCaptcha
@@ -12,6 +13,8 @@ from app.common.constants import AsteroidColor
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
 from app.features.welcomer.service import send_first_welcome
+
+logger = getLogger(__name__)
 
 WELCOME_ASCII = """```
 █▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀█
@@ -36,11 +39,28 @@ class AuthInput(discord.ui.Modal):
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         if str(self.numbers.value) == self.number_in_str:
+            logger.info(
+                f"認証に成功しました: guild_id={interaction.guild.id if interaction.guild is not None else None} "
+                f"user_id={interaction.user.id if interaction.user is not None else None}"
+            )
             unauthorized_role = interaction.guild.get_role(self.bot.config.auth.unauthorized_role_id)
             if unauthorized_role is not None:
                 await interaction.user.remove_roles(
                     unauthorized_role,
                     reason=f"[{generate_timestamp()}] 認証されました。",
+                )
+                logger.info(
+                    "未認証ロールを削除しました: "
+                    f"guild_id={interaction.guild.id if interaction.guild is not None else None} "
+                    f"user_id={interaction.user.id if interaction.user is not None else None} "
+                    f"role_id={unauthorized_role.id}"
+                )
+            else:
+                logger.warning(
+                    "未認証ロールが見つかりませんでした: "
+                    f"guild_id={interaction.guild.id if interaction.guild is not None else None} "
+                    f"role_id={self.bot.config.auth.unauthorized_role_id} "
+                    f"user_id={interaction.user.id if interaction.user is not None else None}"
                 )
             await interaction.response.send_message(
                 WELCOME_ASCII,
@@ -48,8 +68,17 @@ class AuthInput(discord.ui.Modal):
             )
             if isinstance(interaction.user, discord.Member):
                 await send_first_welcome(interaction.user)
+                logger.info(
+                    "初回ウェルカムを送信しました: "
+                    f"guild_id={interaction.guild.id if interaction.guild is not None else None} "
+                    f"user_id={interaction.user.id}"
+                )
             return
 
+        logger.info(
+            f"認証に失敗しました: guild_id={interaction.guild.id if interaction.guild is not None else None} "
+            f"user_id={interaction.user.id if interaction.user is not None else None}"
+        )
         await interaction.response.send_message(
             "認証に失敗しました…… もう一度お試しください。",
             ephemeral=True,
@@ -71,6 +100,10 @@ class InputButton(discord.ui.Button):
 
 
 async def auth(bot: AsteroidBot, interaction: discord.Interaction) -> None:
+    logger.info(
+        f"認証を開始しました: guild_id={interaction.guild.id if interaction.guild is not None else None} "
+        f"channel_id={interaction.channel_id} user_id={interaction.user.id if interaction.user is not None else None}"
+    )
     captcha = ImageCaptcha(160, 60)
     number = str(random.randint(0, 99999))
     number = number.replace("1", random.choice("0234")).replace("7", random.choice("5689"))
@@ -116,6 +149,10 @@ async def setup_auth(interaction: discord.Interaction) -> None:
         color=AsteroidColor.DARK_GREEN,
     )
     await interaction.channel.send(embed=embed, view=AuthButton(bot, timeout=None))
+    logger.info(
+        f"認証ボタンを設置しました: guild_id={interaction.guild.id if interaction.guild is not None else None} "
+        f"channel_id={interaction.channel_id} user_id={interaction.user.id if interaction.user is not None else None}"
+    )
     await interaction.response.send_message("認証用のボタンを設置しました！", ephemeral=True)
 
 

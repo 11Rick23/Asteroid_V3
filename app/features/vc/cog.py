@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from logging import getLogger
+
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -9,6 +11,8 @@ from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
 
 from .service import blocked_permissions, get_vc_service, owner_permissions
+
+logger = getLogger(__name__)
 
 vc_group = app_commands.Group(name="vc", description="自分の通話を設定するコマンド")
 
@@ -40,6 +44,10 @@ async def vc_ui(interaction: discord.Interaction) -> None:
         return
 
     await service.send_control_message(channel, interaction.user)
+    logger.debug(
+        f"VCコントローラーUIを送信しました: guild_id={channel.guild.id} "
+        f"channel_id={channel.id} user_id={interaction.user.id}"
+    )
     await service.send_interaction_message(interaction, "VCのコントローラーUIを送信しました。")
 
 
@@ -90,6 +98,10 @@ async def block(interaction: discord.Interaction, user: discord.Member) -> None:
             None,
             reason=f"[{generate_timestamp()}] {interaction.user.name} がユーザーをブロックしました。",
         )
+    logger.debug(
+        f"VCでユーザーをブロックしました: guild_id={channel.guild.id} channel_id={channel.id} "
+        f"user_id={interaction.user.id} target_id={user.id}"
+    )
     await service.refresh_control_panels(channel)
     await service.send_interaction_message(interaction, f"`{user.display_name}`をブロックしました！")
 
@@ -107,6 +119,10 @@ async def unblock(interaction: discord.Interaction, user: discord.Member) -> Non
         user,
         overwrite=None,
         reason=f"[{generate_timestamp()}] {interaction.user.name} がユーザーをブロック解除しました。",
+    )
+    logger.debug(
+        f"VCのブロックを解除しました: guild_id={channel.guild.id} channel_id={channel.id} "
+        f"user_id={interaction.user.id} target_id={user.id}"
     )
     await service.refresh_control_panels(channel)
     await service.send_interaction_message(interaction, f"`{user.display_name}`をブロック解除しました！")
@@ -126,6 +142,10 @@ async def op(interaction: discord.Interaction, user: discord.Member) -> None:
         overwrite=owner_permissions,
         reason=f"[{generate_timestamp()}] {interaction.user.name} がユーザーにVC管理権限を付与しました。",
     )
+    logger.debug(
+        f"VC管理権限を付与しました: guild_id={channel.guild.id} channel_id={channel.id} "
+        f"user_id={interaction.user.id} target_id={user.id}"
+    )
     await service.refresh_control_panels(channel)
     await service.send_interaction_message(interaction, f"`{user.display_name}`にVCの管理権限を与えました！")
 
@@ -143,6 +163,10 @@ async def deop(interaction: discord.Interaction, user: discord.Member) -> None:
         user,
         overwrite=None,
         reason=f"[{generate_timestamp()}] {interaction.user.name} がユーザーのVC管理権限を剥奪しました。",
+    )
+    logger.debug(
+        f"VC管理権限を剥奪しました: guild_id={channel.guild.id} channel_id={channel.id} "
+        f"user_id={interaction.user.id} target_id={user.id}"
     )
     await service.refresh_control_panels(channel)
     await service.send_interaction_message(interaction, f"`{user.display_name}`からVCの管理権限を剥奪しました！")

@@ -198,7 +198,7 @@ class AsteroidConfig(BaseModel):
         try:
             return cls.model_validate(dict(yaml_data))
         except ValidationError as exc:
-            logger.error("設定の読み込みに失敗しました: %s", exc)
+            logger.error(f"設定の読み込みに失敗しました: {exc}")
             raise RuntimeError(f"設定の読み込みに失敗しました: \n{exc}") from exc
 
 
