@@ -1,0 +1,37 @@
+[env]
+PYTHONPATH = "{{config_root}}"
+UV_CACHE_DIR = "{{config_root}}/.cache/uv"
+XDG_CACHE_HOME = "{{config_root}}/.cache"
+
+[tools]
+uv = "latest"
+
+[tasks.sync]
+description = "開発に向け、依存関係をインストールする。"
+run = "uv sync --dev"
+
+[tasks.start]
+description = "Bot を起動する。"
+depends = ["sync"]
+run = """
+if [ ! -f config.yaml ]; then
+  echo "config.yaml がありません。 config.example.yaml をコピーして設定してください。"
+  exit 1
+fi
+uv run launch_app.py
+"""
+
+[tasks.test]
+description = "テストを実行する。"
+depends = ["sync"]
+run = "uv run pytest"
+
+[tasks.format]
+description = "コードをフォーマットする。"
+depends = ["sync"]
+run = "uv run ruff format ."
+
+[tasks.lint]
+description = "Ruff のチェックを実行し、可能な修正を行う。"
+depends = ["sync"]
+run = "uv run ruff check . --fix"
