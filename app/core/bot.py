@@ -1,120 +1,84 @@
+from __future__ import annotations
+
 from logging import getLogger
 
 import discord
-from discord import app_commands
 from discord.ext.commands import Bot
 
-from .config import AsteroidConfig
+from app.database.manager import DatabaseManager
+from app.database.session import create_engine, create_session_factory
 
-logger = getLogger(__name__)
+from .config import AsteroidConfig
+from .extensions import iter_enabled_extensions
+
+logger = getLogger("asteroid.bot")
 
 
 class AsteroidBot(Bot):
     def __init__(self, config: AsteroidConfig):
         self.config = config
-        # self.engine: AsyncEngine
-        """データベースのエンジン。こちらは基本的に使用しない。"""
-        # self.session: async_sessionmaker
-        """
-        データベースのセッションメーカー。こちらを使用する。
-
-        使用例1:
-        ```python
-        async with self.bot.session() as session:
-            # データベースの処理
-            await session.commit()  # もちろんデータ取得のみならcommitは不要
-        ```
-        使用例2:
-        ```python
-        async with self.bot.session.begin() as session:
-            # データベースの処理
-            # commitは不要
-        ```
-        """
-        # self.app_command_cache: dict[str, app_commands.AppCommand] = {}
+        self.engine = create_engine(config)
+        self.session_factory = create_session_factory(self.engine)
+        self.db = DatabaseManager(config, self.engine, self.session_factory)
+        self.repositories = self.db
+        self.services: dict[str, object] = {}
+        self.message_cache: dict[int, discord.Message] = {}
 
         super().__init__(
             command_prefix=(),
             help_command=None,
             intents=discord.Intents.all(),
-            activity=discord.Activity(type=discord.ActivityType.watching, name="ナメック星"),
-            status=discord.Status.dnd,
+            activity=discord.Activity(type=discord.ActivityType.watching, name=config.discord.activity_name),
+            status=getattr(discord.Status, config.discord.status, discord.Status.dnd),
         )
 
-    # async def setup_hook(self):
-    #     self.engine = await setup_database()
-    #     self.session = async_sessionmaker(self.engine, expire_on_commit=False)
+    async def setup_hook(self) -> None:
+        await self._initialize_database()
+        await self._load_extensions()
+        await self._sync_slash_commands()
 
-    #     for module in self.config.get("module_list"):
-    #         logger.debug(f"モジュール {module} を読み込みます。")
-    #         await self.load_extension(module)
+    async def _initialize_database(self) -> None:
+        await self.db.user_roles.create_table()
+        await self.db.given_stars.create_table()
+        await self.db.starred_messages.create_table()
+        await self.db.xp_boosts.create_table()
+        await self.db.star_grades.create_table()
+        await self.db.voice_xp_limits.create_table()
+        await self.db.monthly_powers.create_table()
+        await self.db.user_birthdays.create_table()
+        self.db.initialized = True
 
-    #     self.tree.allowed_contexts = discord.app_commands.AppCommandContext(
-    #         guild=True, dm_channel=False, private_channel=False
-    #     )
-    #     self.tree.allowed_installs = discord.app_commands.AppInstallationType(guild=True, user=False)
+    async def _load_extensions(self) -> None:
+        for extension in iter_enabled_extensions(self.config):
+            logger.debug("Loading extension %s", extension)
+            await self.load_extension(extension)
 
-    #     if self.config.get("sync_slash_commands_on_startup"):
-    #         await self.sync_slash_commands()
-    #     else:
-    #         await self.cache_app_commands()
+    async def _sync_slash_commands(self) -> None:
+        if not self.config.discord.sync_commands_on_startup:
+            return
 
-    # def get_app_command_by_name(
-    #     self,
-    #     name: str,
-    # ) -> app_commands.AppCommand | None:
-    #     """
-    #     スラッシュコマンドをスラッシュコマンド名から取得できる。
+        if self.config.discord.register_globally or not self.config.discord.guild_ids:
+            await self.tree.sync()
+            return
 
-    #     階層になっているコマンドは、`"group_name command_name"`のように指定することで取得できる。
-    #     """
-    #     return self.app_command_cache.get(name)
+        for guild_id in self.config.discord.guild_ids:
+            guild = discord.Object(id=guild_id)
+            self.tree.copy_global_to(guild=guild)
+            await self.tree.sync(guild=guild)
 
-    # async def sync_slash_commands(self):
-    #     if self.config.get("register_slash_commands_globally"):
-    #         logger.info("グローバルにスラッシュコマンドを同期します。")
-    #         await self.tree.sync()
-    #         guild = None
+    def remember_message(self, message: discord.Message) -> None:
+        self.message_cache[message.id] = message
+        if len(self.message_cache) > 2048:
+            oldest_id = next(iter(self.message_cache))
+            self.message_cache.pop(oldest_id, None)
 
-    #     else:
-    #         logger.info("ギルドごとにスラッシュコマンドを同期します。")
+    def get_message(self, message_id: int) -> discord.Message | None:
+        return self.message_cache.get(message_id)
 
-    #         guild_id = self.config.get("guild_id")
-
-    #         logger.debug(f"ギルド {guild_id} にスラッシュコマンドを{len(self.tree._get_all_commands())}個同期します。")
-
-    #         guild = discord.Object(id=guild_id)
-    #         self.tree.copy_global_to(guild=guild)
-    #         await self.tree.sync(guild=guild)
-
-    #     logger.debug("スラッシュコマンドの同期が完了しました。")
-
-    #     await self.cache_app_commands()
-
-    # async def cache_app_commands(self):
-    #     logger.debug("スラッシュコマンドのキャッシュを保存します。")
-
-    #     def unpack_options(
-    #         options: list[app_commands.AppCommand | app_commands.AppCommandGroup | app_commands.Argument],
-    #     ):
-    #         for option in options:
-    #             if isinstance(option, app_commands.AppCommandGroup):
-    #                 self.app_command_cache[option.qualified_name] = option
-    #                 unpack_options(option.options)
-
-    #     guild = (
-    #         None
-    #         if self.config.get("register_slash_commands_globally")
-    #         else discord.Object(id=self.config.get("guild_id"))
-    #     )
-    #     commands: list[app_commands.AppCommand] = await self.tree.fetch_commands(guild=guild)
-
-    #     for command in commands:
-    #         self.app_command_cache[command.name] = command
-    #         unpack_options(command.options)
-
-    #     logger.debug("スラッシュコマンドのキャッシュを保存しました。")
-
-    # async def close(self):
-    #     await self.engine.dispose()
-    #     return await super().close()
+    async def close(self) -> None:
+        for cog in self.cogs.values():
+            cleanup = getattr(cog, "cleanup_on_shutdown", None)
+            if cleanup is not None:
+                await cleanup()
+        await self.engine.dispose()
+        await super().close()

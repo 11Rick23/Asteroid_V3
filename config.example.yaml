@@ -1,3 +1,147 @@
-# 読み込むモジュール
-MODULE_LIST:
-  AUTH: true
+discord:
+  token: ""
+  guild_ids:
+    - 0000000000000000000
+  sync_commands_on_startup: true
+  register_globally: false
+  activity_name: "アクティビティ名"
+  status: "dnd"
+
+database:
+  url: "mysql+aiomysql://user:password@127.0.0.1:3306/database"
+  echo: false
+
+logging:
+  level: "INFO"
+  debug_log_retention_days: 7
+  warning_log_retention_days: 7
+
+# アルファベット順で記載！
+features:
+  auth: true
+  birthday: true
+  bump_notifier: true
+  free_category: true
+  leveling: true
+  link_expander: true
+  log_login: true
+  log_error: true
+  punish: true
+  report: true
+  roles: true
+  starboard: true
+  suggest: true
+  vc: true
+
+auth:
+  unauthorized_role_id: 0000000000000000000
+  welcome_channel_id: 0000000000000000000
+
+birthday:
+  birthday_channel_id: 0000000000000000000
+  birthday_role_id: 0000000000000000000
+
+free_category:
+  hall_of_fame_category_id: 0000000000000000000
+  free_category_id: 0000000000000000000
+  minor_category_id: 0000000000000000000
+  fc_archive_category_id: 0000000000000000000
+  text_create_channel_id: 0000000000000000000
+  hall_of_fame_channel_limit: 5
+  free_category_channel_limit: 20
+  minor_category_channel_limit: 15
+  text_create_channel_cooldown_seconds: 86400
+  bump_cooldown_seconds: 30
+  bump_cooldown_seconds_after_bump: 900
+  hall_of_fame_bump_chance: 0.01
+  free_category_bump_chance: 0.05
+  minor_category_bump_chance: 1.0
+  category_move_chance: 0.25
+
+leveling:
+  message_cooldown: 15
+  min_xp_per_message: 10
+  max_xp_per_message: 25
+  min_xp_per_voice_minute: 10
+  max_xp_per_voice_minute: 25
+  voice_xp_limit: 300
+  voice_xp_adjust: 0.3
+  stack_grade_role: false
+  stack_prestige_role: true
+
+  grade_roles_id_list:
+  - grade: 0
+    role_id: 0000000000000000000
+  - grade: 3
+    role_id: 0000000000000000000
+  - grade: 5
+    role_id: 0000000000000000000
+
+  prestige_roles_id_list:
+  - prestige: 1
+    role_id: 0000000000000000000
+  - prestige: 2
+    role_id: 0000000000000000000
+  - prestige: 3
+    role_id: 0000000000000000000
+
+  prestige_announce_channel_id: 0000000000000000000
+  ranking_board_channel_id: 0000000000000000000
+  month_ranking_board_channel_id: 0000000000000000000
+  top1_role_id: 0000000000000000000
+  top10_role_id: 0000000000000000000
+  true_top_ranker_role_id: 0000000000000000000
+
+log:
+  main_log_channel_id: 0000000000000000000
+
+punish:
+  punishment_board_channel_id: 0000000000000000000
+  crime_record_role_id_list:
+    - 0000000000000000000
+    - 0000000000000000000
+    - 0000000000000000000
+  forbid_role_id: 0000000000000000000
+  mute_role_id: 0000000000000000000
+
+permission_roles_id_list:
+  admin: 0000000000000000000
+  manage_member: 0000000000000000000
+  manage_role: 0000000000000000000
+  manage_channel: 0000000000000000000
+  manage_message: 0000000000000000000
+  manage_emoji: 0000000000000000000
+  view_log: 0000000000000000000
+  create_event: 0000000000000000000
+  create_thread: 0000000000000000000
+  speak: 0000000000000000000
+  media: 0000000000000000000
+  extra: 0000000000000000000
+
+report:
+  report_receive_channel_id: 0000000000000000000
+  report_ping_role_id: 0000000000000000000
+
+roles:
+  join_role_id_list:
+    - 0000000000000000000
+    - 0000000000000000000
+    - 0000000000000000000
+  bot_join_role_id_list:
+    - 0000000000000000000
+    - 0000000000000000000
+    - 0000000000000000000
+  ignored_save_role_id_list:
+    - 0000000000000000000
+    - 0000000000000000000
+    - 0000000000000000000
+
+starboard:
+  starboard_channel_id: 0000000000000000000
+
+suggest:
+  suggestion_forum_channel_id: 0000000000000000000
+
+vc:
+  voice_create_channel_id: 0000000000000000000
+  voice_category_id: 0000000000000000000
