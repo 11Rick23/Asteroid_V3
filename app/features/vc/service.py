@@ -36,12 +36,39 @@ def build_select_default_values(members: list[discord.Member]) -> list[discord.S
 class VoiceCreateService:
     def __init__(self, bot: AsteroidBot):
         self.bot = bot
+        self.control_panel_messages: dict[int, tuple[int, int]] = {}
 
     def get_voice_create_channel_id(self) -> int:
         return self.bot.config.vc.voice_create_channel_id
 
     def get_voice_category_id(self) -> int:
         return self.bot.config.vc.voice_category_id
+
+    def normalize_color(self, color: discord.Color | int | None) -> int:
+        if isinstance(color, discord.Color):
+            return color.value or AsteroidColor.INFO
+        if isinstance(color, int):
+            return color or AsteroidColor.INFO
+        return AsteroidColor.INFO
+
+    def track_control_message(
+        self,
+        channel: discord.VoiceChannel,
+        message: discord.Message,
+        *,
+        color: discord.Color | int | None,
+    ) -> None:
+        self.bot.remember_message(message)
+        self.control_panel_messages[channel.id] = (message.id, self.normalize_color(color))
+
+    def untrack_control_message(self, channel_id: int, message_id: int) -> None:
+        tracked_message = self.control_panel_messages.get(channel_id)
+        if tracked_message is None or tracked_message[0] != message_id:
+            return
+        self.control_panel_messages.pop(channel_id, None)
+
+    def clear_control_messages(self, channel_id: int) -> None:
+        self.control_panel_messages.pop(channel_id, None)
 
     async def send_interaction_message(
         self,
@@ -145,19 +172,48 @@ class VoiceCreateService:
         *,
         color: discord.Color | int | None = None,
     ) -> None:
-        if interaction.message is None:
-            return
-        await interaction.message.edit(
-            embed=self.build_control_embed(channel, color or interaction.user.color),
-            view=self.build_control_view(channel),
-        )
+        if interaction.message is not None:
+            tracked_color = color
+            if tracked_color is None and interaction.message.embeds:
+                tracked_color = interaction.message.embeds[0].color
+            if tracked_color is None:
+                tracked_color = interaction.user.color
+            self.track_control_message(channel, interaction.message, color=tracked_color)
+        await self.refresh_control_panels(channel)
 
-    async def send_control_message(self, channel: discord.VoiceChannel, member: discord.Member) -> None:
-        await channel.send(
-            content=member.mention,
+    async def refresh_control_panels(self, channel: discord.VoiceChannel) -> None:
+        tracked_message = self.control_panel_messages.get(channel.id)
+        if tracked_message is None:
+            return
+
+        message_id, color = tracked_message
+        message = self.bot.get_message(message_id)
+        if message is None:
+            self.untrack_control_message(channel.id, message_id)
+            return
+
+        try:
+            await message.edit(
+                embed=self.build_control_embed(channel, color),
+                view=self.build_control_view(channel),
+            )
+        except (discord.NotFound, discord.Forbidden):
+            self.untrack_control_message(channel.id, message_id)
+
+    async def send_control_message(
+        self,
+        channel: discord.VoiceChannel,
+        member: discord.Member,
+        *,
+        mention_member: bool = False,
+    ) -> discord.Message:
+        message = await channel.send(
+            content=member.mention if mention_member else None,
             embed=self.build_control_embed(channel, member.color),
             view=self.build_control_view(channel),
         )
+        self.track_control_message(channel, message, color=member.color)
+        return message
 
     async def handle_voice_state_update(
         self,
@@ -171,6 +227,7 @@ class VoiceCreateService:
                 and before.channel.id != self.get_voice_create_channel_id()
                 and len(before.channel.members) == 0
             ):
+                self.clear_control_messages(before.channel.id)
                 await before.channel.delete(reason=f"[{generate_timestamp()}] 誰もいなくなったため自動削除。")
 
         if after.channel is None or after.channel.id != self.get_voice_create_channel_id():
@@ -186,7 +243,7 @@ class VoiceCreateService:
             overwrites=overwrites,
         )
         await member.move_to(new_channel)
-        await self.send_control_message(new_channel, member)
+        await self.send_control_message(new_channel, member, mention_member=True)
 
     async def rename_channel(self, channel: discord.VoiceChannel, actor: discord.Member, name: str) -> None:
         await channel.edit(

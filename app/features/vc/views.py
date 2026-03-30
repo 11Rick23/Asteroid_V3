@@ -27,6 +27,7 @@ class NameChangeModal(discord.ui.Modal, title="VC名変更"):
             return
 
         await self.service.rename_channel(channel, interaction.user, self.vc_name.value)
+        await self.service.refresh_control_panels(channel)
         await self.service.send_interaction_message(
             interaction,
             f"`{interaction.user.display_name}`がVCの名前を`{self.vc_name.value}`に変更しました。",

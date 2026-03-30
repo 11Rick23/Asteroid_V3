@@ -39,10 +39,7 @@ async def vc_ui(interaction: discord.Interaction) -> None:
     if channel is None:
         return
 
-    await channel.send(
-        embed=service.build_control_embed(channel, interaction.user.color),
-        view=service.build_control_view(channel),
-    )
+    await service.send_control_message(channel, interaction.user)
     await service.send_interaction_message(interaction, "VCのコントローラーUIを送信しました。")
 
 
@@ -56,6 +53,7 @@ async def name(interaction: discord.Interaction, vc_name: str) -> None:
         return
 
     await service.rename_channel(channel, interaction.user, vc_name)
+    await service.refresh_control_panels(channel)
     await service.send_interaction_message(interaction, f"VCの名前を`{vc_name}`に変更しました。")
 
 
@@ -69,6 +67,7 @@ async def limit(interaction: discord.Interaction, limit: app_commands.Range[int,
         return
 
     await service.set_user_limit(channel, interaction.user, limit)
+    await service.refresh_control_panels(channel)
     await service.send_interaction_message(interaction, f"チャンネルの人数制限を`{limit}`人に設定しました。")
 
 
@@ -91,6 +90,7 @@ async def block(interaction: discord.Interaction, user: discord.Member) -> None:
             None,
             reason=f"[{generate_timestamp()}] {interaction.user.name} がユーザーをブロックしました。",
         )
+    await service.refresh_control_panels(channel)
     await service.send_interaction_message(interaction, f"`{user.display_name}`をブロックしました！")
 
 
@@ -108,6 +108,7 @@ async def unblock(interaction: discord.Interaction, user: discord.Member) -> Non
         overwrite=None,
         reason=f"[{generate_timestamp()}] {interaction.user.name} がユーザーをブロック解除しました。",
     )
+    await service.refresh_control_panels(channel)
     await service.send_interaction_message(interaction, f"`{user.display_name}`をブロック解除しました！")
 
 
@@ -125,6 +126,7 @@ async def op(interaction: discord.Interaction, user: discord.Member) -> None:
         overwrite=owner_permissions,
         reason=f"[{generate_timestamp()}] {interaction.user.name} がユーザーにVC管理権限を付与しました。",
     )
+    await service.refresh_control_panels(channel)
     await service.send_interaction_message(interaction, f"`{user.display_name}`にVCの管理権限を与えました！")
 
 
@@ -142,6 +144,7 @@ async def deop(interaction: discord.Interaction, user: discord.Member) -> None:
         overwrite=None,
         reason=f"[{generate_timestamp()}] {interaction.user.name} がユーザーのVC管理権限を剥奪しました。",
     )
+    await service.refresh_control_panels(channel)
     await service.send_interaction_message(interaction, f"`{user.display_name}`からVCの管理権限を剥奪しました！")
 
 
@@ -154,6 +157,7 @@ async def private(interaction: discord.Interaction) -> None:
         return
 
     await service.set_private(channel, interaction.user, True)
+    await service.refresh_control_panels(channel)
     await service.send_interaction_message(
         interaction,
         "VCを非公開に設定しました。\n管理権限を与えることで他のユーザーがこのVCを見えるようになります。",
@@ -169,6 +173,7 @@ async def public(interaction: discord.Interaction) -> None:
         return
 
     await service.set_private(channel, interaction.user, False)
+    await service.refresh_control_panels(channel)
     await service.send_interaction_message(interaction, "VCを公開に設定しました。")
 
 
