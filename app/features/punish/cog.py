@@ -159,19 +159,7 @@ async def disrobe(
     interaction: discord.Interaction, violator: discord.Member, reason: str, probation: str | None = None
 ) -> None:
     bot = get_bot(interaction)
-    punish = bot.config.punish
-    perms_role_id_list = [
-        punish.admin_perms_role_id,
-        punish.member_manage_perms_role_id,
-        punish.role_manage_perms_role_id,
-        punish.channel_manage_perms_role_id,
-        punish.message_manage_perms_role_id,
-        punish.emoji_manage_perms_role_id,
-        punish.log_view_perms_role_id,
-        punish.event_create_perms_role_id,
-        punish.thread_create_perms_role_id,
-    ]
-    perms_role_id_list = [role_id for role_id in perms_role_id_list if role_id]
+    perms_role_id_list = bot.config.permission_roles_id_list.enabled_role_ids()
     options = []
     for role_id in perms_role_id_list:
         role = interaction.guild.get_role(role_id)

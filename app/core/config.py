@@ -79,18 +79,27 @@ class BirthdayConfig(BaseSection):
 
 class PunishConfig(BaseSection):
     punishment_board_channel_id: int = 0
-    admin_perms_role_id: int = 0
-    member_manage_perms_role_id: int = 0
-    role_manage_perms_role_id: int = 0
-    channel_manage_perms_role_id: int = 0
-    message_manage_perms_role_id: int = 0
-    emoji_manage_perms_role_id: int = 0
-    log_view_perms_role_id: int = 0
-    event_create_perms_role_id: int = 0
-    thread_create_perms_role_id: int = 0
     crime_record_role_id_list: list[int] = Field(default_factory=list)
     forbid_role_id: int = 0
     mute_role_id: int = 0
+
+
+class PermissionRolesConfig(BaseSection):
+    admin: int = 0
+    manage_member: int = 0
+    manage_role: int = 0
+    manage_channel: int = 0
+    manage_message: int = 0
+    manage_emoji: int = 0
+    view_log: int = 0
+    create_event: int = 0
+    create_thread: int = 0
+    speak: int = 0
+    media: int = 0
+    extra: int = 0
+
+    def enabled_role_ids(self) -> list[int]:
+        return [role_id for role_id in self.model_dump().values() if role_id]
 
 
 class ReportConfig(BaseSection):
@@ -169,6 +178,7 @@ class AsteroidConfig(BaseModel):
     auth: AuthConfig = Field(default_factory=AuthConfig)
     birthday: BirthdayConfig = Field(default_factory=BirthdayConfig)
     punish: PunishConfig = Field(default_factory=PunishConfig)
+    permission_roles_id_list: PermissionRolesConfig = Field(default_factory=PermissionRolesConfig)
     report: ReportConfig = Field(default_factory=ReportConfig)
     leveling: LevelingConfig = Field(default_factory=LevelingConfig)
     starboard: StarboardConfig = Field(default_factory=StarboardConfig)

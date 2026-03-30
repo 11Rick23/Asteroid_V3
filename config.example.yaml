@@ -97,18 +97,23 @@ log:
 
 punish:
   punishment_board_channel_id: 0000000000000000000
-  admin_perms_role_id: 0000000000000000000
-  member_manage_perms_role_id: 0000000000000000000
-  role_manage_perms_role_id: 0000000000000000000
-  channel_manage_perms_role_id: 0000000000000000000
-  message_manage_perms_role_id: 0000000000000000000
-  emoji_manage_perms_role_id: 0000000000000000000
-  log_view_perms_role_id: 0000000000000000000
-  event_create_perms_role_id: 0000000000000000000
-  thread_create_perms_role_id: 0000000000000000000
   crime_record_role_id_list: []
   forbid_role_id: 0000000000000000000
   mute_role_id: 0000000000000000000
+
+permission_roles_id_list:
+  admin: 0000000000000000000
+  manage_member: 0000000000000000000
+  manage_role: 0000000000000000000
+  manage_channel: 0000000000000000000
+  manage_message: 0000000000000000000
+  manage_emoji: 0000000000000000000
+  view_log: 0000000000000000000
+  create_event: 0000000000000000000
+  create_thread: 0000000000000000000
+  speak: 0000000000000000000
+  media: 0000000000000000000
+  extra: 0000000000000000000
 
 report:
   report_receive_channel_id: 0000000000000000000
