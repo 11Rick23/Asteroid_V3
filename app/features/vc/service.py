@@ -211,7 +211,7 @@ class VoiceCreateService:
                 embed=self.build_control_embed(channel, color),
                 view=self.build_control_view(channel),
             )
-        except discord.NotFound, discord.Forbidden:
+        except (discord.NotFound, discord.Forbidden):
             logger.debug(f"VCコントロールパネルの追跡を解除しました: channel_id={channel.id} message_id={message_id}")
             self.untrack_control_message(channel.id, message_id)
 
@@ -284,13 +284,14 @@ class VoiceCreateService:
         )
 
     async def set_user_limit(self, channel: discord.VoiceChannel, actor: discord.Member, limit: int) -> None:
+        clamped_limit = max(0, min(99, limit))
         await channel.edit(
-            user_limit=max(0, min(99, limit)),
+            user_limit=clamped_limit,
             reason=f"[{generate_timestamp()}] {actor.name} が人数制限を変更しました。",
         )
         logger.debug(
             f"VC人数制限を変更しました: guild_id={channel.guild.id} "
-            f"channel_id={channel.id} user_id={actor.id} limit={max(0, min(99, limit))}"
+            f"channel_id={channel.id} user_id={actor.id} limit={clamped_limit}"
         )
 
     async def update_blocked_members(

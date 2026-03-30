@@ -41,17 +41,21 @@ class AsteroidBot(Bot):
 
     async def _initialize_database(self) -> None:
         logger.info("データベース初期化を開始します。")
-        await self.db.user_roles.create_table()
-        await self.db.given_stars.create_table()
-        await self.db.starred_messages.create_table()
-        await self.db.xp_boosts.create_table()
-        await self.db.star_grades.create_table()
-        await self.db.voice_xp_limits.create_table()
-        await self.db.monthly_action_powers.create_table()
-        await self.db.monthly_powers.create_table()
-        await self.db.user_birthdays.create_table()
+        table_initializers = (
+            self.db.user_roles.create_table,
+            self.db.given_stars.create_table,
+            self.db.starred_messages.create_table,
+            self.db.xp_boosts.create_table,
+            self.db.star_grades.create_table,
+            self.db.voice_xp_limits.create_table,
+            self.db.monthly_action_powers.create_table,
+            self.db.monthly_powers.create_table,
+            self.db.user_birthdays.create_table,
+        )
+        for create_table in table_initializers:
+            await create_table()
         self.db.initialized = True
-        logger.info("データベース初期化が完了しました: table_count=9")
+        logger.info(f"データベース初期化が完了しました: table_count={len(table_initializers)}")
 
     async def _load_extensions(self) -> None:
         extensions = list(iter_enabled_extensions(self.config))
