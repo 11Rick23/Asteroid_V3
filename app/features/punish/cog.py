@@ -77,13 +77,18 @@ class PermRoleSelect(discord.ui.Select):
         self.probation = probation
 
     async def callback(self, interaction: discord.Interaction) -> None:
-        await give_crime_record_role(self.bot, interaction.guild, self.target, interaction.user)
-        roles = [interaction.guild.get_role(int(value)) for value in self.values]
+        guild = interaction.guild
+        if guild is None:
+            await interaction.response.send_message("サーバー内でのみ使用できます。", ephemeral=True)
+            return
+
+        await give_crime_record_role(self.bot, guild, self.target, interaction.user)
+        roles = [guild.get_role(int(value)) for value in self.values]
         roles = [role for role in roles if role is not None]
         if self.probation is None and roles:
             await self.target.remove_roles(*roles, reason=generate_reason(interaction.user), atomic=False)
 
-        punishment_board = interaction.guild.get_channel(self.bot.config.punish.punishment_board_channel_id)
+        punishment_board = guild.get_channel(self.bot.config.punish.punishment_board_channel_id)
         role_names = [role.name for role in roles]
         await send_punish_message(punishment_board, self.target, self.reason, f"権限剥奪 {role_names}", self.probation)
         await interaction.response.edit_message(content="送信完了です！", view=None)
