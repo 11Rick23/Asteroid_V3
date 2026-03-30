@@ -21,6 +21,7 @@ async def top(interaction: discord.Interaction) -> None:
         description="現在のパワーランキングを表示します\n\n"
         f"{AsteroidEmoji.TEXT_POWER}: テキストパワー\n"
         f"{AsteroidEmoji.VOICE_POWER}: ボイスパワー\n"
+        f"{AsteroidEmoji.ACTION_POWER}: アクションパワー\n"
         f"{AsteroidEmoji.TRANSPARENT}",
         color=AsteroidColor.INFO,
     )

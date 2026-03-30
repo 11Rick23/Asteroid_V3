@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .given_stars import GivenStars
+from .monthly_action_powers import MonthlyActionPowers
 from .monthly_powers import MonthlyPowers
 from .star_grades import StarGrades
 from .starred_messages import StarredMessages
@@ -18,5 +19,6 @@ class DatabaseRepositories:
         self.xp_boosts = XPBoosts(self)
         self.star_grades = StarGrades(self)
         self.voice_xp_limits = VoiceXPLimits(self)
+        self.monthly_action_powers = MonthlyActionPowers(self)
         self.monthly_powers = MonthlyPowers(self)
         self.user_birthdays = UserBirthdays(self)

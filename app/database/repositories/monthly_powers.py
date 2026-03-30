@@ -4,9 +4,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, union
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database.models.monthly_action_powers import MonthlyActionPowerModel
 from app.database.models.monthly_powers import MonthlyPowerModel
 
 
@@ -15,6 +16,7 @@ class MonthlyPowerData:
     user_id: int
     text_power: int
     voice_power: int
+    action_power: int
     created_at: datetime
     updated_at: datetime
 
@@ -29,15 +31,16 @@ class MonthlyPowers:
         self.db = db
 
     @staticmethod
-    def _to_data(model: MonthlyPowerModel | None) -> MonthlyPowerData | None:
-        if model is None:
+    def _to_data(row: Any | None) -> MonthlyPowerData | None:
+        if row is None:
             return None
         return MonthlyPowerData(
-            user_id=model.user_id,
-            text_power=model.text_power,
-            voice_power=model.voice_power,
-            created_at=model.created_at,
-            updated_at=model.updated_at,
+            user_id=row.user_id,
+            text_power=row.text_power,
+            voice_power=row.voice_power,
+            action_power=getattr(row, "action_power", 0),
+            created_at=row.created_at,
+            updated_at=row.updated_at,
         )
 
     @staticmethod
@@ -46,23 +49,34 @@ class MonthlyPowers:
             user_id=row.user_id,
             text_power=row.text_power,
             voice_power=row.voice_power,
+            action_power=row.action_power,
             created_at=row.created_at,
             updated_at=row.updated_at,
             ranking=row.ranking,
         )
 
     @staticmethod
-    def _ranking_subquery():
-        total_power = MonthlyPowerModel.text_power + MonthlyPowerModel.voice_power
+    def _aggregated_subquery():
+        user_ids = union(
+            select(MonthlyPowerModel.user_id.label("user_id")),
+            select(MonthlyActionPowerModel.user_id.label("user_id")),
+        ).subquery()
+        text_power = func.coalesce(MonthlyPowerModel.text_power, 0)
+        voice_power = func.coalesce(MonthlyPowerModel.voice_power, 0)
+        action_power = func.coalesce(MonthlyActionPowerModel.action_power, 0)
+        total_power = text_power + voice_power + action_power
         ranking = func.rank().over(order_by=total_power.desc())
         return select(
-            MonthlyPowerModel.user_id.label("user_id"),
-            MonthlyPowerModel.text_power.label("text_power"),
-            MonthlyPowerModel.voice_power.label("voice_power"),
-            MonthlyPowerModel.created_at.label("created_at"),
-            MonthlyPowerModel.updated_at.label("updated_at"),
+            user_ids.c.user_id.label("user_id"),
+            text_power.label("text_power"),
+            voice_power.label("voice_power"),
+            action_power.label("action_power"),
+            func.coalesce(MonthlyPowerModel.created_at, MonthlyActionPowerModel.created_at).label("created_at"),
+            func.coalesce(MonthlyPowerModel.updated_at, MonthlyActionPowerModel.updated_at).label("updated_at"),
             ranking.label("ranking"),
-        ).subquery()
+        ).select_from(user_ids).outerjoin(
+            MonthlyPowerModel, MonthlyPowerModel.user_id == user_ids.c.user_id
+        ).outerjoin(MonthlyActionPowerModel, MonthlyActionPowerModel.user_id == user_ids.c.user_id).subquery()
 
     async def create_table(self) -> None:
         async with self.db.engine.begin() as conn:
@@ -79,7 +93,10 @@ class MonthlyPowers:
 
     async def get_monthly_power(self, user_id: int) -> MonthlyPowerData | None:
         async with self.db.session() as session:
-            return self._to_data(await session.get(MonthlyPowerModel, user_id))
+            aggregated_subquery = self._aggregated_subquery()
+            stmt = select(aggregated_subquery).where(aggregated_subquery.c.user_id == user_id)
+            result = await session.execute(stmt)
+            return self._to_data(result.one_or_none())
 
     async def get_monthly_power_lock(self, session: AsyncSession, user_id: int) -> MonthlyPowerData | None:
         stmt = select(MonthlyPowerModel).where(MonthlyPowerModel.user_id == user_id).with_for_update()
@@ -88,7 +105,7 @@ class MonthlyPowers:
     async def get_monthly_power_ranking(
         self, show_user_id: int | None = None, limit: int | None = None
     ) -> list[MonthlyPowerRankingData] | MonthlyPowerRankingData | None:
-        ranking_subquery = self._ranking_subquery()
+        ranking_subquery = self._aggregated_subquery()
 
         async with self.db.session() as session:
             if show_user_id is not None:
@@ -97,15 +114,21 @@ class MonthlyPowers:
                 row = result.one_or_none()
                 return self._to_ranking_data(row) if row is not None else None
 
+            total_power = (
+                ranking_subquery.c.text_power + ranking_subquery.c.voice_power + ranking_subquery.c.action_power
+            )
             stmt = select(ranking_subquery).order_by(
-                (ranking_subquery.c.text_power + ranking_subquery.c.voice_power).desc()
+                total_power.desc(),
+                ranking_subquery.c.user_id.asc(),
             )
             if limit is not None and limit > 0:
                 stmt = stmt.limit(limit)
             result = await session.execute(stmt)
             return [self._to_ranking_data(row) for row in result.all()]
 
-    async def create_monthly_power(self, user_id: int, text_power: int = 0, voice_power: int = 0) -> MonthlyPowerData:
+    async def create_monthly_power(
+        self, user_id: int, text_power: int = 0, voice_power: int = 0
+    ) -> MonthlyPowerData:
         async with self.db.session() as session:
             data = await self.create_monthly_power_lock(session, user_id, text_power, voice_power)
             await session.commit()
@@ -117,7 +140,7 @@ class MonthlyPowers:
         now = datetime.now()
         session.add(MonthlyPowerModel(user_id=user_id, text_power=text_power, voice_power=voice_power))
         await session.flush()
-        return MonthlyPowerData(user_id, text_power, voice_power, now, now)
+        return MonthlyPowerData(user_id, text_power, voice_power, 0, now, now)
 
     async def add_text_power(self, monthly_power_data: MonthlyPowerData, add_text_power: int) -> MonthlyPowerData:
         async with self.db.session() as session:
@@ -130,12 +153,15 @@ class MonthlyPowers:
     ) -> MonthlyPowerData:
         model = await session.get(MonthlyPowerModel, monthly_power_data.user_id)
         if model is None:
-            return monthly_power_data
+            model = MonthlyPowerModel(user_id=monthly_power_data.user_id, text_power=0, voice_power=0)
+            session.add(model)
+            await session.flush()
         model.text_power += add_text_power
         return MonthlyPowerData(
             monthly_power_data.user_id,
             monthly_power_data.text_power + add_text_power,
             monthly_power_data.voice_power,
+            monthly_power_data.action_power,
             monthly_power_data.created_at,
             datetime.now(),
         )
@@ -155,6 +181,7 @@ class MonthlyPowers:
             monthly_power_data.user_id,
             monthly_power_data.text_power - remove_text_power,
             monthly_power_data.voice_power,
+            monthly_power_data.action_power,
             monthly_power_data.created_at,
             datetime.now(),
         )
@@ -170,12 +197,15 @@ class MonthlyPowers:
     ) -> MonthlyPowerData:
         model = await session.get(MonthlyPowerModel, monthly_power_data.user_id)
         if model is None:
-            return monthly_power_data
+            model = MonthlyPowerModel(user_id=monthly_power_data.user_id, text_power=0, voice_power=0)
+            session.add(model)
+            await session.flush()
         model.voice_power += add_voice_power
         return MonthlyPowerData(
             monthly_power_data.user_id,
             monthly_power_data.text_power,
             monthly_power_data.voice_power + add_voice_power,
+            monthly_power_data.action_power,
             monthly_power_data.created_at,
             datetime.now(),
         )
@@ -195,6 +225,7 @@ class MonthlyPowers:
             monthly_power_data.user_id,
             monthly_power_data.text_power,
             monthly_power_data.voice_power - remove_voice_power,
+            monthly_power_data.action_power,
             monthly_power_data.created_at,
             datetime.now(),
         )

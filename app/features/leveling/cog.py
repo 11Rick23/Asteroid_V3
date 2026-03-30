@@ -13,6 +13,10 @@ from app.common.command_groups import get_bot, register_setup_command
 from app.common.constants import AsteroidColor, AsteroidEmoji
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
+from app.features.leveling.action_power import (
+    build_accumulated_action_power_message,
+    parse_action_power_command,
+)
 from app.features.leveling.build_send_message import (
     build_power_ranking_embed,
     build_shard_ranking_embed,
@@ -71,9 +75,42 @@ class LevelingSystemCore(commands.Cog):
     async def cog_load(self) -> None:
         self.bot.add_view(ClaimVoiceXP(self.bot))
 
+    async def try_handle_action_power_command(self, message: discord.Message) -> bool:
+        if (
+            message.guild is None
+            or message.guild.id not in self.bot.config.discord.guild_ids
+            or not message.author.bot
+            or self.bot.config.leveling.action_power_channel_id == 0
+            or message.channel.id != self.bot.config.leveling.action_power_channel_id
+        ):
+            return False
+
+        command = parse_action_power_command(message.content)
+        if command is None:
+            return False
+
+        user_id, value = command
+        if message.guild.get_member(user_id) is None:
+            return False
+
+        async with self.bot.db.session() as session:
+            monthly_action_power = await self.bot.db.monthly_action_powers.get_monthly_action_power_lock(
+                session, user_id
+            ) or await self.bot.db.monthly_action_powers.create_monthly_action_power_lock(session, user_id)
+            await self.bot.db.monthly_action_powers.add_action_power_lock(session, monthly_action_power, value)
+            await session.commit()
+
+        try:
+            await message.add_reaction("✅")
+        except discord.HTTPException:
+            pass
+        return True
+
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
         self.bot.remember_message(message)
+        if await self.try_handle_action_power_command(message):
+            return
         if message.author.bot or message.guild is None or message.guild.id not in self.bot.config.discord.guild_ids:
             return
         if message.author.id in self.cooldown and (self.cooldown[message.author.id] + self.cooldown_time) >= time():
@@ -175,7 +212,13 @@ class LevelingSystemCore(commands.Cog):
             f"> {monthly_power.ranking}位: <@{monthly_power.user_id}>" for monthly_power in monthly_powers
         )
         base_embed = discord.Embed(
-            title="月間ランキング", description="月間ランキング 今回のTOP10", color=AsteroidColor.INFO
+            title="月間ランキング",
+            description="月間ランキング 今回のTOP10\n\n"
+            f"{AsteroidEmoji.TEXT_POWER}: テキストパワー\n"
+            f"{AsteroidEmoji.VOICE_POWER}: ボイスパワー\n"
+            f"{AsteroidEmoji.ACTION_POWER}: アクションパワー\n"
+            f"{AsteroidEmoji.TRANSPARENT}",
+            color=AsteroidColor.INFO,
         )
         embed = build_power_ranking_embed(self.bot, monthly_powers, base_embed)[0]
         channel = self.bot.get_channel(self.bot.config.leveling.month_ranking_board_channel_id)
@@ -184,7 +227,12 @@ class LevelingSystemCore(commands.Cog):
                 content=f"ということで、今回のtop10は...\n\n{monthly_power_ranking_text}\n\nこのようになりました！おめでとうございます！",
                 embed=embed,
             )
+        action_channel = self.bot.get_channel(self.bot.config.leveling.action_power_channel_id)
+        if action_channel is not None:
+            total_action_power = await self.bot.db.monthly_action_powers.sum_action_power()
+            await action_channel.send(build_accumulated_action_power_message(total_action_power))
         await self.bot.db.monthly_powers.truncate_table()
+        await self.bot.db.monthly_action_powers.truncate_table()
         await self.bot.db.voice_xp_limits.reset_voice_power()
 
     @tasks.loop(minutes=1)
@@ -306,6 +354,7 @@ class LevelingSystemCore(commands.Cog):
             description="月間ランキング 現在のTOP10\n\n"
             f"{AsteroidEmoji.TEXT_POWER}: テキストパワー\n"
             f"{AsteroidEmoji.VOICE_POWER}: ボイスパワー\n"
+            f"{AsteroidEmoji.ACTION_POWER}: アクションパワー\n"
             f"{AsteroidEmoji.TRANSPARENT}",
             color=AsteroidColor.INFO,
         )
