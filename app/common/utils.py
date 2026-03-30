@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from datetime import datetime
+from functools import partial
 from typing import Any
 
 
@@ -13,7 +14,7 @@ def generate_timestamp() -> str:
 def fire_and_forget[**P, R](func: Callable[P, R]) -> Callable[P, Any]:
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
         loop = asyncio.get_running_loop()
-        return loop.run_in_executor(None, func, *args, *kwargs)
+        return loop.run_in_executor(None, partial(func, *args, **kwargs))
 
     return wrapper
 
