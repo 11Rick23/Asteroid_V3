@@ -11,7 +11,7 @@ from app.common.constants import AsteroidColor
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
 
-logger = getLogger("asteroid.features.free_category")
+logger = getLogger(__name__)
 
 op_permissions = discord.PermissionOverwrite(
     manage_channels=True,
@@ -113,12 +113,20 @@ class FreeCategoryService:
         """管理可能なテキストチャンネルであることを確認し、失敗時はエラ〜メッセージを送信する。"""
         channel = interaction.channel
         if not isinstance(channel, discord.TextChannel):
+            logger.debug(
+                f"テキストチャンネル外でフリーカテゴリ操作が呼ばれました: "
+                f"channel_id={interaction.channel_id} user_id={interaction.user.id}"
+            )
             await interaction.response.send_message(
                 "このコマンドはテキストチャンネルでのみ使えます。",
                 ephemeral=ephemeral,
             )
             return None
         if not channel.permissions_for(interaction.user).manage_channels:
+            logger.debug(
+                f"管理権限不足でフリーカテゴリ操作を拒否しました: guild_id={channel.guild.id} "
+                f"channel_id={channel.id} user_id={interaction.user.id}"
+            )
             await interaction.response.send_message(
                 "あなたはこのチャンネルの管理者ではありません。",
                 ephemeral=ephemeral,
@@ -163,6 +171,10 @@ class FreeCategoryService:
             reason=f"[{generate_timestamp()}] {reason}",
             position=0,
         )
+        logger.debug(
+            f"フリーチャンネルをアーカイブしました: guild_id={channel.guild.id} "
+            f"channel_id={channel.id} archive_category_id={archive_category.id}"
+        )
 
         embed = discord.Embed(
             color=AsteroidColor.DARK_BLUE,
@@ -188,6 +200,11 @@ class FreeCategoryService:
                 beginning=True,
                 category=minor_category,
                 reason=f"[{generate_timestamp()}] フリーチャンネル作成前の整理。",
+            )
+            logger.debug(
+                f"フリーカテゴリ作成前にチャンネルをマイナーカテゴリへ移動しました: "
+                f"guild_id={guild.id} channel_id={channel_to_move.id} "
+                f"destination_category_id={minor_category.id}"
             )
 
         minor_limit = self.bot.config.free_category.minor_category_channel_limit
@@ -225,6 +242,10 @@ class FreeCategoryService:
         )
         await new_channel.move(end=True, offset=-3, category=free_category, reason=reason)
         self.start_creation_cooldown(interaction.user.id)
+        logger.debug(
+            f"フリーチャンネルを作成しました: guild_id={guild.id} channel_id={new_channel.id} "
+            f"user_id={interaction.user.id} category_id={free_category.id}"
+        )
         return new_channel
 
     async def maybe_auto_bump(self, message: discord.Message) -> None:
@@ -263,6 +284,10 @@ class FreeCategoryService:
 
         if random.random() > bump_chance:
             self.start_bump_cooldown(message.channel.id, self.bot.config.free_category.bump_cooldown_seconds)
+            logger.debug(
+                f"フリーチャンネル自動BUMPを見送りました: guild_id={message.guild.id} "
+                f"channel_id={message.channel.id} category={category_flag}"
+            )
             return
 
         self.start_bump_cooldown(
@@ -290,6 +315,11 @@ class FreeCategoryService:
                 description=f"`{before_label}` -> `{after_label}`",
             )
             await message.channel.send(embed=embed)
+            logger.debug(
+                f"フリーチャンネルを自動BUMPしました: guild_id={message.guild.id} "
+                f"channel_id={message.channel.id} category={category_flag} "
+                f"old_position={channel_position} new_position={channel_position - 1}"
+            )
             return
 
         # カテゴリー内の位置が最上部で、かつ一定の確率を満たした場合は、カテゴリー移動を行う
@@ -320,6 +350,10 @@ class FreeCategoryService:
                 description=f"{message.channel.mention} は殿堂入りしました！",
             )
             await message.channel.send(embed=embed)
+            logger.debug(
+                f"フリーチャンネルが殿堂入りしました: guild_id={message.guild.id} "
+                f"channel_id={message.channel.id} destination_category_id={hall_of_fame.id}"
+            )
             return
 
         if category_flag == "minor_category":
@@ -345,6 +379,10 @@ class FreeCategoryService:
                 description=f"{message.channel.mention} はフリーカテゴリーに昇格しました！",
             )
             await message.channel.send(embed=embed)
+            logger.debug(
+                f"フリーチャンネルが昇格しました: guild_id={message.guild.id} "
+                f"channel_id={message.channel.id} destination_category_id={free_category.id}"
+            )
 
 
 def get_free_category_service(bot: AsteroidBot) -> FreeCategoryService:

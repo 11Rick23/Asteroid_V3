@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import random
+from logging import getLogger
 from time import time
 from zoneinfo import ZoneInfo
 
@@ -34,6 +35,8 @@ from app.features.leveling.service import (
     build_voice_xp_claim_message,
     claim_voice_xp_rewards,
 )
+
+logger = getLogger(__name__)
 
 
 class ClaimVoiceXP(discord.ui.View):
@@ -91,6 +94,7 @@ class LevelingSystemCore(commands.Cog):
 
         user_id, value = command
         if message.guild.get_member(user_id) is None:
+            logger.debug(f"アクションパワー加算をスキップしました: guild_id={message.guild.id} user_id={user_id}")
             return False
 
         async with self.bot.db.session() as session:
@@ -104,6 +108,10 @@ class LevelingSystemCore(commands.Cog):
             await message.add_reaction("✅")
         except discord.HTTPException:
             pass
+        logger.debug(
+            f"アクションパワーコマンドを処理しました: guild_id={message.guild.id} "
+            f"channel_id={message.channel.id} user_id={user_id} value={value}"
+        )
         return True
 
     @commands.Cog.listener()
@@ -114,6 +122,10 @@ class LevelingSystemCore(commands.Cog):
         if message.author.bot or message.guild is None or message.guild.id not in self.bot.config.discord.guild_ids:
             return
         if message.author.id in self.cooldown and (self.cooldown[message.author.id] + self.cooldown_time) >= time():
+            logger.debug(
+                f"レベリング加算をクールダウンでスキップしました: guild_id={message.guild.id} "
+                f"channel_id={message.channel.id} user_id={message.author.id}"
+            )
             return
 
         self.cooldown[message.author.id] = time()
@@ -165,8 +177,18 @@ class LevelingSystemCore(commands.Cog):
         if prestige_amount > 0:
             await send_prestige_up_message(message.channel, message.author, star_grade.prestige, prestige_amount)
             await send_prestige_announce(self.bot, message.author, star_grade.prestige)
+            logger.debug(
+                f"レベリングでプレステージ昇格が発生しました: guild_id={message.guild.id} "
+                f"channel_id={message.channel.id} user_id={message.author.id} "
+                f"prestige={star_grade.prestige} amount={prestige_amount}"
+            )
         elif grade_up_amount > 0:
             await send_grade_up_message(message.channel, message.author, star_grade.grade, grade_up_amount)
+            logger.debug(
+                f"レベリングでグレード昇格が発生しました: guild_id={message.guild.id} "
+                f"channel_id={message.channel.id} user_id={message.author.id} "
+                f"grade={star_grade.grade} amount={grade_up_amount}"
+            )
         await sync_grade_prestige_role(self.bot, message.author, star_grade)
 
     @tasks.loop(time=datetime.time(hour=0, minute=0, tzinfo=ZoneInfo("Asia/Tokyo")))
@@ -177,8 +199,12 @@ class LevelingSystemCore(commands.Cog):
         if now.day != 1 or now.hour != 0 or now.minute != 0:
             return
 
+        logger.info("月間ランキング集計を開始します。")
         guild = self.bot.get_guild(self.bot.config.discord.guild_ids[0])
         if guild is None:
+            logger.warning(
+                f"月間ランキング集計先ギルドが見つかりませんでした: guild_id={self.bot.config.discord.guild_ids[0]}"
+            )
             return
         top1_role = guild.get_role(self.bot.config.leveling.top1_role_id)
         top10_role = guild.get_role(self.bot.config.leveling.top10_role_id)
@@ -234,14 +260,18 @@ class LevelingSystemCore(commands.Cog):
         await self.bot.db.monthly_powers.truncate_table()
         await self.bot.db.monthly_action_powers.truncate_table()
         await self.bot.db.voice_xp_limits.reset_voice_power()
+        logger.info(f"月間ランキング集計が完了しました: guild_id={guild.id} ranked_count={len(monthly_powers)}")
 
     @tasks.loop(minutes=1)
     async def voice_xp_claim(self) -> None:
         if not self.bot.db.is_initialized():
             return
+        scanned_channel_count = 0
+        rewarded_member_count = 0
         for guild in self.bot.guilds:
             xp_boosts = await self.bot.db.xp_boosts.get_xp_boosts()
             for channel in guild.voice_channels:
+                scanned_channel_count += 1
                 voice_active_members = [
                     member
                     for member in channel.members
@@ -255,6 +285,7 @@ class LevelingSystemCore(commands.Cog):
                 ]
                 if len(voice_active_members) < 2:
                     continue
+                rewarded_member_count += len(voice_active_members)
                 for member in voice_active_members:
                     async with self.bot.db.session() as session:
                         data = await self.bot.db.voice_xp_limits.get_voice_xp_limit_lock(
@@ -318,6 +349,10 @@ class LevelingSystemCore(commands.Cog):
                             elif half_limit_reached and not half_notified:
                                 await self.voice_half_limit_reached_send(channel, member)
                         await session.commit()
+        logger.debug(
+            f"VC経験値ループを実行しました: guild_count={len(self.bot.guilds)} "
+            f"scanned_channel_count={scanned_channel_count} rewarded_member_count={rewarded_member_count}"
+        )
 
     async def voice_limit_reached_send(self, channel: discord.VoiceChannel, member: discord.Member) -> None:
         await channel.send(
@@ -333,6 +368,9 @@ class LevelingSystemCore(commands.Cog):
                 )
             ],
             view=ClaimVoiceXP(self.bot),
+        )
+        logger.debug(
+            f"VC経験値上限通知を送信しました: guild_id={channel.guild.id} channel_id={channel.id} user_id={member.id}"
         )
 
     async def voice_half_limit_reached_send(self, channel: discord.VoiceChannel, member: discord.Member) -> None:
@@ -376,6 +414,7 @@ class LevelingSystemCore(commands.Cog):
                 await ranking_board_message.edit(embeds=[shard_embed[0], monthly_embed[0]])
             except discord.NotFound:
                 self.ranking_board_messages.remove(ranking_board_message)
+        logger.debug(f"ランキングボードを更新しました: message_count={len(self.ranking_board_messages)}")
 
     @update_ranking_board.before_loop
     async def setup_ranking_board(self) -> None:
@@ -386,18 +425,23 @@ class LevelingSystemCore(commands.Cog):
                 embed=discord.Embed(title="ランキングボード", description="更新待機中", color=AsteroidColor.INFO)
             )
             self.ranking_board_messages.append(message)
+            logger.debug(f"ランキングボードを初期化しました: channel_id={channel.id} message_id={message.id}")
 
     @update_ranking_board.after_loop
     async def cleanup_ranking_board(self) -> None:
         await self._cleanup_ranking_board_messages()
 
     async def _cleanup_ranking_board_messages(self) -> None:
+        deleted_count = 0
         for message in self.ranking_board_messages:
             try:
                 await message.delete()
+                deleted_count += 1
             except discord.HTTPException:
                 pass
         self.ranking_board_messages = []
+        if deleted_count > 0:
+            logger.debug(f"ランキングボードメッセージを削除しました: count={deleted_count}")
 
     @delete_expired_xp_boosts.before_loop
     @monthly_ranking.before_loop
@@ -407,6 +451,7 @@ class LevelingSystemCore(commands.Cog):
     @voice_xp_claim.after_loop
     async def before_voice_xp_claim(self) -> None:
         if self.voice_xp_claim.failed():
+            logger.warning("VC経験値ループが失敗したため再起動します。")
             await self.bot.wait_until_ready()
             self.voice_xp_claim.restart()
 

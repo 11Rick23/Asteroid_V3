@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import datetime
+from logging import getLogger
 
 import discord
 
 from app.common.constants import AsteroidColor
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
+
+logger = getLogger(__name__)
 
 owner_permissions = discord.PermissionOverwrite(
     view_channel=True,
@@ -105,14 +108,25 @@ class VoiceCreateService:
                 channel = voice_channel
 
         if channel is None:
+            logger.debug(
+                f"VC外で操作が呼ばれました: channel_id={interaction.channel_id} user_id={interaction.user.id}"
+            )
             await self.send_interaction_message(interaction, "このコマンドはVCチャンネルでのみ使えます。")
             return None
 
         if not allow_create_channel and channel.id == self.get_voice_create_channel_id():
+            logger.debug(
+                f"VC作成チャンネルへの操作を拒否しました: guild_id={channel.guild.id} "
+                f"channel_id={channel.id} user_id={interaction.user.id}"
+            )
             await self.send_interaction_message(interaction, "VC作成用チャンネル自体は操作できません。")
             return None
 
         if require_manage and not channel.permissions_for(interaction.user).manage_channels:
+            logger.debug(
+                f"VC管理権限不足で操作を拒否しました: guild_id={channel.guild.id} "
+                f"channel_id={channel.id} user_id={interaction.user.id}"
+            )
             await self.send_interaction_message(interaction, "VCの管理権限がありません。")
             return None
         return channel
@@ -197,7 +211,8 @@ class VoiceCreateService:
                 embed=self.build_control_embed(channel, color),
                 view=self.build_control_view(channel),
             )
-        except discord.NotFound, discord.Forbidden:
+        except (discord.NotFound, discord.Forbidden):
+            logger.debug(f"VCコントロールパネルの追跡を解除しました: channel_id={channel.id} message_id={message_id}")
             self.untrack_control_message(channel.id, message_id)
 
     async def send_control_message(
@@ -229,6 +244,7 @@ class VoiceCreateService:
             ):
                 self.clear_control_messages(before.channel.id)
                 await before.channel.delete(reason=f"[{generate_timestamp()}] 誰もいなくなったため自動削除。")
+                logger.debug(f"VCを自動削除しました: guild_id={before.channel.guild.id} channel_id={before.channel.id}")
 
         if after.channel is None or after.channel.id != self.get_voice_create_channel_id():
             return
@@ -244,12 +260,17 @@ class VoiceCreateService:
         )
         await member.move_to(new_channel)
         await self.send_control_message(new_channel, member, mention_member=True)
+        logger.debug(
+            f"VCを自動作成しました: guild_id={member.guild.id} channel_id={new_channel.id} "
+            f"owner_id={member.id} category_id={after.channel.category.id}"
+        )
 
     async def rename_channel(self, channel: discord.VoiceChannel, actor: discord.Member, name: str) -> None:
         await channel.edit(
             name=name[:100],
             reason=f"[{generate_timestamp()}] {actor.name} がチャンネル名を変更しました。",
         )
+        logger.debug(f"VC名を変更しました: guild_id={channel.guild.id} channel_id={channel.id} user_id={actor.id}")
 
     async def set_private(self, channel: discord.VoiceChannel, actor: discord.Member, private: bool) -> None:
         await channel.set_permissions(
@@ -257,11 +278,20 @@ class VoiceCreateService:
             overwrite=blocked_permissions if private else None,
             reason=f"[{generate_timestamp()}] {actor.name} がVCの公開設定を変更しました。",
         )
+        logger.debug(
+            f"VC公開設定を変更しました: guild_id={channel.guild.id} "
+            f"channel_id={channel.id} user_id={actor.id} private={private}"
+        )
 
     async def set_user_limit(self, channel: discord.VoiceChannel, actor: discord.Member, limit: int) -> None:
+        clamped_limit = max(0, min(99, limit))
         await channel.edit(
-            user_limit=max(0, min(99, limit)),
+            user_limit=clamped_limit,
             reason=f"[{generate_timestamp()}] {actor.name} が人数制限を変更しました。",
+        )
+        logger.debug(
+            f"VC人数制限を変更しました: guild_id={channel.guild.id} "
+            f"channel_id={channel.id} user_id={actor.id} limit={clamped_limit}"
         )
 
     async def update_blocked_members(
@@ -299,6 +329,13 @@ class VoiceCreateService:
                 await member.move_to(None, reason=f"[{generate_timestamp()}] {actor.name} がブロックしました。")
             newly_blocked_members.append(member)
 
+        if newly_blocked_members or unblocked_members:
+            logger.debug(
+                f"VCブロック対象を更新しました: guild_id={channel.guild.id} channel_id={channel.id} "
+                f"user_id={actor.id} blocked_count={len(newly_blocked_members)} "
+                f"unblocked_count={len(unblocked_members)}"
+            )
+
         return newly_blocked_members, unblocked_members
 
     async def update_operator_members(
@@ -333,6 +370,13 @@ class VoiceCreateService:
                 reason=f"[{generate_timestamp()}] {actor.name} が管理権限を付与しました。",
             )
             newly_oped_members.append(member)
+
+        if newly_oped_members or deoped_members:
+            logger.debug(
+                f"VC管理権限対象を更新しました: guild_id={channel.guild.id} channel_id={channel.id} "
+                f"user_id={actor.id} oped_count={len(newly_oped_members)} "
+                f"deoped_count={len(deoped_members)}"
+            )
 
         return newly_oped_members, deoped_members
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+from logging import getLogger
 from zoneinfo import ZoneInfo
 
 import discord
@@ -8,6 +9,8 @@ from discord.ext import commands
 
 from app.common.constants import AsteroidColor
 from app.core.bot import AsteroidBot
+
+logger = getLogger(__name__)
 
 
 class LogIn(commands.Cog):
@@ -19,10 +22,15 @@ class LogIn(commands.Cog):
         await self.bot.wait_until_ready()
         log_channel_id = self.bot.config.log.main_log_channel_id
         if not log_channel_id:
+            logger.warning("ログイン通知チャンネルが未設定です。")
             return
 
         log_channel = self.bot.get_channel(log_channel_id)
         if log_channel is None or self.bot.user is None:
+            logger.warning(
+                f"ログイン通知の送信先を解決できませんでした: "
+                f"log_channel_id={log_channel_id} bot_user_ready={self.bot.user is not None}"
+            )
             return
 
         now = datetime.datetime.now(ZoneInfo("Asia/Tokyo"))
@@ -41,6 +49,7 @@ class LogIn(commands.Cog):
             inline=True,
         )
         await log_channel.send(embed=embed)
+        logger.debug(f"ログイン通知を送信しました: channel_id={log_channel.id} bot_user_id={self.bot.user.id}")
 
 
 async def setup(bot: AsteroidBot) -> None:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from logging import getLogger
 
 import discord
 
@@ -14,6 +15,8 @@ from app.features.leveling.build_send_message import (
     send_prestige_up_message,
 )
 from app.features.leveling.manage_reward_role import sync_grade_prestige_role
+
+logger = getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -31,6 +34,7 @@ async def claim_voice_xp_rewards(bot: AsteroidBot, user_id: int) -> VoiceXPClaim
             voice_xp_limit is None
             or (voice_xp_limit.voice_shard + voice_xp_limit.bonus_shard + voice_xp_limit.voice_power) < 1
         ):
+            logger.debug(f"VC経験値受け取り対象がありません: user_id={user_id}")
             return None
 
         monthly_power = await bot.db.monthly_powers.get_monthly_power_lock(
@@ -62,6 +66,11 @@ async def claim_voice_xp_rewards(bot: AsteroidBot, user_id: int) -> VoiceXPClaim
         await bot.db.voice_xp_limits.delete_voice_xp_limit_lock(session, user_id)
         await session.commit()
 
+    logger.info(
+        f"VC経験値を受け取りました: user_id={user_id} voice_shard={voice_xp_limit.voice_shard} "
+        f"bonus_shard={voice_xp_limit.bonus_shard} voice_power={voice_xp_limit.voice_power} "
+        f"grade_up={grade_up_amount} prestige_up={prestige_amount}"
+    )
     return VoiceXPClaimResult(
         voice_xp_limit=voice_xp_limit,
         star_grade=star_grade,

@@ -3,12 +3,15 @@ from __future__ import annotations
 import asyncio
 import datetime
 from datetime import datetime as dt
+from logging import getLogger
 
 import discord
 from discord.ext import commands
 
 from app.common.constants import AsteroidColor
 from app.core.bot import AsteroidBot
+
+logger = getLogger(__name__)
 
 
 class BumpNotifier(commands.Cog):
@@ -48,6 +51,12 @@ class BumpNotifier(commands.Cog):
             ):
                 embed.add_field(name="UP RTAが行われました！", value=f"UP通知から{notice_dt}秒でUPが行われました")
             await after.reply(content=after.interaction_metadata.user.mention, embed=embed)
+            logger.debug(
+                "ディス速UPを検知しました: "
+                f"guild_id={after.guild.id if after.guild is not None else None} "
+                f"channel_id={after.channel.id} user_id={after.interaction_metadata.user.id} "
+                f"next_notice_at={dt.now() + self.DISSOKU_UP_AVAILABLE_DELTA}"
+            )
             await asyncio.sleep(self.DISSOKU_UP_AVAILABLE_DELTA.total_seconds())
             await after.channel.send(
                 embed=discord.Embed(
@@ -57,6 +66,10 @@ class BumpNotifier(commands.Cog):
                 )
             )
             self.last_dissoku_up_notice_dt = dt.now()
+            logger.debug(
+                "ディス速UP通知を送信しました: "
+                f"guild_id={after.guild.id if after.guild is not None else None} channel_id={after.channel.id}"
+            )
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
@@ -84,6 +97,12 @@ class BumpNotifier(commands.Cog):
             ):
                 embed.add_field(name="UP RTAが行われました！", value=f"UP通知から{notice_dt}秒でUPが行われました")
             await message.reply(content=message.interaction_metadata.user.mention, embed=embed)
+            logger.debug(
+                "Dicoall UPを検知しました: "
+                f"guild_id={message.guild.id if message.guild is not None else None} "
+                f"channel_id={message.channel.id} user_id={message.interaction_metadata.user.id} "
+                f"next_notice_at={dt.now() + self.DICOALL_UP_AVAILABLE_DELTA}"
+            )
             await asyncio.sleep(self.DICOALL_UP_AVAILABLE_DELTA.total_seconds())
             await message.channel.send(
                 embed=discord.Embed(
@@ -93,6 +112,10 @@ class BumpNotifier(commands.Cog):
                 )
             )
             self.last_dicoall_up_notice_dt = dt.now()
+            logger.debug(
+                "Dicoall UP通知を送信しました: "
+                f"guild_id={message.guild.id if message.guild is not None else None} channel_id={message.channel.id}"
+            )
 
         if (
             message.author.id == 302050872383242240
@@ -116,6 +139,12 @@ class BumpNotifier(commands.Cog):
                     name="BUMP RTAが行われました！", value=f"BUMP通知から{notice_dt}秒でBUMPが行われました"
                 )
             await message.reply(content=message.interaction_metadata.user.mention, embed=embed)
+            logger.debug(
+                "BUMPを検知しました: "
+                f"guild_id={message.guild.id if message.guild is not None else None} "
+                f"channel_id={message.channel.id} user_id={message.interaction_metadata.user.id} "
+                f"next_notice_at={dt.now() + self.BUMP_AVAILABLE_DELTA}"
+            )
             await asyncio.sleep(self.BUMP_AVAILABLE_DELTA.total_seconds())
             await message.channel.send(
                 embed=discord.Embed(
@@ -125,6 +154,10 @@ class BumpNotifier(commands.Cog):
                 )
             )
             self.last_bump_notice_dt = dt.now()
+            logger.debug(
+                "BUMP通知を送信しました: "
+                f"guild_id={message.guild.id if message.guild is not None else None} channel_id={message.channel.id}"
+            )
 
 
 async def setup(bot: AsteroidBot) -> None:

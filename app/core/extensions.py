@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from logging import getLogger
 
 from .config import AsteroidConfig
+
+logger = getLogger(__name__)
 
 # アルファベット順で記載！
 FEATURE_EXTENSION_MAP = (
@@ -25,5 +28,7 @@ FEATURE_EXTENSION_MAP = (
 
 def iter_enabled_extensions(config: AsteroidConfig) -> Iterator[str]:
     for flag_name, extension in FEATURE_EXTENSION_MAP:
-        if getattr(config.features, flag_name):
+        enabled = getattr(config.features, flag_name)
+        logger.debug(f"拡張機能の有効判定: feature={flag_name} enabled={enabled} extension={extension}")
+        if enabled:
             yield extension

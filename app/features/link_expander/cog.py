@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import re
+from logging import getLogger
 
 import discord
 from discord.ext import commands
 
 from app.common.constants import AsteroidColor
 from app.core.bot import AsteroidBot
+
+logger = getLogger(__name__)
 
 discord_message_url_pattern = re.compile(
     r"(?!<)https://(ptb.|canary.)?discord(app)?.com/channels/(?P<guild>[0-9]{17,20})/(?P<channel>[0-9]{17,20})/(?P<message>[0-9]{17,20})(?!>)"
@@ -33,10 +36,14 @@ class LinkExpander(commands.Cog):
         for channel_id, message_id in urls:
             channel = self.bot.get_channel(int(channel_id))
             if channel is None:
+                logger.debug(f"リンク展開対象チャンネルが見つかりませんでした: channel_id={channel_id}")
                 continue
             try:
                 fetched_message = await channel.fetch_message(int(message_id))
             except discord.NotFound:
+                logger.debug(
+                    f"リンク展開対象メッセージが見つかりませんでした: channel_id={channel_id} message_id={message_id}"
+                )
                 continue
             if fetched_message not in referenced_messages:
                 referenced_messages.append(fetched_message)
@@ -44,6 +51,11 @@ class LinkExpander(commands.Cog):
         for referenced_message in referenced_messages:
             embeds = self.generate_embed(referenced_message, bool(message.channel and message.channel.is_nsfw()))
             await message.reply(content=None, embeds=embeds, mention_author=False)
+        if referenced_messages:
+            logger.debug(
+                f"リンク展開を実行しました: guild_id={message.guild.id} "
+                f"channel_id={message.channel.id} count={len(referenced_messages)}"
+            )
 
     def generate_embed(self, message: discord.Message, allow_nsfw: bool) -> list[discord.Embed]:
         if getattr(message.channel, "nsfw", False) and not allow_nsfw:
