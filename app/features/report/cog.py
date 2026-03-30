@@ -41,8 +41,10 @@ class ReportCog(commands.Cog):
             return
 
         embed = build_report_embed(interaction.user, content, image)
+        ping_role_id = self.bot.config.report.report_ping_role_id
+        prefix = f"<@&{ping_role_id}>\n" if ping_role_id else ""
         await report_receive_channel.send(
-            content="<@&773884309374500884>\nレポートされたユーザー: " + violator.mention,
+            content=f"{prefix}レポートされたユーザー: {violator.mention}",
             embed=embed,
             view=ReportResolveView(),
         )

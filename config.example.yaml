@@ -120,6 +120,7 @@ permission_roles_id_list:
 
 report:
   report_receive_channel_id: 0000000000000000000
+  report_ping_role_id: 0000000000000000000
 
 roles:
   join_role_id_list: []

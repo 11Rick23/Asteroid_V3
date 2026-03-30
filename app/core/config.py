@@ -104,6 +104,7 @@ class PermissionRolesConfig(BaseSection):
 
 class ReportConfig(BaseSection):
     report_receive_channel_id: int = 0
+    report_ping_role_id: int = 0
 
 
 class LevelingConfig(BaseSection):
