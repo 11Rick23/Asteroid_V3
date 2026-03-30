@@ -13,6 +13,7 @@
     "ruff.fixAll": true,
     "cSpell.words": [
         "cooldowns",
+        "deoped",
         "dicoall",
         "dissoku"
     ]
