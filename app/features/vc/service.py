@@ -48,7 +48,7 @@ class VoiceCreateService:
         interaction: discord.Interaction,
         content: str,
         *,
-        ephemeral: bool = True,
+        ephemeral: bool = False,
     ) -> None:
         if interaction.response.is_done():
             await interaction.followup.send(content, ephemeral=ephemeral)

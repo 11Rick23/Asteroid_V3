@@ -63,7 +63,7 @@ class TogglePrivacyButton(discord.ui.Button["VoiceControlView"]):
         self.channel_id = channel.id if channel else None
 
     async def callback(self, interaction: discord.Interaction) -> None:
-        await interaction.response.defer(ephemeral=True, thinking=True)
+        await interaction.response.defer(thinking=True)
         channel = await self.service.ensure_voice_channel(
             interaction,
             require_manage=True,
@@ -81,7 +81,6 @@ class TogglePrivacyButton(discord.ui.Button["VoiceControlView"]):
                 if private
                 else "VCを公開に設定しました。"
             ),
-            ephemeral=True,
         )
 
 
@@ -107,7 +106,7 @@ class UserLimitSelect(discord.ui.Select["VoiceControlView"]):
         self.channel_id = channel.id if channel else None
 
     async def callback(self, interaction: discord.Interaction) -> None:
-        await interaction.response.defer(ephemeral=True, thinking=True)
+        await interaction.response.defer(thinking=True)
         channel = await self.service.ensure_voice_channel(
             interaction,
             require_manage=True,
@@ -121,7 +120,6 @@ class UserLimitSelect(discord.ui.Select["VoiceControlView"]):
         await self.service.refresh_control_message(interaction, channel)
         await interaction.followup.send(
             f"`{interaction.user.display_name}`がVCの人数制限を`{limit}`に変更しました。",
-            ephemeral=True,
         )
 
 
@@ -140,7 +138,7 @@ class BlockedUserSelect(discord.ui.UserSelect["VoiceControlView"]):
         self.channel_id = channel.id if channel else None
 
     async def callback(self, interaction: discord.Interaction) -> None:
-        await interaction.response.defer(ephemeral=True, thinking=True)
+        await interaction.response.defer(thinking=True)
         channel = await self.service.ensure_voice_channel(
             interaction,
             require_manage=True,
@@ -163,7 +161,7 @@ class BlockedUserSelect(discord.ui.UserSelect["VoiceControlView"]):
                 f"ブロックを解除したユーザー:\n{member_mentions(unblocked_members)}"
             ),
         )
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed)
 
 
 class OperatorUserSelect(discord.ui.UserSelect["VoiceControlView"]):
@@ -181,7 +179,7 @@ class OperatorUserSelect(discord.ui.UserSelect["VoiceControlView"]):
         self.channel_id = channel.id if channel else None
 
     async def callback(self, interaction: discord.Interaction) -> None:
-        await interaction.response.defer(ephemeral=True, thinking=True)
+        await interaction.response.defer(thinking=True)
         channel = await self.service.ensure_voice_channel(
             interaction,
             require_manage=True,
@@ -204,7 +202,7 @@ class OperatorUserSelect(discord.ui.UserSelect["VoiceControlView"]):
                 f"管理権限を剥奪したユーザー:\n{member_mentions(deoped_members)}"
             ),
         )
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed)
 
 
 class VoiceControlView(discord.ui.View):
