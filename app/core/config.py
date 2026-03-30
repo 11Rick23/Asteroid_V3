@@ -77,9 +77,8 @@ class BirthdayConfig(BaseSection):
     birthday_role_id: int = 0
 
 
-class ModerationConfig(BaseSection):
+class PunishConfig(BaseSection):
     punishment_board_channel_id: int = 0
-    report_receive_channel_id: int = 0
     admin_perms_role_id: int = 0
     member_manage_perms_role_id: int = 0
     role_manage_perms_role_id: int = 0
@@ -92,6 +91,10 @@ class ModerationConfig(BaseSection):
     crime_record_role_id_list: list[int] = Field(default_factory=list)
     forbid_role_id: int = 0
     mute_role_id: int = 0
+
+
+class ReportConfig(BaseSection):
+    report_receive_channel_id: int = 0
 
 
 class LevelingConfig(BaseSection):
@@ -165,7 +168,8 @@ class AsteroidConfig(BaseModel):
     log: LogConfig = Field(default_factory=LogConfig)
     auth: AuthConfig = Field(default_factory=AuthConfig)
     birthday: BirthdayConfig = Field(default_factory=BirthdayConfig)
-    moderation: ModerationConfig = Field(default_factory=ModerationConfig)
+    punish: PunishConfig = Field(default_factory=PunishConfig)
+    report: ReportConfig = Field(default_factory=ReportConfig)
     leveling: LevelingConfig = Field(default_factory=LevelingConfig)
     starboard: StarboardConfig = Field(default_factory=StarboardConfig)
     vc: VCConfig = Field(default_factory=VCConfig)

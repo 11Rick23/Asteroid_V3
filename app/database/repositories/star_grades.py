@@ -69,20 +69,18 @@ class StarGrades:
         ranking = func.rank().over(
             order_by=(StarGradeModel.prestige.desc(), StarGradeModel.grade.desc(), StarGradeModel.shard.desc())
         )
-        return (
-            select(
-                StarGradeModel.user_id.label("user_id"),
-                StarGradeModel.prestige.label("prestige"),
-                StarGradeModel.grade.label("grade"),
-                StarGradeModel.shard.label("shard"),
-                StarGradeModel.text_shard.label("text_shard"),
-                StarGradeModel.voice_shard.label("voice_shard"),
-                StarGradeModel.bonus_shard.label("bonus_shard"),
-                StarGradeModel.created_at.label("created_at"),
-                StarGradeModel.updated_at.label("updated_at"),
-                ranking.label("ranking"),
-            ).subquery()
-        )
+        return select(
+            StarGradeModel.user_id.label("user_id"),
+            StarGradeModel.prestige.label("prestige"),
+            StarGradeModel.grade.label("grade"),
+            StarGradeModel.shard.label("shard"),
+            StarGradeModel.text_shard.label("text_shard"),
+            StarGradeModel.voice_shard.label("voice_shard"),
+            StarGradeModel.bonus_shard.label("bonus_shard"),
+            StarGradeModel.created_at.label("created_at"),
+            StarGradeModel.updated_at.label("updated_at"),
+            ranking.label("ranking"),
+        ).subquery()
 
     async def create_table(self) -> None:
         async with self.db.engine.begin() as conn:

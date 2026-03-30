@@ -40,6 +40,7 @@ async def free_category_button(interaction: discord.Interaction) -> None:
     await channel.send(embed=build_creation_embed(), view=CreateChannelButtonView(service))
     await interaction.response.send_message("チャンネル作成ボタンを送信しました！", ephemeral=True)
 
+
 @free_category_group.command(name="archive", description="チャンネルをアーカイブ")
 @app_commands.guild_only()
 async def archive(interaction: discord.Interaction) -> None:

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import update, select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models.voice_xp_limits import VoiceXPLimitModel
@@ -100,9 +100,7 @@ class VoiceXPLimits:
             )
         )
         await session.flush()
-        return VoiceXPLimitData(
-            user_id, voice_shard, bonus_shard, voice_power, half_notify, full_notify, now, now
-        )
+        return VoiceXPLimitData(user_id, voice_shard, bonus_shard, voice_power, half_notify, full_notify, now, now)
 
     def _updated(
         self,

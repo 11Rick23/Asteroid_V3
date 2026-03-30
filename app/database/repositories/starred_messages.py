@@ -64,7 +64,9 @@ class StarredMessages:
         async with self.db.session() as session:
             stmt = select(StarredMessageModel).order_by(StarredMessageModel.star_amount.desc()).limit(limit)
             starred_messages = await session.scalars(stmt)
-            return [self._to_data(starred_message) for starred_message in starred_messages if starred_message is not None]
+            return [
+                self._to_data(starred_message) for starred_message in starred_messages if starred_message is not None
+            ]
 
     async def get_star_amount_ranking(self, limit: int = 10) -> list[StarAmountRankingData]:
         async with self.db.session() as session:
@@ -76,7 +78,9 @@ class StarredMessages:
                 .limit(limit)
             )
             starred_messages = await session.execute(stmt)
-            return [StarAmountRankingData(user_id=row.user_id, star_amount=row.star_amount) for row in starred_messages]
+            return [
+                StarAmountRankingData(user_id=row.user_id, star_amount=row.star_amount) for row in starred_messages
+            ]
 
     async def create_starred_message(
         self,

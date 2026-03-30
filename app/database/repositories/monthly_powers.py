@@ -55,16 +55,14 @@ class MonthlyPowers:
     def _ranking_subquery():
         total_power = MonthlyPowerModel.text_power + MonthlyPowerModel.voice_power
         ranking = func.rank().over(order_by=total_power.desc())
-        return (
-            select(
-                MonthlyPowerModel.user_id.label("user_id"),
-                MonthlyPowerModel.text_power.label("text_power"),
-                MonthlyPowerModel.voice_power.label("voice_power"),
-                MonthlyPowerModel.created_at.label("created_at"),
-                MonthlyPowerModel.updated_at.label("updated_at"),
-                ranking.label("ranking"),
-            ).subquery()
-        )
+        return select(
+            MonthlyPowerModel.user_id.label("user_id"),
+            MonthlyPowerModel.text_power.label("text_power"),
+            MonthlyPowerModel.voice_power.label("voice_power"),
+            MonthlyPowerModel.created_at.label("created_at"),
+            MonthlyPowerModel.updated_at.label("updated_at"),
+            ranking.label("ranking"),
+        ).subquery()
 
     async def create_table(self) -> None:
         async with self.db.engine.begin() as conn:

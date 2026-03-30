@@ -76,6 +76,8 @@ class XPBoosts:
     async def delete_expired_xp_boosts(self) -> None:
         async with self.db.session() as session:
             await session.execute(
-                delete(XPBoostModel).where(XPBoostModel.boost_end_time.is_not(None), XPBoostModel.boost_end_time < func.now())
+                delete(XPBoostModel).where(
+                    XPBoostModel.boost_end_time.is_not(None), XPBoostModel.boost_end_time < func.now()
+                )
             )
             await session.commit()

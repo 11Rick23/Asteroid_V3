@@ -14,6 +14,8 @@ discord:
   guild_ids: [1, 2]
 logging:
   debug_log_retention_days: 10
+report:
+  report_receive_channel_id: 999
 leveling:
   message_cooldown: 30
 """,
@@ -25,6 +27,7 @@ leveling:
     assert config.discord.token == "token"
     assert config.discord.guild_ids == [1, 2]
     assert config.logging.debug_log_retention_days == 10
+    assert config.report.report_receive_channel_id == 999
     assert config.leveling.message_cooldown == 30
 
 
@@ -43,3 +46,4 @@ vc:
     assert config.vc.voice_create_channel_id == 123456789
     assert config.free_category.free_category_channel_limit == 20
     assert config.log.main_log_channel_id == 0
+    assert config.punish.punishment_board_channel_id == 0
