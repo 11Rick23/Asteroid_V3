@@ -23,11 +23,21 @@ class PaginatorButton:
 
 
 class _PaginatorView(discord.ui.View):
-    def __init__(self, pages: Sequence[discord.Embed], buttons: list[PaginatorButton], timeout: float | None = 300):
+    def __init__(
+        self,
+        pages: Sequence[discord.Embed],
+        buttons: list[PaginatorButton],
+        *,
+        loop_pages: bool = False,
+        show_disabled: bool = True,
+        timeout: float | None = 300,
+    ):
         super().__init__(timeout=timeout)
         self.pages = list(pages)
         self.page_index = 0
         self.buttons = buttons
+        self.loop_pages = loop_pages
+        self.show_disabled = show_disabled
         self.message: discord.Message | None = None
         self._build()
 
@@ -40,13 +50,39 @@ class _PaginatorView(discord.ui.View):
                 continue
 
             label = button.label or button.kind
-            control = discord.ui.Button(label=label, style=button.style, disabled=button.disabled)
+            disabled = button.disabled
+            if button.kind == "prev":
+                at_edge = self.page_index == 0
+                if at_edge and not self.loop_pages:
+                    disabled = True
+                    if not self.show_disabled:
+                        continue
+                elif at_edge and self.loop_pages:
+                    label = button.loop_label or label
+            elif button.kind == "next":
+                at_edge = self.page_index == len(self.pages) - 1
+                if at_edge and not self.loop_pages:
+                    disabled = True
+                    if not self.show_disabled:
+                        continue
+                elif at_edge and self.loop_pages:
+                    label = button.loop_label or label
+
+            control = discord.ui.Button(label=label, style=button.style, disabled=disabled)
 
             async def callback(interaction: discord.Interaction, kind: str = button.kind) -> None:
                 if kind == "prev":
-                    self.page_index = max(0, self.page_index - 1)
+                    if self.page_index == 0:
+                        if self.loop_pages:
+                            self.page_index = len(self.pages) - 1
+                    else:
+                        self.page_index -= 1
                 elif kind == "next":
-                    self.page_index = min(len(self.pages) - 1, self.page_index + 1)
+                    if self.page_index == len(self.pages) - 1:
+                        if self.loop_pages:
+                            self.page_index = 0
+                    else:
+                        self.page_index += 1
                 self._build()
                 await interaction.response.edit_message(embed=self.pages[self.page_index], view=self)
 
@@ -66,8 +102,9 @@ class Paginator:
         loop_pages: bool = False,
         show_disabled: bool = True,
     ):
-        del loop_pages, show_disabled
         self.pages = list(pages)
+        self.loop_pages = loop_pages
+        self.show_disabled = show_disabled
         self.buttons: list[PaginatorButton] = []
         if use_default_buttons:
             self.add_button(PaginatorButton("prev", label="<", style=discord.ButtonStyle.green))
@@ -78,7 +115,12 @@ class Paginator:
         self.buttons.append(button)
 
     async def respond(self, interaction: discord.Interaction) -> discord.Message:
-        view = _PaginatorView(self.pages, self.buttons or [PaginatorButton("page_indicator")])
+        view = _PaginatorView(
+            self.pages,
+            self.buttons or [PaginatorButton("page_indicator")],
+            loop_pages=self.loop_pages,
+            show_disabled=self.show_disabled,
+        )
         if interaction.response.is_done():
             message = await interaction.followup.send(embed=self.pages[0], view=view, wait=True)
         else:
