@@ -17,8 +17,6 @@ class BaseSection(BaseModel):
 
 class LoggingConfig(BaseSection):
     level: str = "INFO"
-    debug_log_retention_days: int = 7
-    warning_log_retention_days: int = 7
 
 
 class DiscordConfig(BaseSection):

@@ -13,7 +13,7 @@ discord:
   token: "token"
   guild_ids: [1, 2]
 logging:
-  debug_log_retention_days: 10
+  level: "DEBUG"
 permission_roles_id_list:
   admin: 321
 report:
@@ -29,7 +29,7 @@ leveling:
 
     assert config.discord.token == "token"
     assert config.discord.guild_ids == [1, 2]
-    assert config.logging.debug_log_retention_days == 10
+    assert config.logging.level == "DEBUG"
     assert config.permission_roles_id_list.admin == 321
     assert config.report.report_receive_channel_id == 999
     assert config.report.report_ping_role_id == 123

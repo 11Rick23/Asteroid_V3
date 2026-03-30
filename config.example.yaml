@@ -13,8 +13,6 @@ database:
 
 logging:
   level: "INFO"
-  debug_log_retention_days: 7
-  warning_log_retention_days: 7
 
 # アルファベット順で記載！
 features:
