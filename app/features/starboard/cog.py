@@ -272,7 +272,9 @@ async def setup_starboard(interaction: discord.Interaction) -> None:
 
     for processed_count, starred_message_data in enumerate(starred_messages, start=1):
         try:
-            old_starboard_message = await source_starboard_channel.fetch_message(starred_message_data.starboard_message_id)
+            old_starboard_message = await source_starboard_channel.fetch_message(
+                starred_message_data.starboard_message_id
+            )
         except discord.NotFound:
             await bot.db.starred_messages.delete_starred_message(starred_message_data.starred_message_id)
             deleted_count += 1
@@ -325,8 +327,7 @@ async def setup_starboard(interaction: discord.Interaction) -> None:
             )
         except discord.Forbidden:
             logger.warning(
-                "新スターボードチャンネルへの送信権限がありません: "
-                f"target_channel_id={target_starboard_channel.id}"
+                f"新スターボードチャンネルへの送信権限がありません: target_channel_id={target_starboard_channel.id}"
             )
             await interaction.followup.send(
                 _build_starboard_setup_error(
@@ -341,8 +342,7 @@ async def setup_starboard(interaction: discord.Interaction) -> None:
             return
         except discord.HTTPException:
             logger.exception(
-                "新スターボードチャンネルへの送信に失敗しました: "
-                f"target_channel_id={target_starboard_channel.id}"
+                f"新スターボードチャンネルへの送信に失敗しました: target_channel_id={target_starboard_channel.id}"
             )
             await interaction.followup.send(
                 _build_starboard_setup_error(

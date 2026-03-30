@@ -211,7 +211,7 @@ class VoiceCreateService:
                 embed=self.build_control_embed(channel, color),
                 view=self.build_control_view(channel),
             )
-        except (discord.NotFound, discord.Forbidden):
+        except discord.NotFound, discord.Forbidden:
             logger.debug(f"VCコントロールパネルの追跡を解除しました: channel_id={channel.id} message_id={message_id}")
             self.untrack_control_message(channel.id, message_id)
 
@@ -244,7 +244,9 @@ class VoiceCreateService:
             ):
                 self.clear_control_messages(before.channel.id)
                 await before.channel.delete(reason=f"[{generate_timestamp()}] 誰もいなくなったため自動削除。")
-                logger.debug(f"VCを自動削除しました: guild_id={before.channel.guild.id} channel_id={before.channel.id}")
+                logger.debug(
+                    f"VCを自動削除しました: guild_id={before.channel.guild.id} channel_id={before.channel.id}"
+                )
 
         if after.channel is None or after.channel.id != self.get_voice_create_channel_id():
             return

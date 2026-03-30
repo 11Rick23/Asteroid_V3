@@ -10,9 +10,9 @@ import tempfile
 from pathlib import Path
 from urllib.parse import quote
 
+from sqlalchemy.dialects import mysql
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.schema import CreateTable
-from sqlalchemy.dialects import mysql
 
 import app.database.models  # noqa: F401
 from app.database.base import Base
@@ -68,10 +68,7 @@ def prompt_with_default(prompt: str, default: str) -> str:
 
 
 def build_mysql_database_url(user: str, password: str, host: str, port: int, database: str) -> str:
-    return (
-        f"mysql://{quote(user, safe='')}:{quote(password, safe='')}"
-        f"@{host}:{port}/{quote(database, safe='')}"
-    )
+    return f"mysql://{quote(user, safe='')}:{quote(password, safe='')}@{host}:{port}/{quote(database, safe='')}"
 
 
 def prompt_database_components(label: str) -> str:
@@ -129,7 +126,9 @@ def _mysql_connection_args(url: URL) -> list[str]:
     ]
 
 
-def run_command(command: list[str], *, env: dict[str, str], label: str, stdin=None) -> subprocess.CompletedProcess[str]:
+def run_command(
+    command: list[str], *, env: dict[str, str], label: str, stdin=None
+) -> subprocess.CompletedProcess[str]:
     logger.debug("Running command: %s", " ".join(command))
     try:
         return subprocess.run(
@@ -150,6 +149,7 @@ def run_mysql_query(url: URL, query: str, *, label: str) -> list[str]:
     command.extend(["--batch", "--skip-column-names", f"--execute={query}"])
     result = run_command(command, env=_connection_env(url), label=label)
     return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
 
 def run_mysql_script_with_input(url: URL, sql: str, *, label: str) -> None:
     command = ["mysql", *_mysql_connection_args(url), f"--database={url.database}"]
@@ -242,8 +242,7 @@ def ensure_target_tables_are_empty(target_url: URL, table_names: set[str]) -> No
 def create_target_tables(target_url: URL) -> None:
     dialect = mysql.dialect()
     statements = [
-        str(CreateTable(table, if_not_exists=True).compile(dialect=dialect))
-        for table in Base.metadata.sorted_tables
+        str(CreateTable(table, if_not_exists=True).compile(dialect=dialect)) for table in Base.metadata.sorted_tables
     ]
     run_mysql_script_with_input(
         target_url,

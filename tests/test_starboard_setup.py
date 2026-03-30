@@ -86,7 +86,9 @@ async def test_get_all_starred_messages_orders_by_created_at_then_message_id() -
     result = await repository.get_all_starred_messages()
 
     assert [item.starred_message_id for item in result] == [1, 2]
-    assert "ORDER BY starred_messages.created_at ASC, starred_messages.starred_message_id ASC" in str(session.statement)
+    assert "ORDER BY starred_messages.created_at ASC, starred_messages.starred_message_id ASC" in str(
+        session.statement
+    )
 
 
 @pytest.mark.asyncio
@@ -219,7 +221,9 @@ async def test_setup_starboard_recreates_messages_and_updates_database(monkeypat
         },
     )
     target_channel = DummyChannel(222, bot_user_id=42)
-    starred_messages = DummyStarredMessagesRepository([build_starred_message_data(starred_message_id=1, starboard_message_id=1001)])
+    starred_messages = DummyStarredMessagesRepository(
+        [build_starred_message_data(starred_message_id=1, starboard_message_id=1001)]
+    )
     bot = SimpleNamespace(
         config=SimpleNamespace(starboard=SimpleNamespace(starboard_channel_id=222)),
         user=SimpleNamespace(id=42),
@@ -247,7 +251,9 @@ async def test_setup_starboard_stops_when_destination_already_has_bot_message(
 ) -> None:
     source_channel = DummyChannel(111)
     target_channel = DummyChannel(222, history_messages=[DummyMessage(5001, 42, "existing", [])])
-    starred_messages = DummyStarredMessagesRepository([build_starred_message_data(starred_message_id=1, starboard_message_id=1001)])
+    starred_messages = DummyStarredMessagesRepository(
+        [build_starred_message_data(starred_message_id=1, starboard_message_id=1001)]
+    )
     bot = SimpleNamespace(
         config=SimpleNamespace(starboard=SimpleNamespace(starboard_channel_id=222)),
         user=SimpleNamespace(id=42),
@@ -331,7 +337,9 @@ async def test_setup_starboard_stops_when_destination_send_fails(monkeypatch: py
         bot_user_id=42,
         send_exception=build_http_exception(discord.Forbidden, status=403, reason="Forbidden", text="forbidden"),
     )
-    starred_messages = DummyStarredMessagesRepository([build_starred_message_data(starred_message_id=1, starboard_message_id=1001)])
+    starred_messages = DummyStarredMessagesRepository(
+        [build_starred_message_data(starred_message_id=1, starboard_message_id=1001)]
+    )
     bot = SimpleNamespace(
         config=SimpleNamespace(starboard=SimpleNamespace(starboard_channel_id=222)),
         user=SimpleNamespace(id=42),
