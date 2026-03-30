@@ -80,9 +80,9 @@ class Paginator:
     async def respond(self, interaction: discord.Interaction) -> discord.Message:
         view = _PaginatorView(self.pages, self.buttons or [PaginatorButton("page_indicator")])
         if interaction.response.is_done():
-            await interaction.followup.send(embed=self.pages[0], view=view)
+            message = await interaction.followup.send(embed=self.pages[0], view=view, wait=True)
         else:
             await interaction.response.send_message(embed=self.pages[0], view=view)
-        message = await interaction.original_response()
+            message = await interaction.original_response()
         view.message = message
         return message
