@@ -10,6 +10,10 @@ from app.database.repositories.star_grades import StarGradeData, StarGradeRankin
 from app.features.leveling.domain.math_calculation import next_grade_progress, total_shard_amount
 
 
+def total_monthly_power(monthly_power: MonthlyPowerData | MonthlyPowerRankingData) -> int:
+    return monthly_power.text_power + monthly_power.voice_power + monthly_power.action_power
+
+
 async def send_grade_up_message(
     channel: discord.abc.Messageable, author: discord.User | discord.Member, grade: int, grade_up_amount: int
 ) -> None:
@@ -153,6 +157,11 @@ def build_power_embed(
         value=f"{AsteroidEmoji.VOICE_POWER} {humanize_number(monthly_power.voice_power)}",
         inline=True,
     )
+    embed.add_field(
+        name="アクションパワー数",
+        value=f"{AsteroidEmoji.ACTION_POWER} {humanize_number(monthly_power.action_power)}",
+        inline=True,
+    )
     return embed
 
 
@@ -171,7 +180,8 @@ def build_power_ranking_embed(
             name=f"{monthly_power.ranking}位: {display_name}",
             value=f"{AsteroidEmoji.TEXT_POWER} {humanize_number(monthly_power.text_power)}"
             f"{AsteroidEmoji.TRANSPARENT}{AsteroidEmoji.VOICE_POWER} {humanize_number(monthly_power.voice_power)}"
-            f"{AsteroidEmoji.TRANSPARENT}計: {humanize_number(monthly_power.text_power + monthly_power.voice_power)}",
+            f"{AsteroidEmoji.TRANSPARENT}{AsteroidEmoji.ACTION_POWER} {humanize_number(monthly_power.action_power)}"
+            f"{AsteroidEmoji.TRANSPARENT}計: {humanize_number(total_monthly_power(monthly_power))}",
             inline=False,
         )
     if monthly_powers:
@@ -186,7 +196,7 @@ def build_rank_embed(
 ) -> discord.Embed:
     grade_progress, grade_progress_bar = next_grade_progress(star_grade.grade, star_grade.shard)
     total_shards = total_shard_amount(star_grade.prestige, star_grade.grade, star_grade.shard)
-    total_power = monthly_power.text_power + monthly_power.voice_power
+    total_power = total_monthly_power(monthly_power)
     embed = discord.Embed(
         description=f"次のグレードまで…\n## {grade_progress_bar} {grade_progress}%\n", color=AsteroidColor.INFO
     )
@@ -205,7 +215,8 @@ def build_rank_embed(
     embed.add_field(
         name=f"{humanize_number(total_power)}パワー - 現在{monthly_power.ranking}位",
         value=f"{AsteroidEmoji.TEXT_POWER} {humanize_number(monthly_power.text_power)}"
-        f"{AsteroidEmoji.TRANSPARENT}{AsteroidEmoji.VOICE_POWER} {humanize_number(monthly_power.voice_power)}",
+        f"{AsteroidEmoji.TRANSPARENT}{AsteroidEmoji.VOICE_POWER} {humanize_number(monthly_power.voice_power)}"
+        f"{AsteroidEmoji.TRANSPARENT}{AsteroidEmoji.ACTION_POWER} {humanize_number(monthly_power.action_power)}",
         inline=False,
     )
     return embed

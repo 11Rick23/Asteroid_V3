@@ -18,6 +18,11 @@ SHARD_TYPE_CHOICES = [
     app_commands.Choice(name="ボイス", value="ボイス"),
     app_commands.Choice(name="ボーナス", value="ボーナス"),
 ]
+POWER_TYPE_CHOICES = [
+    app_commands.Choice(name="テキスト", value="text"),
+    app_commands.Choice(name="ボイス", value="voice"),
+    app_commands.Choice(name="アクション", value="action"),
+]
 
 
 @xp_boost_group.command(name="add", description="経験値ブースターを追加します")
@@ -87,30 +92,62 @@ async def remove_shard(
 
 
 @admin_power_group.command(name="add", description="ユーザーにパワーを追加します")
-async def add_power(interaction: discord.Interaction, user: discord.Member, target: str, amount: int) -> None:
+@app_commands.choices(target=POWER_TYPE_CHOICES)
+async def add_power(
+    interaction: discord.Interaction,
+    user: discord.Member,
+    target: app_commands.Choice[str],
+    amount: int,
+) -> None:
     bot = get_bot(interaction)
-    power = await bot.db.monthly_powers.get_monthly_power(user.id) or await bot.db.monthly_powers.create_monthly_power(
-        user.id
-    )
-    power = await (
-        bot.db.monthly_powers.add_text_power(power, amount)
-        if target == "text"
-        else bot.db.monthly_powers.add_voice_power(power, amount)
-    )
+    target_value = target.value
+    if target_value == "action":
+        async with bot.db.session() as session:
+            action_power = await bot.db.monthly_action_powers.get_monthly_action_power_lock(
+                session, user.id
+            ) or await bot.db.monthly_action_powers.create_monthly_action_power_lock(session, user.id)
+            await bot.db.monthly_action_powers.add_action_power_lock(session, action_power, amount)
+            await session.commit()
+        power = await bot.db.monthly_powers.get_monthly_power(user.id)
+    else:
+        power = await bot.db.monthly_powers.get_monthly_power(user.id)
+        if power is None:
+            power = await bot.db.monthly_powers.create_monthly_power(user.id)
+        power = await (
+            bot.db.monthly_powers.add_text_power(power, amount)
+            if target_value == "text"
+            else bot.db.monthly_powers.add_voice_power(power, amount)
+        )
     await interaction.response.send_message(embed=build_power_embed(user, power))
 
 
 @admin_power_group.command(name="remove", description="ユーザーからパワーを減らします")
-async def remove_power(interaction: discord.Interaction, user: discord.Member, target: str, amount: int) -> None:
+@app_commands.choices(target=POWER_TYPE_CHOICES)
+async def remove_power(
+    interaction: discord.Interaction,
+    user: discord.Member,
+    target: app_commands.Choice[str],
+    amount: int,
+) -> None:
     bot = get_bot(interaction)
-    power = await bot.db.monthly_powers.get_monthly_power(user.id) or await bot.db.monthly_powers.create_monthly_power(
-        user.id
-    )
-    power = await (
-        bot.db.monthly_powers.remove_text_power(power, amount)
-        if target == "text"
-        else bot.db.monthly_powers.remove_voice_power(power, amount)
-    )
+    target_value = target.value
+    if target_value == "action":
+        async with bot.db.session() as session:
+            action_power = await bot.db.monthly_action_powers.get_monthly_action_power_lock(
+                session, user.id
+            ) or await bot.db.monthly_action_powers.create_monthly_action_power_lock(session, user.id)
+            await bot.db.monthly_action_powers.remove_action_power_lock(session, action_power, amount)
+            await session.commit()
+        power = await bot.db.monthly_powers.get_monthly_power(user.id)
+    else:
+        power = await bot.db.monthly_powers.get_monthly_power(user.id)
+        if power is None:
+            power = await bot.db.monthly_powers.create_monthly_power(user.id)
+        power = await (
+            bot.db.monthly_powers.remove_text_power(power, amount)
+            if target_value == "text"
+            else bot.db.monthly_powers.remove_voice_power(power, amount)
+        )
     await interaction.response.send_message(embed=build_power_embed(user, power))
 
 
@@ -118,6 +155,7 @@ async def remove_power(interaction: discord.Interaction, user: discord.Member, t
 async def reset_power_ranking(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
     await bot.db.monthly_powers.truncate_table()
+    await bot.db.monthly_action_powers.truncate_table()
     await bot.db.voice_xp_limits.reset_voice_power()
     await interaction.response.send_message("月間パワーランキングをリセットしました。")
 

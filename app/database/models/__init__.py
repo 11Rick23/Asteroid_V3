@@ -1,4 +1,5 @@
 from .given_stars import GivenStarModel
+from .monthly_action_powers import MonthlyActionPowerModel
 from .monthly_powers import MonthlyPowerModel
 from .star_grades import StarGradeModel
 from .starred_messages import StarredMessageModel
@@ -9,6 +10,7 @@ from .xp_boosts import XPBoostModel
 
 __all__ = [
     "GivenStarModel",
+    "MonthlyActionPowerModel",
     "MonthlyPowerModel",
     "StarGradeModel",
     "StarredMessageModel",

@@ -44,6 +44,7 @@ class AsteroidBot(Bot):
         await self.db.xp_boosts.create_table()
         await self.db.star_grades.create_table()
         await self.db.voice_xp_limits.create_table()
+        await self.db.monthly_action_powers.create_table()
         await self.db.monthly_powers.create_table()
         await self.db.user_birthdays.create_table()
         self.db.initialized = True

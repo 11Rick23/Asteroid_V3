@@ -119,6 +119,7 @@ class LevelingConfig(BaseSection):
     stack_prestige_role: bool = True
     grade_roles_id_list: list[GradeRoleReward] = Field(default_factory=list)
     prestige_roles_id_list: list[PrestigeRoleReward] = Field(default_factory=list)
+    action_power_channel_id: int = 0
     prestige_announce_channel_id: int = 0
     ranking_board_channel_id: int = 0
     month_ranking_board_channel_id: int = 0
