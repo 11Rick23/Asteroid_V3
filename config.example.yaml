@@ -97,7 +97,10 @@ log:
 
 punish:
   punishment_board_channel_id: 0000000000000000000
-  crime_record_role_id_list: []
+  crime_record_role_id_list:
+    - 0000000000000000000
+    - 0000000000000000000
+    - 0000000000000000000
   forbid_role_id: 0000000000000000000
   mute_role_id: 0000000000000000000
 
