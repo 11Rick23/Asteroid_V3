@@ -123,9 +123,18 @@ report:
   report_ping_role_id: 0000000000000000000
 
 roles:
-  join_role_id_list: []
-  bot_join_role_id_list: []
-  ignored_save_role_id_list: []
+  join_role_id_list:
+    - 0000000000000000000
+    - 0000000000000000000
+    - 0000000000000000000
+  bot_join_role_id_list:
+    - 0000000000000000000
+    - 0000000000000000000
+    - 0000000000000000000
+  ignored_save_role_id_list:
+    - 0000000000000000000
+    - 0000000000000000000
+    - 0000000000000000000
 
 starboard:
   starboard_channel_id: 0000000000000000000
