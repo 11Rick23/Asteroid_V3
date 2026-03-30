@@ -11,7 +11,7 @@ from app.common.constants import AsteroidColor
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
 
-logger = getLogger("asteroid.features.free_category")
+logger = getLogger(__name__)
 
 op_permissions = discord.PermissionOverwrite(
     manage_channels=True,

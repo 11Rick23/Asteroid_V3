@@ -110,4 +110,4 @@ def setup_logger(config: AsteroidConfig) -> None:
     root.addHandler(console_handler)
 
     getLogger("discord").setLevel(logging.INFO)
-    getLogger("asteroid").setLevel(logging.DEBUG)
+    getLogger("app").setLevel(logging.DEBUG)

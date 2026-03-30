@@ -5,7 +5,7 @@ from app.core.bot import AsteroidBot
 from app.core.config import get_config
 from app.core.logging import setup_logger
 
-logger = getLogger("asteroid.launch")
+logger = getLogger("app.launch_app")
 
 
 def main() -> None:

@@ -6,7 +6,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from ruamel.yaml import YAML
 
-logger = getLogger("asteroid.config")
+logger = getLogger(__name__)
 
 _config: AsteroidConfig | None = None
 

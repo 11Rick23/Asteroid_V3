@@ -11,7 +11,7 @@ from app.database.session import create_engine, create_session_factory
 from .config import AsteroidConfig
 from .extensions import iter_enabled_extensions
 
-logger = getLogger("asteroid.bot")
+logger = getLogger(__name__)
 
 
 class AsteroidBot(Bot):

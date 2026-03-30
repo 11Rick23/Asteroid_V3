@@ -9,7 +9,7 @@ from discord.ext import commands
 
 from app.core.bot import AsteroidBot
 
-logger = getLogger("asteroid.features.logging.error")
+logger = getLogger(__name__)
 TRACEBACK_TAIL_LINES = 12
 TRACEBACK_MAX_LENGTH = 1800
 
