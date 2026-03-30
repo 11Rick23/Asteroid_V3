@@ -90,6 +90,7 @@ class PermRoleSelect(discord.ui.Select):
 
 
 @punish_group.command(name="none", description="処罰: 無し")
+@app_commands.guild_only()
 async def punish_none(interaction: discord.Interaction, defendant: discord.User, content: str, reason: str) -> None:
     bot = get_bot(interaction)
     punishment_board = interaction.guild.get_channel(bot.config.punish.punishment_board_channel_id)
@@ -104,6 +105,7 @@ async def punish_none(interaction: discord.Interaction, defendant: discord.User,
 
 
 @punish_group.command(name="lecture", description="処罰: 口頭注意")
+@app_commands.guild_only()
 async def lecture(interaction: discord.Interaction, violator: discord.User, reason: str) -> None:
     bot = get_bot(interaction)
     punishment_board = interaction.guild.get_channel(bot.config.punish.punishment_board_channel_id)
@@ -112,6 +114,7 @@ async def lecture(interaction: discord.Interaction, violator: discord.User, reas
 
 
 @punish_group.command(name="delete", description="処罰: メッセージ削除")
+@app_commands.guild_only()
 async def delete(interaction: discord.Interaction, violator: discord.User, reason: str) -> None:
     bot = get_bot(interaction)
     punishment_board = interaction.guild.get_channel(bot.config.punish.punishment_board_channel_id)
@@ -120,6 +123,7 @@ async def delete(interaction: discord.Interaction, violator: discord.User, reaso
 
 
 @punish_group.command(name="timeout", description="処罰: タイムアウト")
+@app_commands.guild_only()
 async def timeout(
     interaction: discord.Interaction,
     violator: discord.User,
@@ -155,6 +159,7 @@ async def timeout(
 
 
 @punish_group.command(name="disrobe", description="処罰: 権限剥奪")
+@app_commands.guild_only()
 async def disrobe(
     interaction: discord.Interaction, violator: discord.Member, reason: str, probation: str | None = None
 ) -> None:
@@ -175,6 +180,7 @@ async def disrobe(
 
 
 @punish_group.command(name="mute", description="処罰: MUTE")
+@app_commands.guild_only()
 async def mute(
     interaction: discord.Interaction, user: discord.User, reason: str, probation: str | None = None
 ) -> None:
@@ -194,6 +200,7 @@ async def mute(
 
 
 @punish_group.command(name="forbid", description="処罰: 閲覧禁止")
+@app_commands.guild_only()
 async def forbid(
     interaction: discord.Interaction, user: discord.User, reason: str, probation: str | None = None
 ) -> None:
@@ -215,6 +222,7 @@ async def forbid(
 
 
 @punish_group.command(name="ban", description="処罰: BAN")
+@app_commands.guild_only()
 async def ban(interaction: discord.Interaction, user: discord.User, reason: str, probation: str | None = None) -> None:
     bot = get_bot(interaction)
     punishment_board = interaction.guild.get_channel(bot.config.punish.punishment_board_channel_id)
