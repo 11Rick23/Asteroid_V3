@@ -3,7 +3,7 @@ from __future__ import annotations
 import discord
 import pytest
 
-from app.common.pages import Paginator
+from app.common.pages import Paginator, _PaginatorView
 
 
 class DummyResponse:
@@ -40,6 +40,19 @@ class DummyInteraction:
         return self._original_message
 
 
+class DummyEditResponse:
+    def __init__(self) -> None:
+        self.edit_calls: list[tuple[discord.Embed, object]] = []
+
+    async def edit_message(self, *, embed: discord.Embed, view: object) -> None:
+        self.edit_calls.append((embed, view))
+
+
+class DummyCallbackInteraction:
+    def __init__(self) -> None:
+        self.response = DummyEditResponse()
+
+
 @pytest.mark.asyncio
 async def test_paginator_respond_returns_original_response_message() -> None:
     paginator = Paginator(pages=[discord.Embed(title="page")])
@@ -73,3 +86,39 @@ async def test_paginator_respond_returns_followup_message_when_response_done() -
     assert len(interaction.followup.send_calls) == 1
     assert interaction.followup.send_calls[0][2] is True
     assert interaction.original_response_calls == 0
+
+
+def test_paginator_hides_disabled_navigation_buttons_when_requested() -> None:
+    paginator = Paginator(
+        pages=[discord.Embed(title="page1"), discord.Embed(title="page2")],
+        show_disabled=False,
+    )
+    view = _PaginatorView(
+        paginator.pages,
+        paginator.buttons,
+        loop_pages=paginator.loop_pages,
+        show_disabled=paginator.show_disabled,
+    )
+
+    assert [item.label for item in view.children] == ["1/2", ">"]
+
+
+@pytest.mark.asyncio
+async def test_paginator_loops_pages_when_enabled() -> None:
+    paginator = Paginator(
+        pages=[discord.Embed(title="page1"), discord.Embed(title="page2")],
+        loop_pages=True,
+    )
+    view = _PaginatorView(
+        paginator.pages,
+        paginator.buttons,
+        loop_pages=paginator.loop_pages,
+        show_disabled=paginator.show_disabled,
+    )
+    prev_button = next(item for item in view.children if item.label == "<")
+    interaction = DummyCallbackInteraction()
+
+    await prev_button.callback(interaction)
+
+    assert view.page_index == 1
+    assert interaction.response.edit_calls[0][0].title == "page2"
