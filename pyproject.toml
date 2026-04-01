@@ -2,7 +2,7 @@
 name = "asteroid-v3"
 version = "0.1.0"
 description = "Discordサーバー『ナメック星』にて使用する専属BOT（3代目）"
-readme = "../README.md"
+readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "aiohttp>=3.12.0",
