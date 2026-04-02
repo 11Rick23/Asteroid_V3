@@ -25,7 +25,7 @@ class LinkExpander(commands.Cog):
     @commands.Cog.listener("on_message")
     async def link_expander(self, message: discord.Message) -> None:
         self.bot.remember_message(message)
-        if message.author.bot or message.guild is None or message.guild.id not in self.bot.config.discord.guild_ids:
+        if message.author.bot or message.guild is None or message.guild.id != self.bot.config.discord.guild_id:
             return
 
         urls = [i.group("channel", "message") for i in re.finditer(discord_message_url_pattern, message.content)]

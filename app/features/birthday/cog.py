@@ -53,10 +53,10 @@ class Birthday(commands.Cog):
 
     @tasks.loop(time=time(hour=0, minute=0, tzinfo=ZoneInfo("Asia/Tokyo")))
     async def announce_birthday(self) -> None:
-        guild_ids = self.bot.config.discord.guild_ids
+        guild_id = self.bot.config.discord.guild_id
         birthday_channel_id = self.bot.config.birthday.birthday_channel_id
         birthday_role_id = self.bot.config.birthday.birthday_role_id
-        if not guild_ids or not birthday_channel_id or not birthday_role_id:
+        if not guild_id or not birthday_channel_id or not birthday_role_id:
             logger.warning("誕生日アナウンス設定が不足しています。")
             return
 
@@ -66,9 +66,9 @@ class Birthday(commands.Cog):
         if not isleap(today.year) and today.month == 2 and today.day == 28:
             data.extend(await self.bot.db.user_birthdays.get_user_data_by_date(date(DEFAULT_YEAR, 2, 29)))
 
-        guild = self.bot.get_guild(guild_ids[0])
+        guild = self.bot.get_guild(guild_id)
         if guild is None:
-            logger.warning(f"誕生日アナウンス対象ギルドが見つかりませんでした: guild_id={guild_ids[0]}")
+            logger.warning(f"誕生日アナウンス対象ギルドが見つかりませんでした: guild_id={guild_id}")
             return
 
         announce_channel = guild.get_channel(birthday_channel_id)

@@ -21,7 +21,7 @@ class LoggingConfig(BaseSection):
 
 class DiscordConfig(BaseSection):
     token: str = ""
-    guild_ids: list[int] = Field(default_factory=list)
+    guild_id: int = 0
     sync_commands_on_startup: bool = True
     register_globally: bool = False
     activity_name: str = "ナメック星"

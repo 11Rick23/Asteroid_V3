@@ -81,7 +81,7 @@ class LevelingSystemCore(commands.Cog):
     async def try_handle_action_power_command(self, message: discord.Message) -> bool:
         if (
             message.guild is None
-            or message.guild.id not in self.bot.config.discord.guild_ids
+            or message.guild.id != self.bot.config.discord.guild_id
             or not message.author.bot
             or self.bot.config.leveling.action_power_channel_id == 0
             or message.channel.id != self.bot.config.leveling.action_power_channel_id
@@ -119,7 +119,7 @@ class LevelingSystemCore(commands.Cog):
         self.bot.remember_message(message)
         if await self.try_handle_action_power_command(message):
             return
-        if message.author.bot or message.guild is None or message.guild.id not in self.bot.config.discord.guild_ids:
+        if message.author.bot or message.guild is None or message.guild.id != self.bot.config.discord.guild_id:
             return
         if message.author.id in self.cooldown and (self.cooldown[message.author.id] + self.cooldown_time) >= time():
             logger.debug(
@@ -200,10 +200,10 @@ class LevelingSystemCore(commands.Cog):
             return
 
         logger.info("月間ランキング集計を開始します。")
-        guild = self.bot.get_guild(self.bot.config.discord.guild_ids[0])
+        guild = self.bot.get_guild(self.bot.config.discord.guild_id)
         if guild is None:
             logger.warning(
-                f"月間ランキング集計先ギルドが見つかりませんでした: guild_id={self.bot.config.discord.guild_ids[0]}"
+                f"月間ランキング集計先ギルドが見つかりませんでした: guild_id={self.bot.config.discord.guild_id}"
             )
             return
         top1_role = guild.get_role(self.bot.config.leveling.top1_role_id)
