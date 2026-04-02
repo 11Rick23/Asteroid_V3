@@ -34,7 +34,7 @@ class ReportCog(commands.Cog):
         content: str,
         image: discord.Attachment | None = None,
     ) -> None:
-        logger.info(
+        logger.debug(
             "レポート送信を受け付けました: "
             f"guild_id={interaction.guild.id if interaction.guild is not None else None} "
             f"channel_id={interaction.channel_id} "
@@ -65,7 +65,7 @@ class ReportCog(commands.Cog):
             embed=embed,
             view=ReportResolveView(),
         )
-        logger.info(
+        logger.debug(
             "レポート送信が完了しました: "
             f"guild_id={interaction.guild.id} reporter_id={interaction.user.id} "
             f"violator_id={violator.id} destination_channel_id={report_receive_channel.id}"

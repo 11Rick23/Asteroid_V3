@@ -81,7 +81,7 @@ class LevelingSystemCore(commands.Cog):
     async def try_handle_action_power_command(self, message: discord.Message) -> bool:
         if (
             message.guild is None
-            or message.guild.id not in self.bot.config.discord.guild_ids
+            or message.guild.id != self.bot.config.discord.guild_id
             or not message.author.bot
             or self.bot.config.leveling.action_power_channel_id == 0
             or message.channel.id != self.bot.config.leveling.action_power_channel_id
@@ -119,7 +119,7 @@ class LevelingSystemCore(commands.Cog):
         self.bot.remember_message(message)
         if await self.try_handle_action_power_command(message):
             return
-        if message.author.bot or message.guild is None or message.guild.id not in self.bot.config.discord.guild_ids:
+        if message.author.bot or message.guild is None or message.guild.id != self.bot.config.discord.guild_id:
             return
         if message.author.id in self.cooldown and (self.cooldown[message.author.id] + self.cooldown_time) >= time():
             logger.debug(
@@ -200,10 +200,10 @@ class LevelingSystemCore(commands.Cog):
             return
 
         logger.info("月間ランキング集計を開始します。")
-        guild = self.bot.get_guild(self.bot.config.discord.guild_ids[0])
+        guild = self.bot.get_guild(self.bot.config.discord.guild_id)
         if guild is None:
             logger.warning(
-                f"月間ランキング集計先ギルドが見つかりませんでした: guild_id={self.bot.config.discord.guild_ids[0]}"
+                f"月間ランキング集計先ギルドが見つかりませんでした: guild_id={self.bot.config.discord.guild_id}"
             )
             return
         top1_role = guild.get_role(self.bot.config.leveling.top1_role_id)
@@ -383,7 +383,7 @@ class LevelingSystemCore(commands.Cog):
 
     @tasks.loop(minutes=1)
     async def update_ranking_board(self) -> None:
-        if not self.bot.db.is_initialized() or len(self.ranking_board_messages) == 0:
+        if not self.bot.db.is_initialized():
             return
         monthly_powers = await self.bot.db.monthly_powers.get_monthly_power_ranking(limit=10)
         star_grades = await self.bot.db.star_grades.get_star_grade_ranking(limit=10)
@@ -409,27 +409,52 @@ class LevelingSystemCore(commands.Cog):
         shard_embed = build_shard_ranking_embed(self.bot, star_grades, base_shard)
         if not monthly_embed or not shard_embed:
             return
+        if len(self.ranking_board_messages) == 0:
+            await self._send_ranking_board_message(embeds=[shard_embed[0], monthly_embed[0]])
+            logger.info("ランキングボードメッセージが存在しなかったため再作成しました。")
+            return
         for ranking_board_message in list(self.ranking_board_messages):
             try:
                 await ranking_board_message.edit(embeds=[shard_embed[0], monthly_embed[0]])
             except discord.NotFound:
                 self.ranking_board_messages.remove(ranking_board_message)
+                logger.info(
+                    f"ランキングボードメッセージが見つからなかったため管理対象から削除しました: "
+                    f"message_id={ranking_board_message.id}"
+                )
+            except discord.HTTPException as error:
+                logger.warning(
+                    f"ランキングボードの更新に失敗しました。次回のループで再試行します: "
+                    f"message_id={ranking_board_message.id} status={error.status} code={error.code}"
+                )
+        if len(self.ranking_board_messages) == 0:
+            await self._send_ranking_board_message(embeds=[shard_embed[0], monthly_embed[0]])
+            logger.info("ランキングボードメッセージが削除されていたため再作成しました。")
         logger.debug(f"ランキングボードを更新しました: message_count={len(self.ranking_board_messages)}")
 
     @update_ranking_board.before_loop
     async def setup_ranking_board(self) -> None:
         await self.bot.wait_until_ready()
-        channel = self.bot.get_channel(self.bot.config.leveling.ranking_board_channel_id)
-        if channel is not None:
-            message = await channel.send(
-                embed=discord.Embed(title="ランキングボード", description="更新待機中", color=AsteroidColor.INFO)
-            )
-            self.ranking_board_messages.append(message)
-            logger.debug(f"ランキングボードを初期化しました: channel_id={channel.id} message_id={message.id}")
+        await self._send_ranking_board_message(
+            embeds=[discord.Embed(title="ランキングボード", description="更新待機中", color=AsteroidColor.INFO)]
+        )
 
     @update_ranking_board.after_loop
     async def cleanup_ranking_board(self) -> None:
-        await self._cleanup_ranking_board_messages()
+        if self.update_ranking_board.is_being_cancelled():
+            await self._cleanup_ranking_board_messages()
+
+    async def _send_ranking_board_message(self, embeds: list[discord.Embed]) -> None:
+        channel = self.bot.get_channel(self.bot.config.leveling.ranking_board_channel_id)
+        if channel is None:
+            logger.warning(
+                f"ランキングボード送信先チャンネルが見つかりませんでした: "
+                f"channel_id={self.bot.config.leveling.ranking_board_channel_id}"
+            )
+            return
+        message = await channel.send(embeds=embeds)
+        self.ranking_board_messages.append(message)
+        logger.info(f"ランキングボードを初期化しました: channel_id={channel.id} message_id={message.id}")
 
     async def _cleanup_ranking_board_messages(self) -> None:
         deleted_count = 0
@@ -441,7 +466,7 @@ class LevelingSystemCore(commands.Cog):
                 pass
         self.ranking_board_messages = []
         if deleted_count > 0:
-            logger.debug(f"ランキングボードメッセージを削除しました: count={deleted_count}")
+            logger.info(f"ランキングボードメッセージを削除しました: count={deleted_count}")
 
     @delete_expired_xp_boosts.before_loop
     @monthly_ranking.before_loop

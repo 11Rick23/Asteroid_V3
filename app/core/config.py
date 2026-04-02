@@ -21,7 +21,7 @@ class LoggingConfig(BaseSection):
 
 class DiscordConfig(BaseSection):
     token: str = ""
-    guild_ids: list[int] = Field(default_factory=list)
+    guild_id: int = 0
     sync_commands_on_startup: bool = True
     register_globally: bool = False
     activity_name: str = "ナメック星"
@@ -191,7 +191,7 @@ class AsteroidConfig(BaseModel):
 
     @classmethod
     def load(cls, path: str | Path = "config.yaml") -> AsteroidConfig:
-        logger.debug("設定を読み込みます。")
+        logger.info("設定を読み込みます。")
         yaml = YAML(typ="safe")
         with Path(path).open(encoding="utf-8") as f:
             yaml_data = yaml.load(f) or {}

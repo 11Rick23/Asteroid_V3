@@ -1,7 +1,6 @@
 discord:
   token: ""
-  guild_ids:
-    - 0000000000000000000
+  guild_id: 0000000000000000000
   sync_commands_on_startup: true
   register_globally: false
   activity_name: "アクティビティ名"

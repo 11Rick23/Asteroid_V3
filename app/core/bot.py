@@ -69,16 +69,15 @@ class AsteroidBot(Bot):
             logger.info("スラッシュコマンド同期をスキップします: sync_commands_on_startup=False")
             return
 
-        if self.config.discord.register_globally or not self.config.discord.guild_ids:
+        if self.config.discord.register_globally or not self.config.discord.guild_id:
             await self.tree.sync()
             logger.info("スラッシュコマンドをグローバル同期しました。")
             return
 
-        for guild_id in self.config.discord.guild_ids:
-            guild = discord.Object(id=guild_id)
-            self.tree.copy_global_to(guild=guild)
-            await self.tree.sync(guild=guild)
-            logger.info(f"スラッシュコマンドをギルド同期しました: guild_id={guild_id}")
+        guild = discord.Object(id=self.config.discord.guild_id)
+        self.tree.copy_global_to(guild=guild)
+        await self.tree.sync(guild=guild)
+        logger.info(f"スラッシュコマンドをギルド同期しました: guild_id={self.config.discord.guild_id}")
 
     def remember_message(self, message: discord.Message) -> None:
         self.message_cache[message.id] = message

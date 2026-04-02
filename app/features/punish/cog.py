@@ -28,7 +28,7 @@ def log_punishment_action(
     probation: str | None = None,
     duration: str | None = None,
 ) -> None:
-    logger.info(
+    logger.debug(
         f"処罰を実行します: action={action} "
         f"guild_id={interaction.guild.id if interaction.guild is not None else None} "
         f"moderator_id={interaction.user.id if interaction.user is not None else None} "
@@ -73,7 +73,7 @@ async def give_crime_record_role(
         role = guild.get_role(crime_roles[crimes])
         if role is not None:
             await member.add_roles(role, reason=generate_reason(moderator))
-            logger.info(f"前科ロールを付与しました: guild_id={guild.id} target_id={user.id} role_id={role.id}")
+            logger.debug(f"前科ロールを付与しました: guild_id={guild.id} target_id={user.id} role_id={role.id}")
         else:
             logger.warning(
                 f"前科ロールが見つかりませんでした: guild_id={guild.id} "
@@ -205,7 +205,7 @@ async def disrobe(
     interaction: discord.Interaction, violator: discord.Member, reason: str, probation: str | None = None
 ) -> None:
     bot = get_bot(interaction)
-    logger.info(
+    logger.debug(
         "権限剥奪対象の選択を開始します: "
         f"guild_id={interaction.guild.id if interaction.guild is not None else None} "
         f"moderator_id={interaction.user.id if interaction.user is not None else None} "

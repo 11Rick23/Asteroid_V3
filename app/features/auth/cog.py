@@ -39,7 +39,7 @@ class AuthInput(discord.ui.Modal):
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         if str(self.numbers.value) == self.number_in_str:
-            logger.info(
+            logger.debug(
                 f"認証に成功しました: guild_id={interaction.guild.id if interaction.guild is not None else None} "
                 f"user_id={interaction.user.id if interaction.user is not None else None}"
             )
@@ -49,7 +49,7 @@ class AuthInput(discord.ui.Modal):
                     unauthorized_role,
                     reason=f"[{generate_timestamp()}] 認証されました。",
                 )
-                logger.info(
+                logger.debug(
                     "未認証ロールを削除しました: "
                     f"guild_id={interaction.guild.id if interaction.guild is not None else None} "
                     f"user_id={interaction.user.id if interaction.user is not None else None} "
@@ -68,14 +68,14 @@ class AuthInput(discord.ui.Modal):
             )
             if isinstance(interaction.user, discord.Member):
                 await send_first_welcome(interaction.user)
-                logger.info(
+                logger.debug(
                     "初回ウェルカムを送信しました: "
                     f"guild_id={interaction.guild.id if interaction.guild is not None else None} "
                     f"user_id={interaction.user.id}"
                 )
             return
 
-        logger.info(
+        logger.debug(
             f"認証に失敗しました: guild_id={interaction.guild.id if interaction.guild is not None else None} "
             f"user_id={interaction.user.id if interaction.user is not None else None}"
         )
@@ -100,7 +100,7 @@ class InputButton(discord.ui.Button):
 
 
 async def auth(bot: AsteroidBot, interaction: discord.Interaction) -> None:
-    logger.info(
+    logger.debug(
         f"認証を開始しました: guild_id={interaction.guild.id if interaction.guild is not None else None} "
         f"channel_id={interaction.channel_id} user_id={interaction.user.id if interaction.user is not None else None}"
     )
@@ -149,7 +149,7 @@ async def setup_auth(interaction: discord.Interaction) -> None:
         color=AsteroidColor.DARK_GREEN,
     )
     await interaction.channel.send(embed=embed, view=AuthButton(bot, timeout=None))
-    logger.info(
+    logger.debug(
         f"認証ボタンを設置しました: guild_id={interaction.guild.id if interaction.guild is not None else None} "
         f"channel_id={interaction.channel_id} user_id={interaction.user.id if interaction.user is not None else None}"
     )
