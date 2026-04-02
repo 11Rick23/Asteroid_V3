@@ -49,7 +49,7 @@ class LogIn(commands.Cog):
             inline=True,
         )
         await log_channel.send(embed=embed)
-        logger.debug(f"ログイン通知を送信しました: channel_id={log_channel.id} bot_user_id={self.bot.user.id}")
+        logger.info(f"{self.bot.user} としてログインしました。")
 
 
 async def setup(bot: AsteroidBot) -> None:

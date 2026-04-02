@@ -116,7 +116,7 @@ async def birthday_set(interaction: discord.Interaction, month: int, day: int) -
         )
         return
     await bot.db.user_birthdays.upsert_data(interaction.user.id, date(DEFAULT_YEAR, month, day))
-    logger.info(f"誕生日を設定しました: user_id={interaction.user.id} month={month} day={day}")
+    logger.debug(f"誕生日を設定しました: user_id={interaction.user.id} month={month} day={day}")
     await interaction.response.send_message(
         embed=discord.Embed(color=AsteroidColor.SUCCESS, description=f"誕生日を `{month}/{day}` に設定しました。")
     )
@@ -137,7 +137,7 @@ async def birthday_set_others(interaction: discord.Interaction, user: discord.Us
         )
         return
     await bot.db.user_birthdays.upsert_data(user.id, date(DEFAULT_YEAR, month, day))
-    logger.info(
+    logger.debug(
         f"他人の誕生日を設定しました: moderator_id={interaction.user.id} target_id={user.id} month={month} day={day}"
     )
     await interaction.response.send_message(
@@ -192,7 +192,7 @@ async def birthday_remove(interaction: discord.Interaction, user: discord.User |
         )
         return
     await bot.db.user_birthdays.delete_data(user.id)
-    logger.info(f"誕生日を削除しました: actor_id={interaction.user.id} target_id={user.id}")
+    logger.debug(f"誕生日を削除しました: actor_id={interaction.user.id} target_id={user.id}")
     await interaction.response.send_message(
         embed=discord.Embed(color=AsteroidColor.SUCCESS, description=f"{user.mention} の誕生日を削除しました。")
     )

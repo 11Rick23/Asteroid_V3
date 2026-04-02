@@ -10,9 +10,9 @@ logger = getLogger("app.launch_app")
 
 def main() -> None:
     tracemalloc.start()
+    logger.info("アプリケーション起動を開始します。")
     config = get_config()
     setup_logger(config)
-    logger.info("アプリケーション起動を開始します。")
     logger.info(
         f"設定を読み込みました: guild_count={len(config.discord.guild_ids)} "
         f"sync_commands_on_startup={config.discord.sync_commands_on_startup}"
