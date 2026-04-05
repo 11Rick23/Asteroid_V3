@@ -37,6 +37,11 @@ from app.features.leveling.service import (
 )
 
 logger = getLogger(__name__)
+TOKYO_TZ = ZoneInfo("Asia/Tokyo")
+
+
+def current_tokyo_datetime(now: datetime.datetime | None = None) -> datetime.datetime:
+    return datetime.datetime.now(TOKYO_TZ) if now is None else now.astimezone(TOKYO_TZ)
 
 
 class ClaimVoiceXP(discord.ui.View):
@@ -191,11 +196,11 @@ class LevelingSystemCore(commands.Cog):
             )
         await sync_grade_prestige_role(self.bot, message.author, star_grade)
 
-    @tasks.loop(time=datetime.time(hour=0, minute=0, tzinfo=ZoneInfo("Asia/Tokyo")))
+    @tasks.loop(time=datetime.time(hour=0, minute=0, tzinfo=TOKYO_TZ))
     async def monthly_ranking(self) -> None:
         if not self.bot.db.is_initialized():
             return
-        now = datetime.datetime.now()
+        now = current_tokyo_datetime()
         if now.day != 1 or now.hour != 0 or now.minute != 0:
             return
 
