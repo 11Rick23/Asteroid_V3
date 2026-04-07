@@ -44,11 +44,6 @@ def convert_date(today: date, birthday: date) -> str:
     return {0: "今日", 1: "明日", 2: "明後日"}.get(diff, birthday.strftime("%Y年%m月%d日"))
 
 
-def current_tokyo_date(now: datetime | None = None) -> date:
-    current = datetime.now(TOKYO_TZ) if now is None else now.astimezone(TOKYO_TZ)
-    return current.date()
-
-
 class Birthday(commands.Cog):
     def __init__(self, bot: AsteroidBot) -> None:
         self.bot = bot
@@ -67,7 +62,6 @@ class Birthday(commands.Cog):
             return
 
         logger.debug("誕生日アナウンスを開始します。")
-        # today = current_tokyo_date()
         today = datetime.now().date()
         logger.debug(today)
         data = await self.bot.db.user_birthdays.get_user_data_by_date(today.replace(year=DEFAULT_YEAR))
@@ -216,7 +210,6 @@ async def birthday_list(interaction: discord.Interaction) -> None:
         )
         return
 
-    # today = current_tokyo_date()
     today = datetime.now().date()
     future_data = [_data for _data in data if (_data.date.month, _data.date.day) >= (today.month, today.day)]
     if len(future_data) < 10:
