@@ -40,10 +40,6 @@ logger = getLogger(__name__)
 TOKYO_TZ = ZoneInfo("Asia/Tokyo")
 
 
-def current_tokyo_datetime(now: datetime.datetime | None = None) -> datetime.datetime:
-    return datetime.datetime.now(TOKYO_TZ) if now is None else now.astimezone(TOKYO_TZ)
-
-
 class ClaimVoiceXP(discord.ui.View):
     def __init__(self, bot: AsteroidBot):
         super().__init__(timeout=None)
@@ -200,7 +196,7 @@ class LevelingSystemCore(commands.Cog):
     async def monthly_ranking(self) -> None:
         if not self.bot.db.is_initialized():
             return
-        now = current_tokyo_datetime()
+        now = datetime.datetime.now()
         if now.day != 1 or now.hour != 0 or now.minute != 0:
             return
 
