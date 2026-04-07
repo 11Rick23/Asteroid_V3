@@ -4,11 +4,11 @@ import datetime
 import random
 from logging import getLogger
 from time import time
-from zoneinfo import ZoneInfo
 
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
+from zoneinfo import ZoneInfo
 
 from app.common.command_groups import get_bot, register_setup_command
 from app.common.constants import AsteroidColor, AsteroidEmoji
@@ -200,7 +200,8 @@ class LevelingSystemCore(commands.Cog):
     async def monthly_ranking(self) -> None:
         if not self.bot.db.is_initialized():
             return
-        now = current_tokyo_datetime()
+        # now = current_tokyo_datetime()
+        now = datetime.datetime.now()
         if now.day != 1 or now.hour != 0 or now.minute != 0:
             return
 
