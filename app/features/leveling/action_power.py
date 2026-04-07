@@ -7,11 +7,12 @@ ACTION_POWER_COMMAND_NAME = "AddActionPower"
 
 def parse_action_power_command(content: str) -> tuple[int, int] | None:
     parts = content.split()
-    if len(parts) != 3 or parts[0] != ACTION_POWER_COMMAND_NAME:
+    if len(parts) < 3 or parts[0] != ACTION_POWER_COMMAND_NAME:
         return None
     try:
         user_id = int(parts[1])
         value = int(parts[2])
+        # reason = " ".join(parts[3:]) if len(parts) > 3 else None  # 利用しないが、理由も受け取れるようにしておく
     except ValueError:
         return None
     if user_id <= 0 or value <= 0:
