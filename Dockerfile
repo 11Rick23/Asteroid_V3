@@ -20,6 +20,8 @@ RUN .venv/bin/python -m compileall app launch_app.py
 
 FROM python:3.14-slim-trixie AS runtime
 
+ENV TZ=Asia/Tokyo
+
 WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
