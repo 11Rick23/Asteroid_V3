@@ -8,6 +8,7 @@ from app.features.leveling.action_power import (
 
 def test_parse_action_power_command_returns_user_id_and_value() -> None:
     assert parse_action_power_command("AddActionPower 123456789 42") == (123456789, 42)
+    assert parse_action_power_command("AddActionPower 123456789 42 Some reason") == (123456789, 42)
 
 
 def test_parse_action_power_command_rejects_invalid_messages() -> None:
