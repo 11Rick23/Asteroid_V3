@@ -4,11 +4,11 @@ import datetime
 import random
 from logging import getLogger
 from time import time
+from zoneinfo import ZoneInfo
 
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
-from zoneinfo import ZoneInfo
 
 from app.common.command_groups import get_bot, register_setup_command
 from app.common.constants import AsteroidColor, AsteroidEmoji

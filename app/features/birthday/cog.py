@@ -3,11 +3,11 @@ from __future__ import annotations
 from calendar import isleap
 from datetime import date, datetime, time
 from logging import getLogger
+from zoneinfo import ZoneInfo
 
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
-from zoneinfo import ZoneInfo
 
 from app.common.command_groups import get_bot, register_group
 from app.common.constants import AsteroidColor
