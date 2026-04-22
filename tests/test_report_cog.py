@@ -44,9 +44,9 @@ async def test_report_logs_warning_when_destination_channel_missing(caplog: pyte
     interaction = DummyInteraction()
     violator = SimpleNamespace(id=40)
 
-    with caplog.at_level(logging.INFO, logger="app.features.report.cog"):
+    with caplog.at_level(logging.DEBUG, logger="app.features.report.cog"):
         await ReportCog.report.callback(cog, interaction, violator, "rule violation")
 
-    assert "レポート送信を受け付けました" in caplog.text
+    assert "レポートを送信しました: command=/report" in caplog.text
     assert "レポート送信先チャンネルが見つかりませんでした: guild_id=10 reporter_id=30 channel_id=999" in caplog.text
     assert interaction.edited_content == "レポート送信先チャンネルが見つかりませんでした。"

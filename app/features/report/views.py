@@ -34,6 +34,8 @@ class ReportResolveView(discord.ui.View):
             embed=build_resolved_report_embed(interaction.message.embeds[0], interaction.user),
             view=None,
         )
-        logger.debug(
-            f"レポートを対応完了にしました: message_id={interaction.message.id} user_id={interaction.user.id}"
+        logger.info(
+            "レポートを対応完了にしました: action=report_resolve "
+            f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
+            f"actor_id={interaction.user.id} message_id={interaction.message.id}"
         )

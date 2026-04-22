@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from logging import getLogger
+
 import discord
 from discord import app_commands
 
@@ -9,6 +11,8 @@ from app.common.pages import Paginator, PaginatorButton
 from app.core.bot import AsteroidBot
 from app.features.leveling.build_send_message import build_power_ranking_embed
 
+logger = getLogger(__name__)
+
 power_group = app_commands.Group(name="power", description="月間ランキング系コマンド")
 
 
@@ -16,6 +20,11 @@ power_group = app_commands.Group(name="power", description="月間ランキン�
 async def top(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
     monthly_powers = await bot.db.monthly_powers.get_monthly_power_ranking()
+    logger.debug(
+        "パワーランキングを表示しました: command=/power top "
+        f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
+        f"user_id={interaction.user.id} result_count={len(monthly_powers)}"
+    )
     base_embed = discord.Embed(
         title="パワーランキング",
         description="現在のパワーランキングを表示します\n\n"

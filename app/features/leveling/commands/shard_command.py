@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from logging import getLogger
+
 import discord
 from discord import app_commands
 
@@ -8,6 +10,8 @@ from app.common.constants import AsteroidColor, AsteroidEmoji
 from app.common.pages import Paginator, PaginatorButton
 from app.core.bot import AsteroidBot
 from app.features.leveling.build_send_message import build_shard_ranking_embed
+
+logger = getLogger(__name__)
 
 shard_group = app_commands.Group(name="shard", description="恒常ランキング系コマンド")
 reward_group = app_commands.Group(
@@ -19,6 +23,11 @@ reward_group = app_commands.Group(
 async def top(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
     star_grades = await bot.db.star_grades.get_star_grade_ranking()
+    logger.debug(
+        "シャードランキングを表示しました: command=/shard top "
+        f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
+        f"user_id={interaction.user.id} result_count={len(star_grades)}"
+    )
     base_embed = discord.Embed(
         title="シャードランキング",
         description="現在のシャードランキングを表示します\n\n"
@@ -41,8 +50,18 @@ async def xp_boost(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
     xp_boosts = await bot.db.xp_boosts.get_xp_boosts()
     if len(xp_boosts) == 0:
+        logger.debug(
+            "XPブースト一覧を表示しました: command=/shard xp_boost "
+            f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
+            f"user_id={interaction.user.id} result_count=0"
+        )
         await interaction.response.send_message("現在開催中のXPブーストはありません")
         return
+    logger.debug(
+        "XPブースト一覧を表示しました: command=/shard xp_boost "
+        f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
+        f"user_id={interaction.user.id} result_count={len(xp_boosts)}"
+    )
     base_embed = discord.Embed(
         title="開催中のXPブースト一覧",
         description="現在開催中のXPブーストです\nXPブーストはシャードのみに適用されます、パワーには全く影響がありませんのでご注意ください",
@@ -73,6 +92,11 @@ async def xp_boost(interaction: discord.Interaction) -> None:
 async def reward_grade(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
     grade_roles = bot.config.leveling.grade_roles_id_list
+    logger.debug(
+        "グレード報酬一覧を表示しました: command=/shard reward grade "
+        f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
+        f"user_id={interaction.user.id} result_count={len(grade_roles)}"
+    )
     embed = discord.Embed(
         title="グレードロール報酬", description="グレードに応じたロール報酬を表示します", color=AsteroidColor.INFO
     )
@@ -90,6 +114,11 @@ async def reward_grade(interaction: discord.Interaction) -> None:
 async def reward_prestige(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
     prestige_roles = bot.config.leveling.prestige_roles_id_list
+    logger.debug(
+        "プレステージ報酬一覧を表示しました: command=/shard reward prestige "
+        f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
+        f"user_id={interaction.user.id} result_count={len(prestige_roles)}"
+    )
     embed = discord.Embed(
         title="プレステージロール報酬",
         description="プレステージに応じたロール報酬を表示します",

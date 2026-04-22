@@ -37,9 +37,11 @@ async def suggestion_handler(interaction: discord.Interaction, judge: str, reaso
             embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
             embed.add_field(name="理由", value=reason)
             await interaction.followup.send(embed=embed)
-            logger.debug(
-                f"要望を処理しました: guild_id={interaction.guild.id if interaction.guild is not None else None} "
-                f"thread_id={thread.id} user_id={interaction.user.id} judge={judge}"
+            logger.info(
+                "要望を処理しました: "
+                f"command=/suggestion {'approve' if judge == '可決' else 'deny'} "
+                f"guild_id={interaction.guild_id} thread_id={thread.id} actor_id={interaction.user.id} "
+                f"judge={judge}"
             )
             return
 

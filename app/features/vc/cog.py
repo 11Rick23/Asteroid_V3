@@ -62,6 +62,10 @@ async def name(interaction: discord.Interaction, vc_name: str) -> None:
 
     await service.rename_channel(channel, interaction.user, vc_name)
     await service.refresh_control_panels(channel)
+    logger.debug(
+        "VC名を変更しました: command=/vc name "
+        f"guild_id={interaction.guild_id} channel_id={channel.id} user_id={interaction.user.id} name={vc_name}"
+    )
     await service.send_interaction_message(interaction, f"VCの名前を`{vc_name}`に変更しました。")
 
 
@@ -76,6 +80,10 @@ async def limit(interaction: discord.Interaction, limit: app_commands.Range[int,
 
     await service.set_user_limit(channel, interaction.user, limit)
     await service.refresh_control_panels(channel)
+    logger.debug(
+        "VC人数制限を変更しました: command=/vc limit "
+        f"guild_id={interaction.guild_id} channel_id={channel.id} user_id={interaction.user.id} limit={limit}"
+    )
     await service.send_interaction_message(interaction, f"チャンネルの人数制限を`{limit}`人に設定しました。")
 
 
@@ -182,6 +190,10 @@ async def private(interaction: discord.Interaction) -> None:
 
     await service.set_private(channel, interaction.user, True)
     await service.refresh_control_panels(channel)
+    logger.debug(
+        "VCを非公開にしました: command=/vc private "
+        f"guild_id={interaction.guild_id} channel_id={channel.id} user_id={interaction.user.id}"
+    )
     await service.send_interaction_message(
         interaction,
         "VCを非公開に設定しました。\n管理権限を与えることで他のユーザーがこのVCを見えるようになります。",
@@ -198,6 +210,10 @@ async def public(interaction: discord.Interaction) -> None:
 
     await service.set_private(channel, interaction.user, False)
     await service.refresh_control_panels(channel)
+    logger.debug(
+        "VCを公開しました: command=/vc public "
+        f"guild_id={interaction.guild_id} channel_id={channel.id} user_id={interaction.user.id}"
+    )
     await service.send_interaction_message(interaction, "VCを公開に設定しました。")
 
 

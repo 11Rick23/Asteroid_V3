@@ -235,6 +235,11 @@ async def disrobe(
         f"moderator_id={interaction.user.id if interaction.user is not None else None} "
         f"target_id={violator.id} probation={probation}"
     )
+    logger.info(
+        "権限剥奪の対象ロール選択を開始しました: command=/punish disrobe "
+        f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "
+        f"target_id={violator.id} probation={probation}"
+    )
     perms_role_id_list = bot.config.permission_roles_id_list.enabled_role_ids()
     options = []
     for role_id in perms_role_id_list:
