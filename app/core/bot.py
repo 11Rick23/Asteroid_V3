@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from logging import getLogger
 
 import discord
@@ -23,6 +24,8 @@ class AsteroidBot(Bot):
         self.repositories = self.db
         self.services: dict[str, object] = {}
         self.message_cache: dict[int, discord.Message] = {}
+        self.shutdown_requested = False
+        self.shutdown_task: asyncio.Task[None] | None = None
 
         super().__init__(
             command_prefix=(),
@@ -36,6 +39,7 @@ class AsteroidBot(Bot):
         logger.info("セットアップを開始します。")
         await self._initialize_database()
         await self._load_extensions()
+        self._register_system_commands()
         await self._sync_slash_commands()
         logger.info("セットアップが完了しました。")
 
@@ -63,6 +67,11 @@ class AsteroidBot(Bot):
             logger.debug(f"Loading extension {extension}")
             await self.load_extension(extension)
         logger.info(f"拡張機能の読み込みが完了しました: count={len(extensions)}")
+
+    def _register_system_commands(self) -> None:
+        from .system_commands import register_system_commands
+
+        register_system_commands(self)
 
     async def _sync_slash_commands(self) -> None:
         if not self.config.discord.sync_commands_on_startup:

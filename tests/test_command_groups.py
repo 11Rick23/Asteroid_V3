@@ -10,6 +10,7 @@ from app.common.command_groups import (
     register_command,
     register_setup_command,
 )
+from app.core.system_commands import register_system_commands, stop_bot
 
 
 class FakeTree:
@@ -61,4 +62,14 @@ def test_register_setup_command_creates_single_setup_group() -> None:
     assert bot.tree.get_command(SETUP_GROUP_NAME) is setup_group
     assert setup_group.get_command("setup_ping") is setup_ping_command
     assert len(list(setup_group.walk_commands())) == 1
+    assert bot.tree.add_count == 1
+
+
+def test_register_system_commands_is_idempotent() -> None:
+    bot = FakeBot()
+
+    register_system_commands(bot)
+    register_system_commands(bot)
+
+    assert bot.tree.get_command("stop") is stop_bot
     assert bot.tree.add_count == 1
