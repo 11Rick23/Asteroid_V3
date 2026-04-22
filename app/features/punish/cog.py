@@ -8,12 +8,18 @@ from discord import app_commands
 from pytimeparse import parse
 
 from app.common.command_groups import get_bot, register_group
+from app.common.permissions import ADMINISTRATOR_PERMISSIONS, admin_only, is_administrator
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
 
 logger = getLogger(__name__)
 
-punish_group = app_commands.Group(name="punish", description="処罰コマンド")
+punish_group = app_commands.Group(
+    name="punish",
+    description="処罰コマンド",
+    guild_only=True,
+    default_permissions=ADMINISTRATOR_PERMISSIONS,
+)
 
 
 def generate_reason(moderator: discord.Member) -> str:
@@ -28,7 +34,7 @@ def log_punishment_action(
     probation: str | None = None,
     duration: str | None = None,
 ) -> None:
-    logger.debug(
+    logger.info(
         f"処罰を実行します: action={action} "
         f"guild_id={interaction.guild.id if interaction.guild is not None else None} "
         f"moderator_id={interaction.user.id if interaction.user is not None else None} "
@@ -90,6 +96,7 @@ class PermRoleSelect(discord.ui.Select):
         select_options: list[discord.SelectOption],
         reason: str,
         probation: str | None,
+        moderator_id: int | None = None,
     ):
         super().__init__(
             placeholder="剥奪する権限ロールを選択…",
@@ -101,12 +108,24 @@ class PermRoleSelect(discord.ui.Select):
         self.target = target
         self.reason = reason
         self.probation = probation
+        self.moderator_id = moderator_id
 
     async def callback(self, interaction: discord.Interaction) -> None:
         guild = interaction.guild
         if guild is None:
             logger.warning(f"権限剥奪UIをサーバー外で受信しました: target_id={getattr(self.target, 'id', None)}")
             await interaction.response.send_message("サーバー内でのみ使用できます。", ephemeral=True)
+            return
+
+        if self.moderator_id is not None and interaction.user.id != self.moderator_id and not is_administrator(
+            interaction.user
+        ):
+            logger.warning(
+                "権限剥奪UIの操作を拒否しました: "
+                f"guild_id={guild.id} actor_id={interaction.user.id} moderator_id={self.moderator_id} "
+                f"target_id={self.target.id}"
+            )
+            await interaction.response.send_message("この操作を実行する権限がありません。", ephemeral=True)
             return
 
         log_punishment_action("権限剥奪", interaction, self.target.id, probation=self.probation)
@@ -124,6 +143,7 @@ class PermRoleSelect(discord.ui.Select):
 
 @punish_group.command(name="none", description="処罰: 無し")
 @app_commands.guild_only()
+@admin_only
 async def punish_none(interaction: discord.Interaction, defendant: discord.User, content: str, reason: str) -> None:
     bot = get_bot(interaction)
     log_punishment_action("無し", interaction, defendant.id)
@@ -140,6 +160,7 @@ async def punish_none(interaction: discord.Interaction, defendant: discord.User,
 
 @punish_group.command(name="lecture", description="処罰: 口頭注意")
 @app_commands.guild_only()
+@admin_only
 async def lecture(interaction: discord.Interaction, violator: discord.User, reason: str) -> None:
     bot = get_bot(interaction)
     log_punishment_action("口頭注意", interaction, violator.id)
@@ -150,6 +171,7 @@ async def lecture(interaction: discord.Interaction, violator: discord.User, reas
 
 @punish_group.command(name="delete", description="処罰: メッセージ削除")
 @app_commands.guild_only()
+@admin_only
 async def delete(interaction: discord.Interaction, violator: discord.User, reason: str) -> None:
     bot = get_bot(interaction)
     log_punishment_action("メッセージ削除", interaction, violator.id)
@@ -160,6 +182,7 @@ async def delete(interaction: discord.Interaction, violator: discord.User, reaso
 
 @punish_group.command(name="timeout", description="処罰: タイムアウト")
 @app_commands.guild_only()
+@admin_only
 async def timeout(
     interaction: discord.Interaction,
     violator: discord.User,
@@ -201,6 +224,7 @@ async def timeout(
 
 @punish_group.command(name="disrobe", description="処罰: 権限剥奪")
 @app_commands.guild_only()
+@admin_only
 async def disrobe(
     interaction: discord.Interaction, violator: discord.Member, reason: str, probation: str | None = None
 ) -> None:
@@ -220,7 +244,7 @@ async def disrobe(
 
     view = discord.ui.View(timeout=300)
     if options:
-        view.add_item(PermRoleSelect(bot, violator, options, reason, probation))
+        view.add_item(PermRoleSelect(bot, violator, options, reason, probation, interaction.user.id))
         await interaction.response.send_message(content=f"{violator.mention} からどの権限を剥奪しますか？", view=view)
     else:
         await interaction.response.send_message("剥奪対象の権限ロールが見つかりませんでした。", ephemeral=True)
@@ -228,6 +252,7 @@ async def disrobe(
 
 @punish_group.command(name="mute", description="処罰: MUTE")
 @app_commands.guild_only()
+@admin_only
 async def mute(
     interaction: discord.Interaction, user: discord.User, reason: str, probation: str | None = None
 ) -> None:
@@ -249,6 +274,7 @@ async def mute(
 
 @punish_group.command(name="forbid", description="処罰: 閲覧禁止")
 @app_commands.guild_only()
+@admin_only
 async def forbid(
     interaction: discord.Interaction, user: discord.User, reason: str, probation: str | None = None
 ) -> None:
@@ -272,6 +298,7 @@ async def forbid(
 
 @punish_group.command(name="ban", description="処罰: BAN")
 @app_commands.guild_only()
+@admin_only
 async def ban(interaction: discord.Interaction, user: discord.User, reason: str, probation: str | None = None) -> None:
     bot = get_bot(interaction)
     log_punishment_action("BAN", interaction, user.id, probation=probation)

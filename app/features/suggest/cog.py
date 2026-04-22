@@ -7,11 +7,17 @@ from discord import app_commands
 
 from app.common.command_groups import get_bot, register_group
 from app.common.constants import AsteroidColor
+from app.common.permissions import ADMINISTRATOR_PERMISSIONS, admin_only
 from app.core.bot import AsteroidBot
 
 logger = getLogger(__name__)
 
-suggest_group = app_commands.Group(name="suggestion", description="要望に関するコマンド")
+suggest_group = app_commands.Group(
+    name="suggestion",
+    description="要望に関するコマンド",
+    guild_only=True,
+    default_permissions=ADMINISTRATOR_PERMISSIONS,
+)
 
 
 async def suggestion_handler(interaction: discord.Interaction, judge: str, reason: str) -> None:
@@ -60,14 +66,14 @@ async def suggestion_handler(interaction: discord.Interaction, judge: str, reaso
 
 @suggest_group.command(name="approve", description="要望を可決")
 @app_commands.describe(reason="要望を可決する理由")
-@app_commands.checks.has_permissions(administrator=True)
+@admin_only
 async def approve(interaction: discord.Interaction, reason: str) -> None:
     await suggestion_handler(interaction, "可決", reason)
 
 
 @suggest_group.command(name="deny", description="要望を否決")
 @app_commands.describe(reason="要望を否決する理由")
-@app_commands.checks.has_permissions(administrator=True)
+@admin_only
 async def deny(interaction: discord.Interaction, reason: str) -> None:
     await suggestion_handler(interaction, "否決", reason)
 

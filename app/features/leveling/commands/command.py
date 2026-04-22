@@ -8,6 +8,7 @@ import discord
 from discord import app_commands
 
 from app.common.command_groups import get_bot, register_command, register_setup_command
+from app.common.permissions import admin_only
 from app.core.bot import AsteroidBot
 from app.features.leveling.build_send_message import build_rank_embed, send_prestige_announce
 from app.features.leveling.manage_reward_role import sync_grade_prestige_role
@@ -51,6 +52,8 @@ async def rank(interaction: discord.Interaction, user: discord.User | None = Non
 @app_commands.describe(
     sync_role="グレード・プレステージロールを同期するか", prestige_announce="プレステージアナウンスを行うか"
 )
+@app_commands.guild_only()
+@admin_only
 async def transfer_mee6(interaction: discord.Interaction, sync_role: bool, prestige_announce: bool) -> None:
     bot = get_bot(interaction)
     await interaction.response.send_message("データ取得中...")

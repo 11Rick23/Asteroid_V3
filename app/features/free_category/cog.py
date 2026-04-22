@@ -7,6 +7,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from app.common.command_groups import get_bot, register_group, register_setup_command
+from app.common.permissions import admin_only
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
 
@@ -33,6 +34,7 @@ class FreeCategory(commands.Cog):
 
 @app_commands.command(name="free_category_button", description="フリーチャンネル作成ボタンを送信します")
 @app_commands.guild_only()
+@admin_only
 async def free_category_button(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
     service = get_free_category_service(bot)
