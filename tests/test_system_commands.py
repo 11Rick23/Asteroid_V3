@@ -34,6 +34,11 @@ class FakeBot:
         self.events.append("close")
         self.close_count += 1
 
+    async def shutdown_gracefully(self, reason: str) -> None:
+        self.events.append(reason)
+        await self.change_presence(status=discord.Status.offline, activity=None)
+        await self.close()
+
 
 class FakeInteraction:
     def __init__(self, bot: FakeBot) -> None:
@@ -58,7 +63,7 @@ async def test_stop_command_sends_ack_and_schedules_shutdown() -> None:
     await bot.shutdown_task
 
     assert bot.close_count == 1
-    assert bot.events == ["change_presence", "close"]
+    assert bot.events == ["command=/stop", "change_presence", "close"]
     assert bot.presence_changes == [(discord.Status.offline, None)]
 
 

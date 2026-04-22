@@ -16,24 +16,6 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
-async def _set_offline_presence(bot: AsteroidBot) -> None:
-    try:
-        await bot.change_presence(status=discord.Status.offline, activity=None)
-    except Exception:
-        logger.warning("BOT ステータスをオフラインに変更できませんでした。停止処理は続行します。", exc_info=True)
-        return
-    logger.info("BOT ステータスをオフラインに変更しました。")
-
-
-async def _close_bot(bot: AsteroidBot) -> None:
-    try:
-        await _set_offline_presence(bot)
-        await bot.close()
-    except Exception:
-        bot.shutdown_requested = False
-        logger.exception("BOT の停止処理に失敗しました。")
-
-
 @app_commands.command(name="stop", description="BOTを安全に停止します。")
 @app_commands.guild_only()
 @admin_only
@@ -52,8 +34,13 @@ async def stop_bot(interaction: discord.Interaction) -> None:
         "BOT 停止コマンドを受け付けました: command=/stop "
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id}"
     )
-    await interaction.response.send_message("BOT の停止処理を開始します。", ephemeral=True)
-    bot.shutdown_task = asyncio.create_task(_close_bot(bot), name="asteroid-stop-command-close")
+    try:
+        await interaction.response.send_message("BOT の停止処理を開始します。", ephemeral=True)
+    finally:
+        bot.shutdown_task = asyncio.create_task(
+            bot.shutdown_gracefully("command=/stop"),
+            name="asteroid-stop-command-close",
+        )
 
 
 def register_system_commands(bot: AsteroidBot) -> None:
