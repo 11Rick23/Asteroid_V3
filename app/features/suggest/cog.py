@@ -7,11 +7,17 @@ from discord import app_commands
 
 from app.common.command_groups import get_bot, register_group
 from app.common.constants import AsteroidColor
+from app.common.permissions import ADMINISTRATOR_PERMISSIONS, admin_only
 from app.core.bot import AsteroidBot
 
 logger = getLogger(__name__)
 
-suggest_group = app_commands.Group(name="suggestion", description="要望に関するコマンド")
+suggest_group = app_commands.Group(
+    name="suggestion",
+    description="要望に関するコマンド",
+    guild_only=True,
+    default_permissions=ADMINISTRATOR_PERMISSIONS,
+)
 
 
 async def suggestion_handler(interaction: discord.Interaction, judge: str, reason: str) -> None:
@@ -31,9 +37,11 @@ async def suggestion_handler(interaction: discord.Interaction, judge: str, reaso
             embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
             embed.add_field(name="理由", value=reason)
             await interaction.followup.send(embed=embed)
-            logger.debug(
-                f"要望を処理しました: guild_id={interaction.guild.id if interaction.guild is not None else None} "
-                f"thread_id={thread.id} user_id={interaction.user.id} judge={judge}"
+            logger.info(
+                "要望を処理しました: "
+                f"command=/suggestion {'approve' if judge == '可決' else 'deny'} "
+                f"guild_id={interaction.guild_id} thread_id={thread.id} actor_id={interaction.user.id} "
+                f"judge={judge}"
             )
             return
 
@@ -60,14 +68,14 @@ async def suggestion_handler(interaction: discord.Interaction, judge: str, reaso
 
 @suggest_group.command(name="approve", description="要望を可決")
 @app_commands.describe(reason="要望を可決する理由")
-@app_commands.checks.has_permissions(administrator=True)
+@admin_only
 async def approve(interaction: discord.Interaction, reason: str) -> None:
     await suggestion_handler(interaction, "可決", reason)
 
 
 @suggest_group.command(name="deny", description="要望を否決")
 @app_commands.describe(reason="要望を否決する理由")
-@app_commands.checks.has_permissions(administrator=True)
+@admin_only
 async def deny(interaction: discord.Interaction, reason: str) -> None:
     await suggestion_handler(interaction, "否決", reason)
 

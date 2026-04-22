@@ -10,6 +10,7 @@ from discord.ext import commands
 
 from app.common.command_groups import get_bot, register_setup_command
 from app.common.constants import AsteroidColor
+from app.common.permissions import admin_only
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
 from app.features.welcomer.service import send_first_welcome
@@ -141,6 +142,7 @@ class Authenticator(commands.Cog):
 
 @app_commands.command(name="auth", description="認証用のボタンを設置します。")
 @app_commands.guild_only()
+@admin_only
 async def setup_auth(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
     embed = discord.Embed(
@@ -149,9 +151,9 @@ async def setup_auth(interaction: discord.Interaction) -> None:
         color=AsteroidColor.DARK_GREEN,
     )
     await interaction.channel.send(embed=embed, view=AuthButton(bot, timeout=None))
-    logger.debug(
-        f"認証ボタンを設置しました: guild_id={interaction.guild.id if interaction.guild is not None else None} "
-        f"channel_id={interaction.channel_id} user_id={interaction.user.id if interaction.user is not None else None}"
+    logger.info(
+        "認証ボタンを設置しました: command=/setup auth "
+        f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id}"
     )
     await interaction.response.send_message("認証用のボタンを設置しました！", ephemeral=True)
 

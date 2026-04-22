@@ -12,6 +12,7 @@ from discord.ext import commands, tasks
 
 from app.common.command_groups import get_bot, register_setup_command
 from app.common.constants import AsteroidColor, AsteroidEmoji
+from app.common.permissions import admin_only
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
 from app.features.leveling.action_power import (
@@ -483,12 +484,18 @@ class LevelingSystemCore(commands.Cog):
 
 
 @app_commands.command(name="claim_voice_xp_button", description="VC経験値獲得用のボタンを設置します")
+@app_commands.guild_only()
+@admin_only
 async def claim_voice_xp_button(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
     embed = discord.Embed(
         title="VC経験値獲得はこちら", description="ボタンを押すとVC経験値を獲得します", color=AsteroidColor.INFO
     )
     await interaction.channel.send(embed=embed, view=ClaimVoiceXP(bot=bot))
+    logger.info(
+        "VC経験値獲得ボタンを設置しました: command=/setup claim_voice_xp_button "
+        f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id}"
+    )
     await interaction.response.send_message("VC経験値獲得用のボタンを設置しました！", ephemeral=True)
 
 

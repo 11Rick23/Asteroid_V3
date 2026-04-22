@@ -6,6 +6,7 @@ from typing import cast
 import discord
 from discord import app_commands
 
+from app.common.permissions import ADMINISTRATOR_PERMISSIONS
 from app.core.bot import AsteroidBot
 
 logger = getLogger(__name__)
@@ -33,7 +34,12 @@ def register_group(bot: AsteroidBot, group: app_commands.Group) -> None:
 def get_or_create_setup_group(bot: AsteroidBot) -> app_commands.Group:
     existing = bot.tree.get_command(SETUP_GROUP_NAME)
     if existing is None:
-        group = app_commands.Group(name=SETUP_GROUP_NAME, description=SETUP_GROUP_DESCRIPTION)
+        group = app_commands.Group(
+            name=SETUP_GROUP_NAME,
+            description=SETUP_GROUP_DESCRIPTION,
+            guild_only=True,
+            default_permissions=ADMINISTRATOR_PERMISSIONS,
+        )
         bot.tree.add_command(group)
         logger.debug(f"セットアップグループを作成しました: name={SETUP_GROUP_NAME}")
         return group

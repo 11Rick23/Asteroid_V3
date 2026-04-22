@@ -35,10 +35,10 @@ class ReportCog(commands.Cog):
         image: discord.Attachment | None = None,
     ) -> None:
         logger.debug(
-            "レポート送信を受け付けました: "
+            "レポートを送信しました: command=/report "
             f"guild_id={interaction.guild.id if interaction.guild is not None else None} "
             f"channel_id={interaction.channel_id} "
-            f"reporter_id={interaction.user.id if interaction.user is not None else None} "
+            f"user_id={interaction.user.id if interaction.user is not None else None} "
             f"violator_id={violator.id} has_image={image is not None}"
         )
         await interaction.response.send_message(content="レポート送信中…", ephemeral=True)

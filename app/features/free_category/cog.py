@@ -7,6 +7,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from app.common.command_groups import get_bot, register_group, register_setup_command
+from app.common.permissions import admin_only
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
 
@@ -33,6 +34,7 @@ class FreeCategory(commands.Cog):
 
 @app_commands.command(name="free_category_button", description="フリーチャンネル作成ボタンを送信します")
 @app_commands.guild_only()
+@admin_only
 async def free_category_button(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
     service = get_free_category_service(bot)
@@ -42,10 +44,9 @@ async def free_category_button(interaction: discord.Interaction) -> None:
         return
 
     await channel.send(embed=build_creation_embed(), view=CreateChannelButtonView(service))
-    logger.debug(
-        "フリーチャンネル作成ボタンを送信しました: "
-        f"guild_id={interaction.guild.id if interaction.guild is not None else None} "
-        f"channel_id={interaction.channel_id} user_id={interaction.user.id if interaction.user is not None else None}"
+    logger.info(
+        "フリーチャンネル作成ボタンを設置しました: command=/setup free_category_button "
+        f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id}"
     )
     await interaction.response.send_message("チャンネル作成ボタンを送信しました！", ephemeral=True)
 

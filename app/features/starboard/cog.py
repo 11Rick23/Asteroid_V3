@@ -10,6 +10,7 @@ from discord.ext import commands
 from app.common.command_groups import get_bot, register_group, register_setup_command
 from app.common.constants import AsteroidColor
 from app.common.pages import Paginator
+from app.common.permissions import admin_only
 from app.core.bot import AsteroidBot
 
 logger = getLogger(__name__)
@@ -226,10 +227,16 @@ def _build_starboard_setup_error(
 
 @app_commands.command(name="starboard", description="旧スターボードを再作成")
 @app_commands.guild_only()
+@admin_only
 async def setup_starboard(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
     await interaction.response.defer(ephemeral=True, thinking=True)
-    logger.info(f"スターボード再作成を開始します: guild_id={interaction.guild.id if interaction.guild else None}")
+    logger.info(
+        "旧スターボード再作成を開始しました: command=/setup starboard "
+        f"guild_id={interaction.guild.id if interaction.guild else None} "
+        f"channel_id={getattr(interaction.channel, 'id', None)} "
+        f"actor_id={getattr(getattr(interaction, 'user', None), 'id', None)}"
+    )
 
     if interaction.guild is None or interaction.channel is None:
         await interaction.followup.send("サーバー内チャンネルで実行してください。", ephemeral=True)
@@ -369,8 +376,10 @@ async def setup_starboard(interaction: discord.Interaction) -> None:
         )
 
     logger.info(
-        "スターボード再作成が完了しました: "
-        f"guild_id={interaction.guild.id} total_count={total_count} "
+        "旧スターボード再作成が完了しました: command=/setup starboard "
+        f"guild_id={interaction.guild.id} channel_id={getattr(interaction.channel, 'id', None)} "
+        f"actor_id={getattr(getattr(interaction, 'user', None), 'id', None)} "
+        f"total_count={total_count} "
         f"recreated_count={recreated_count} deleted_count={deleted_count}"
     )
     await interaction.followup.send(
@@ -404,8 +413,9 @@ async def random_starboard(interaction: discord.Interaction) -> None:
         await interaction.response.send_message("ランダムなスターボードを取得できませんでした。", ephemeral=True)
         return
     logger.debug(
-        f"ランダムなスターボードを送信しました: guild_id={interaction.guild.id if interaction.guild else None} "
-        f"message_id={random_starboard_message.id}"
+        "ランダムスターボードを送信しました: command=/starboard random "
+        f"guild_id={interaction.guild.id if interaction.guild else None} channel_id={interaction.channel_id} "
+        f"user_id={interaction.user.id} message_id={random_starboard_message.id}"
     )
     await interaction.response.send_message(
         content=random_starboard_message.content, embeds=random_starboard_message.embeds
@@ -449,7 +459,9 @@ async def starboard_ranking(interaction: discord.Interaction) -> None:
         base_embed.copy().add_field(name="星をたくさんあげたユーザー", value="\n".join(raw_6_data_list)),
     ]
     logger.debug(
-        f"スターボードランキングを表示しました: guild_id={interaction.guild.id if interaction.guild else None}"
+        "スターボードランキングを表示しました: command=/starboard ranking "
+        f"guild_id={interaction.guild.id if interaction.guild else None} channel_id={interaction.channel_id} "
+        f"user_id={interaction.user.id}"
     )
     await Paginator(pages=embeds, show_disabled=False).respond(interaction)
 
