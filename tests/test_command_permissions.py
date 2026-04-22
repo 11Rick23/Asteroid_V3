@@ -5,6 +5,7 @@ from collections.abc import Iterable
 from discord import app_commands
 
 from app.common.command_groups import get_or_create_setup_group, register_setup_command
+from app.core.system_commands import stop_bot
 from app.features.auth.cog import setup_auth
 from app.features.birthday.cog import birthday_set_others
 from app.features.free_category.cog import free_category_button
@@ -53,6 +54,13 @@ def test_admin_groups_are_hidden_and_runtime_checked() -> None:
     assert_admin_group(leveling_admin_group)
     assert_admin_group(punish_group)
     assert_admin_group(suggest_group)
+
+
+def test_stop_command_is_admin_only() -> None:
+    assert stop_bot.guild_only is True
+    assert stop_bot.default_permissions is not None
+    assert stop_bot.default_permissions.administrator is True
+    assert stop_bot.checks
 
 
 def test_setup_group_and_setup_commands_are_admin_only() -> None:
