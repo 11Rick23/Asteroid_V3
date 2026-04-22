@@ -159,7 +159,6 @@ class AsteroidBot(Bot):
     async def close(self) -> None:
         async with self._close_lock:
             if self._shutdown_cleanup_complete:
-                await super().close()
                 logger.debug("BOT の停止処理は既に完了しています。")
                 return
 

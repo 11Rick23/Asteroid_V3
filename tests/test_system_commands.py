@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 import discord
 import pytest
 
@@ -38,6 +40,14 @@ class FakeBot:
         self.events.append(reason)
         await self.change_presence(status=discord.Status.offline, activity=None)
         await self.close()
+
+    def schedule_graceful_shutdown(self, reason: str) -> bool:
+        if self.shutdown_requested:
+            return False
+
+        self.shutdown_requested = True
+        self.shutdown_task = asyncio.create_task(self.shutdown_gracefully(reason))
+        return True
 
 
 class FakeInteraction:

@@ -41,8 +41,8 @@ async def test_send_shutdown_start_message_uses_cached_log_channel() -> None:
 
     assert len(channel.messages) == 1
     embed = channel.messages[0]["embed"]
-    assert embed.title == "BOT の終了処理を開始します"
-    assert embed.description == "安全停止を開始しました。"
+    assert embed.title == "BOT の停止処理を開始します"
+    assert embed.description is None
     assert embed.fields[0].name == "理由"
     assert embed.fields[0].value == "`signal=SIGTERM`"
 
@@ -56,7 +56,7 @@ async def test_send_shutdown_start_message_fetches_missing_log_channel() -> None
     assert bot.fetched_channel is not None
     assert len(bot.fetched_channel.messages) == 1
     embed = bot.fetched_channel.messages[0]["embed"]
-    assert embed.title == "BOT の終了処理を開始します"
+    assert embed.title == "BOT の停止処理を開始します"
     assert embed.fields[0].value == "`command=/stop`"
 
 

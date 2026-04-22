@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from logging import getLogger
 from typing import TYPE_CHECKING
 
@@ -29,7 +28,6 @@ async def stop_bot(interaction: discord.Interaction) -> None:
         await interaction.response.send_message("BOT は既に停止処理中です。", ephemeral=True)
         return
 
-    bot.shutdown_requested = True
     logger.info(
         "BOT 停止コマンドを受け付けました: command=/stop "
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id}"
@@ -37,10 +35,7 @@ async def stop_bot(interaction: discord.Interaction) -> None:
     try:
         await interaction.response.send_message("BOT の停止処理を開始します。", ephemeral=True)
     finally:
-        bot.shutdown_task = asyncio.create_task(
-            bot.shutdown_gracefully("command=/stop"),
-            name="asteroid-stop-command-close",
-        )
+        bot.schedule_graceful_shutdown("command=/stop")
 
 
 def register_system_commands(bot: AsteroidBot) -> None:

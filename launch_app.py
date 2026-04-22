@@ -21,11 +21,13 @@ def request_signal_shutdown(bot: AsteroidBot, received_signal: signal.Signals) -
 async def run_bot(bot: AsteroidBot, token: str) -> None:
     loop = asyncio.get_running_loop()
     registered_signals: list[signal.Signals] = []
+    fallback_signal_handlers = {}
 
     for shutdown_signal in (signal.SIGTERM, signal.SIGINT):
         try:
             loop.add_signal_handler(shutdown_signal, request_signal_shutdown, bot, shutdown_signal)
         except NotImplementedError:
+            fallback_signal_handlers[shutdown_signal] = signal.getsignal(shutdown_signal)
             signal.signal(
                 shutdown_signal,
                 lambda signum, _: loop.call_soon_threadsafe(
@@ -44,6 +46,8 @@ async def run_bot(bot: AsteroidBot, token: str) -> None:
     finally:
         for shutdown_signal in registered_signals:
             loop.remove_signal_handler(shutdown_signal)
+        for shutdown_signal, previous_handler in fallback_signal_handlers.items():
+            signal.signal(shutdown_signal, previous_handler)
         if bot.shutdown_task is not None:
             await bot.shutdown_task
 
