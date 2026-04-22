@@ -105,7 +105,7 @@ async def test_claim_voice_xp_rewards_logs_success(caplog) -> None:
         star_grades=FakeStarGrades(StarGradeData(123, 1, 5, 0, 0, 0, 0, now, now)),
     )
 
-    with caplog.at_level(logging.INFO, logger="app.features.leveling.service"):
+    with caplog.at_level(logging.DEBUG, logger="app.features.leveling.service"):
         result = await claim_voice_xp_rewards(bot, 123)
 
     assert result is not None

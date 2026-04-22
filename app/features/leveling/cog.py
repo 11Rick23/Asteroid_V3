@@ -492,6 +492,10 @@ async def claim_voice_xp_button(interaction: discord.Interaction) -> None:
         title="VC経験値獲得はこちら", description="ボタンを押すとVC経験値を獲得します", color=AsteroidColor.INFO
     )
     await interaction.channel.send(embed=embed, view=ClaimVoiceXP(bot=bot))
+    logger.info(
+        "VC経験値獲得ボタンを設置しました: command=/setup claim_voice_xp_button "
+        f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id}"
+    )
     await interaction.response.send_message("VC経験値獲得用のボタンを設置しました！", ephemeral=True)
 
 

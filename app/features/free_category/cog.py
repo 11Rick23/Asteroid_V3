@@ -44,10 +44,9 @@ async def free_category_button(interaction: discord.Interaction) -> None:
         return
 
     await channel.send(embed=build_creation_embed(), view=CreateChannelButtonView(service))
-    logger.debug(
-        "フリーチャンネル作成ボタンを送信しました: "
-        f"guild_id={interaction.guild.id if interaction.guild is not None else None} "
-        f"channel_id={interaction.channel_id} user_id={interaction.user.id if interaction.user is not None else None}"
+    logger.info(
+        "フリーチャンネル作成ボタンを設置しました: command=/setup free_category_button "
+        f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id}"
     )
     await interaction.response.send_message("チャンネル作成ボタンを送信しました！", ephemeral=True)
 

@@ -151,9 +151,9 @@ async def setup_auth(interaction: discord.Interaction) -> None:
         color=AsteroidColor.DARK_GREEN,
     )
     await interaction.channel.send(embed=embed, view=AuthButton(bot, timeout=None))
-    logger.debug(
-        f"認証ボタンを設置しました: guild_id={interaction.guild.id if interaction.guild is not None else None} "
-        f"channel_id={interaction.channel_id} user_id={interaction.user.id if interaction.user is not None else None}"
+    logger.info(
+        "認証ボタンを設置しました: command=/setup auth "
+        f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id}"
     )
     await interaction.response.send_message("認証用のボタンを設置しました！", ephemeral=True)
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from logging import getLogger
+
 import discord
 from discord import app_commands
 
@@ -9,6 +11,8 @@ from app.common.utils import humanize_number
 from app.core.bot import AsteroidBot
 from app.features.leveling.build_send_message import build_power_embed, build_star_grade_embed
 from app.features.leveling.manage_reward_role import sync_grade_prestige_role
+
+logger = getLogger(__name__)
 
 leveling_admin_group = app_commands.Group(
     name="leveling",
@@ -36,6 +40,11 @@ POWER_TYPE_CHOICES = [
 async def xp_boost_add(interaction: discord.Interaction, role: discord.Role, name: str, amount: int) -> None:
     bot = get_bot(interaction)
     await bot.db.xp_boosts.create_xp_boost(role.id, name, amount, None)
+    logger.info(
+        "XPブースターを追加しました: command=/leveling booster add "
+        f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
+        f"actor_id={interaction.user.id} role_id={role.id} name={name} amount={amount}"
+    )
     await interaction.response.send_message("経験値ブースターを追加しました。")
 
 
@@ -44,6 +53,11 @@ async def xp_boost_add(interaction: discord.Interaction, role: discord.Role, nam
 async def xp_boost_delete(interaction: discord.Interaction, role: discord.Role) -> None:
     bot = get_bot(interaction)
     await bot.db.xp_boosts.delete_xp_boost(role.id)
+    logger.info(
+        "XPブースターを削除しました: command=/leveling booster delete "
+        f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
+        f"actor_id={interaction.user.id} role_id={role.id}"
+    )
     await interaction.response.send_message("経験値ブースターを削除しました。")
 
 
@@ -72,6 +86,12 @@ async def add_shard(
         embed=build_star_grade_embed(user, star_grade),
     )
     await sync_grade_prestige_role(bot, user, star_grade)
+    logger.info(
+        "シャードを加算しました: command=/leveling shard add "
+        f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "
+        f"target_id={user.id} shard_type={shard_type_value} amount={amount} "
+        f"grade={star_grade.grade} prestige={star_grade.prestige}"
+    )
 
 
 @admin_shard_group.command(name="remove", description="ユーザーからシャードを減らします")
@@ -99,6 +119,12 @@ async def remove_shard(
         embed=build_star_grade_embed(user, star_grade),
     )
     await sync_grade_prestige_role(bot, user, star_grade)
+    logger.info(
+        "シャードを減算しました: command=/leveling shard remove "
+        f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "
+        f"target_id={user.id} shard_type={shard_type_value} amount={amount} "
+        f"grade={star_grade.grade} prestige={star_grade.prestige}"
+    )
 
 
 @admin_power_group.command(name="add", description="ユーザーにパワーを追加します")
@@ -129,6 +155,11 @@ async def add_power(
             if target_value == "text"
             else bot.db.monthly_powers.add_voice_power(power, amount)
         )
+    logger.info(
+        "パワーを加算しました: command=/leveling power add "
+        f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "
+        f"target_id={user.id} power_type={target_value} amount={amount}"
+    )
     await interaction.response.send_message(embed=build_power_embed(user, power))
 
 
@@ -160,6 +191,11 @@ async def remove_power(
             if target_value == "text"
             else bot.db.monthly_powers.remove_voice_power(power, amount)
         )
+    logger.info(
+        "パワーを減算しました: command=/leveling power remove "
+        f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "
+        f"target_id={user.id} power_type={target_value} amount={amount}"
+    )
     await interaction.response.send_message(embed=build_power_embed(user, power))
 
 
@@ -170,6 +206,10 @@ async def reset_power_ranking(interaction: discord.Interaction) -> None:
     await bot.db.monthly_powers.truncate_table()
     await bot.db.monthly_action_powers.truncate_table()
     await bot.db.voice_xp_limits.reset_voice_power()
+    logger.info(
+        "月間パワーランキングをリセットしました: command=/leveling power reset_ranking "
+        f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id}"
+    )
     await interaction.response.send_message("月間パワーランキングをリセットしました。")
 
 
