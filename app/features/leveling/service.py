@@ -66,7 +66,7 @@ async def claim_voice_xp_rewards(bot: AsteroidBot, user_id: int) -> VoiceXPClaim
         await bot.db.voice_xp_limits.delete_voice_xp_limit_lock(session, user_id)
         await session.commit()
 
-    logger.debug(
+    logger.info(
         f"VC経験値を受け取りました: user_id={user_id} voice_shard={voice_xp_limit.voice_shard} "
         f"bonus_shard={voice_xp_limit.bonus_shard} voice_power={voice_xp_limit.voice_power} "
         f"grade_up={grade_up_amount} prestige_up={prestige_amount}"

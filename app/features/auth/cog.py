@@ -10,6 +10,7 @@ from discord.ext import commands
 
 from app.common.command_groups import get_bot, register_setup_command
 from app.common.constants import AsteroidColor
+from app.common.permissions import admin_only
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
 from app.features.welcomer.service import send_first_welcome
@@ -141,6 +142,7 @@ class Authenticator(commands.Cog):
 
 @app_commands.command(name="auth", description="認証用のボタンを設置します。")
 @app_commands.guild_only()
+@admin_only
 async def setup_auth(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
     embed = discord.Embed(

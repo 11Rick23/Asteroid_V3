@@ -10,6 +10,7 @@ from discord.ext import commands
 from app.common.command_groups import get_bot, register_group, register_setup_command
 from app.common.constants import AsteroidColor
 from app.common.pages import Paginator
+from app.common.permissions import admin_only
 from app.core.bot import AsteroidBot
 
 logger = getLogger(__name__)
@@ -226,6 +227,7 @@ def _build_starboard_setup_error(
 
 @app_commands.command(name="starboard", description="旧スターボードを再作成")
 @app_commands.guild_only()
+@admin_only
 async def setup_starboard(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
     await interaction.response.defer(ephemeral=True, thinking=True)

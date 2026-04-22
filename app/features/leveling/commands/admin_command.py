@@ -4,12 +4,18 @@ import discord
 from discord import app_commands
 
 from app.common.command_groups import get_bot, register_group
+from app.common.permissions import ADMINISTRATOR_PERMISSIONS, admin_only
 from app.common.utils import humanize_number
 from app.core.bot import AsteroidBot
 from app.features.leveling.build_send_message import build_power_embed, build_star_grade_embed
 from app.features.leveling.manage_reward_role import sync_grade_prestige_role
 
-leveling_admin_group = app_commands.Group(name="leveling", description="管理者用レベリングシステム関連コマンド")
+leveling_admin_group = app_commands.Group(
+    name="leveling",
+    description="管理者用レベリングシステム関連コマンド",
+    guild_only=True,
+    default_permissions=ADMINISTRATOR_PERMISSIONS,
+)
 xp_boost_group = app_commands.Group(name="booster", description="ブースター設定", parent=leveling_admin_group)
 admin_shard_group = app_commands.Group(name="shard", description="シャード管理", parent=leveling_admin_group)
 admin_power_group = app_commands.Group(name="power", description="パワー管理", parent=leveling_admin_group)
@@ -26,6 +32,7 @@ POWER_TYPE_CHOICES = [
 
 
 @xp_boost_group.command(name="add", description="経験値ブースターを追加します")
+@admin_only
 async def xp_boost_add(interaction: discord.Interaction, role: discord.Role, name: str, amount: int) -> None:
     bot = get_bot(interaction)
     await bot.db.xp_boosts.create_xp_boost(role.id, name, amount, None)
@@ -33,6 +40,7 @@ async def xp_boost_add(interaction: discord.Interaction, role: discord.Role, nam
 
 
 @xp_boost_group.command(name="delete", description="経験値ブースターを削除します")
+@admin_only
 async def xp_boost_delete(interaction: discord.Interaction, role: discord.Role) -> None:
     bot = get_bot(interaction)
     await bot.db.xp_boosts.delete_xp_boost(role.id)
@@ -41,6 +49,7 @@ async def xp_boost_delete(interaction: discord.Interaction, role: discord.Role) 
 
 @admin_shard_group.command(name="add", description="ユーザーにシャードを追加します")
 @app_commands.choices(shard_type=SHARD_TYPE_CHOICES)
+@admin_only
 async def add_shard(
     interaction: discord.Interaction,
     user: discord.Member,
@@ -67,6 +76,7 @@ async def add_shard(
 
 @admin_shard_group.command(name="remove", description="ユーザーからシャードを減らします")
 @app_commands.choices(shard_type=SHARD_TYPE_CHOICES)
+@admin_only
 async def remove_shard(
     interaction: discord.Interaction,
     user: discord.Member,
@@ -93,6 +103,7 @@ async def remove_shard(
 
 @admin_power_group.command(name="add", description="ユーザーにパワーを追加します")
 @app_commands.choices(target=POWER_TYPE_CHOICES)
+@admin_only
 async def add_power(
     interaction: discord.Interaction,
     user: discord.Member,
@@ -123,6 +134,7 @@ async def add_power(
 
 @admin_power_group.command(name="remove", description="ユーザーからパワーを減らします")
 @app_commands.choices(target=POWER_TYPE_CHOICES)
+@admin_only
 async def remove_power(
     interaction: discord.Interaction,
     user: discord.Member,
@@ -152,6 +164,7 @@ async def remove_power(
 
 
 @admin_power_group.command(name="reset_ranking", description="パワーランキングを更新してリセットします")
+@admin_only
 async def reset_power_ranking(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
     await bot.db.monthly_powers.truncate_table()

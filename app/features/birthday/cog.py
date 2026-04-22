@@ -3,14 +3,15 @@ from __future__ import annotations
 from calendar import isleap
 from datetime import date, datetime, time
 from logging import getLogger
+from zoneinfo import ZoneInfo
 
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
-from zoneinfo import ZoneInfo
 
 from app.common.command_groups import get_bot, register_group
 from app.common.constants import AsteroidColor
+from app.common.permissions import admin_only
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
 
@@ -124,8 +125,8 @@ async def birthday_set(interaction: discord.Interaction, month: int, day: int) -
 
 
 @birthday_group.command(name="set_others", description="他人の誕生日を設定")
-@app_commands.checks.has_permissions(administrator=True)
 @app_commands.describe(user="設定するユーザー", month="誕生日の月", day="誕生日の日")
+@admin_only
 async def birthday_set_others(interaction: discord.Interaction, user: discord.User, month: int, day: int) -> None:
     bot = get_bot(interaction)
     if not validate_date(month, day):
