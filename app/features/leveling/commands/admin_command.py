@@ -9,6 +9,7 @@ from app.common.command_groups import get_bot, register_group
 from app.common.permissions import ADMINISTRATOR_PERMISSIONS, admin_only
 from app.common.utils import humanize_number
 from app.core.bot import AsteroidBot
+from app.features.leveling.action_power import build_accumulated_action_power_message
 from app.features.leveling.build_send_message import build_power_embed, build_star_grade_embed
 from app.features.leveling.manage_reward_role import sync_grade_prestige_role
 
@@ -33,6 +34,22 @@ POWER_TYPE_CHOICES = [
     app_commands.Choice(name="ボイス", value="voice"),
     app_commands.Choice(name="アクション", value="action"),
 ]
+
+
+@leveling_admin_group.command(name="action_power_total", description="現在の合計アクションパワーを確認します")
+@admin_only
+async def action_power_total(interaction: discord.Interaction) -> None:
+    bot = get_bot(interaction)
+    total_action_power = await bot.db.monthly_action_powers.sum_action_power()
+    logger.info(
+        "合計アクションパワーを確認しました: command=/leveling action_power_total "
+        f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
+        f"actor_id={interaction.user.id} total_action_power={total_action_power}"
+    )
+    await interaction.response.send_message(
+        build_accumulated_action_power_message(total_action_power),
+        ephemeral=True,
+    )
 
 
 @xp_boost_group.command(name="add", description="経験値ブースターを追加します")
