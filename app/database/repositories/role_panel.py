@@ -137,8 +137,27 @@ class RolePanel:
             return bool(result.rowcount)
 
     async def get_category(self, category_id: int) -> RolePanelCategoryDetail | None:
-        categories = await self.get_categories()
-        return next((category for category in categories if category.category_id == category_id), None)
+        async with self.db.session() as session:
+            category_model = await session.get(RolePanelCategoryModel, category_id)
+            category_data = self._to_category_data(category_model)
+            if category_data is None:
+                return None
+
+            role_stmt = (
+                select(RolePanelRoleModel)
+                .where(RolePanelRoleModel.category_id == category_id)
+                .order_by(
+                    RolePanelRoleModel.display_order.asc(),
+                    RolePanelRoleModel.role_id.asc(),
+                )
+            )
+            role_models = await session.scalars(role_stmt)
+
+        category = RolePanelCategoryDetail(**category_data.__dict__)
+        category.roles = [
+            role_data for model in role_models if (role_data := self._to_role_data(model)) is not None
+        ]
+        return category
 
     async def get_categories(self) -> list[RolePanelCategoryDetail]:
         async with self.db.session() as session:
