@@ -37,6 +37,7 @@ class FeatureFlags(BaseSection):
     auth: bool = True
     log_login: bool = True
     log_error: bool = True
+    rolepanel: bool = True
     roles: bool = True
     suggest: bool = True
     bump_notifier: bool = True
@@ -159,6 +160,10 @@ class RolesConfig(BaseSection):
     ignored_save_role_id_list: list[int] = Field(default_factory=list)
 
 
+class RolePanelConfig(BaseSection):
+    panel_channel_id: int = 0
+
+
 class SuggestConfig(BaseSection):
     suggestion_forum_channel_id: int = 0
 
@@ -185,6 +190,7 @@ class AsteroidConfig(BaseModel):
     vc: VCConfig = Field(default_factory=VCConfig)
     free_category: FreeCategoryConfig = Field(default_factory=FreeCategoryConfig)
     roles: RolesConfig = Field(default_factory=RolesConfig)
+    rolepanel: RolePanelConfig = Field(default_factory=RolePanelConfig)
     suggest: SuggestConfig = Field(default_factory=SuggestConfig)
     bump_notifier: EmptyFeatureConfig = Field(default_factory=EmptyFeatureConfig)
     link_expander: EmptyFeatureConfig = Field(default_factory=EmptyFeatureConfig)
