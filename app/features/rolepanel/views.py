@@ -9,7 +9,7 @@ from app.database.repositories.role_panel import RolePanelCategoryDetail
 from .service import (
     ROLE_SELECT_LIMIT,
     RolePanelService,
-    member_needs_vip_role,
+    member_needs_boost,
     sort_roles_by_hierarchy,
 )
 
@@ -126,17 +126,16 @@ class RolePanelCategoryButton(discord.ui.Button["RolePanelView"]):
             )
             return
 
-        if member_needs_vip_role(interaction.user, category):
+        if member_needs_boost(interaction.user, category):
             logger.warning(
                 "ロールパネルカテゴリの条件不足でUI表示を拒否しました: "
                 f"guild_id={interaction.guild.id} actor_id={interaction.user.id} "
-                f"category_id={self.category_id} required=vip"
+                f"category_id={self.category_id} required=boost"
             )
-            vip_role = interaction.guild.premium_subscriber_role
             await interaction.response.send_message(
                 embed=_response_embed(
                     "利用条件を満たしていません",
-                    f"このカテゴリを利用するには {vip_role.mention if vip_role else 'VIPロール'} が必要です。",
+                    "このカテゴリを利用するにはサーバーをブーストする必要があります。",
                 ),
                 ephemeral=True,
             )

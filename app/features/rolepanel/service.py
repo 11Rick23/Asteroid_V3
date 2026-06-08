@@ -32,8 +32,8 @@ def get_rolepanel_service(bot: AsteroidBot) -> RolePanelService:
     return service
 
 
-def member_needs_vip_role(member: discord.Member, category: RolePanelCategoryDetail) -> bool:
-    if not category.requires_vip:
+def member_needs_boost(member: discord.Member, category: RolePanelCategoryDetail) -> bool:
+    if not category.requires_boost:
         return False
     return member.guild.premium_subscriber_role not in member.roles
 
@@ -152,14 +152,13 @@ class RolePanelService:
             )
             return "このカテゴリは存在しません。"
 
-        if member_needs_vip_role(interaction.user, category):
+        if member_needs_boost(interaction.user, category):
             logger.warning(
                 "ロールパネルカテゴリの条件不足で拒否しました: "
                 f"guild_id={interaction.guild.id} actor_id={interaction.user.id} "
-                f"category_id={category_id} required=vip"
+                f"category_id={category_id} required=boost"
             )
-            vip_role = interaction.guild.premium_subscriber_role
-            return f"このカテゴリを利用するには {vip_role.mention if vip_role else 'VIPロール'} が必要です。"
+            return "このカテゴリを利用するにはサーバーをブーストする必要があります。"
 
         plan = build_role_sync_plan(interaction.user, category, selected_role_ids)
         reason = f"[{generate_timestamp()}] ロールパネルにより同期されました。"

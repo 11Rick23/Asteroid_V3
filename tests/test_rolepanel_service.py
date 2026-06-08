@@ -9,7 +9,7 @@ from app.database.repositories.role_panel import (
 from app.features.rolepanel.service import (
     RolePanelService,
     build_role_sync_plan,
-    member_needs_vip_role,
+    member_needs_boost,
     sort_roles_by_hierarchy,
 )
 from app.features.rolepanel.views import build_role_select_options
@@ -44,31 +44,31 @@ class FakeMember:
         self.roles = roles
 
 
-def build_category(*, roles: list[int], requires_vip: bool = False) -> RolePanelCategoryDetail:
+def build_category(*, roles: list[int], requires_boost: bool = False) -> RolePanelCategoryDetail:
     now = datetime.now()
     return RolePanelCategoryDetail(
         category_id=1,
         name="通知",
         description=None,
         display_order=1,
-        requires_vip=requires_vip,
+        requires_boost=requires_boost,
         created_at=now,
         updated_at=now,
         roles=[RolePanelRoleData(1, role_id, index, now, now) for index, role_id in enumerate(roles)],
     )
 
 
-def test_member_needs_vip_role_checks_guild_premium_subscriber_role() -> None:
+def test_member_needs_boost_checks_guild_premium_subscriber_role() -> None:
     roles = [FakeRole(1, 1), FakeRole(10, 10), FakeRole(20, 20)]
     guild = FakeGuild(roles, FakeRole(999, 999), premium_subscriber_role=roles[2])
     member = FakeMember(guild, [roles[0], roles[1]])
-    category = build_category(roles=[20], requires_vip=True)
+    category = build_category(roles=[20], requires_boost=True)
 
-    assert member_needs_vip_role(member, category) is True
+    assert member_needs_boost(member, category) is True
 
     member.roles.append(roles[2])
 
-    assert member_needs_vip_role(member, category) is False
+    assert member_needs_boost(member, category) is False
 
 
 def test_build_role_select_options_only_includes_category_roles() -> None:
@@ -107,7 +107,7 @@ def test_build_role_sync_plan_syncs_only_category_manageable_roles() -> None:
 
 
 def test_build_panel_embed_shows_only_category_name_and_roles() -> None:
-    category = build_category(roles=[10, 20], requires_vip=True)
+    category = build_category(roles=[10, 20], requires_boost=True)
     category.description = "説明"
     service = RolePanelService(bot=object())
 

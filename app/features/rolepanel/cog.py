@@ -392,14 +392,17 @@ async def role_edit(interaction: discord.Interaction, category: int) -> None:
     )
 
 
-@rolepanel_group.command(name="edit_required_role", description="カテゴリのVIPロール必須条件を編集します")
-@app_commands.rename(category="カテゴリ", required="vip必須")
-@app_commands.describe(category="VIPロール必須条件を編集するカテゴリ", required="VIPロールを必須にするかどうか")
+@rolepanel_group.command(name="require_boost", description="カテゴリのロールをブースター限定設定を変更します。")
+@app_commands.rename(category="カテゴリ", required="ブースター限定")
+@app_commands.describe(
+    category="設定を変更するカテゴリ",
+    required="ブースター限定にするかどうか",
+)
 @app_commands.autocomplete(category=category_autocomplete)
 @admin_only
 async def required_edit(interaction: discord.Interaction, category: int, required: bool) -> None:
     bot = get_bot(interaction)
-    updated = await bot.db.role_panel.update_category(category, requires_vip=required)
+    updated = await bot.db.role_panel.update_category(category, requires_boost=required)
     if updated is None:
         await interaction.response.send_message(
             embed=_response_embed("カテゴリが見つかりません", "指定されたカテゴリが見つかりません。"),
@@ -409,14 +412,14 @@ async def required_edit(interaction: discord.Interaction, category: int, require
 
     await _refresh_panel_if_loaded(bot)
     logger.info(
-        "ロールパネルカテゴリのVIP必須条件を更新しました: command=/rolepanel edit_required_role "
+        "ロールパネルカテゴリのブースト必須条件を更新しました: command=/rolepanel edit_required_role "
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "
         f"category_id={category} required={required}"
     )
     await interaction.response.send_message(
         embed=_response_embed(
-            "VIP必須条件を更新しました",
-            f"`{updated.name}` のVIPロール必須を {'有効' if required else '無効'} にしました。",
+            "ブースター限定設定を更新しました",
+            f"`{updated.name}` のブースター限定設定を {'有効' if required else '無効'} にしました。",
         ),
         ephemeral=True,
     )

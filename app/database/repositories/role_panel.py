@@ -17,7 +17,7 @@ class RolePanelCategoryData:
     name: str
     description: str | None
     display_order: int
-    requires_vip: bool
+    requires_boost: bool
     created_at: datetime
     updated_at: datetime
 
@@ -49,7 +49,7 @@ class RolePanel:
             name=model.name,
             description=model.description,
             display_order=model.display_order,
-            requires_vip=model.requires_vip,
+            requires_boost=model.requires_boost,
             created_at=model.created_at,
             updated_at=model.updated_at,
         )
@@ -81,7 +81,7 @@ class RolePanel:
         name: str,
         description: str | None = None,
         display_order: int = 0,
-        requires_vip: bool = False,
+        requires_boost: bool = False,
     ) -> RolePanelCategoryData:
         async with self.db.session() as session:
             now = datetime.now()
@@ -89,7 +89,7 @@ class RolePanel:
                 name=name,
                 description=description,
                 display_order=display_order,
-                requires_vip=requires_vip,
+                requires_boost=requires_boost,
                 created_at=now,
                 updated_at=now,
             )
@@ -108,7 +108,7 @@ class RolePanel:
         name: str | None = None,
         description: str | None = None,
         display_order: int | None = None,
-        requires_vip: bool | None = None,
+        requires_boost: bool | None = None,
     ) -> RolePanelCategoryData | None:
         async with self.db.session() as session:
             model = await session.get(RolePanelCategoryModel, category_id)
@@ -120,8 +120,8 @@ class RolePanel:
                 model.description = description
             if display_order is not None:
                 model.display_order = display_order
-            if requires_vip is not None:
-                model.requires_vip = requires_vip
+            if requires_boost is not None:
+                model.requires_boost = requires_boost
             now = datetime.now()
             model.updated_at = now
             data = self._to_category_data(model)
