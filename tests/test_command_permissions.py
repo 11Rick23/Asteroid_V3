@@ -13,6 +13,7 @@ from app.features.leveling.cog import claim_voice_xp_button
 from app.features.leveling.commands.admin_command import leveling_admin_group
 from app.features.leveling.commands.command import transfer_mee6
 from app.features.punish.cog import punish_group
+from app.features.rolepanel.cog import rolepanel_group
 from app.features.starboard.cog import setup_starboard
 from app.features.suggest.cog import suggest_group
 
@@ -53,6 +54,7 @@ def assert_admin_group(group: app_commands.Group) -> None:
 def test_admin_groups_are_hidden_and_runtime_checked() -> None:
     assert_admin_group(leveling_admin_group)
     assert_admin_group(punish_group)
+    assert_admin_group(rolepanel_group)
     assert_admin_group(suggest_group)
 
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 from .given_stars import GivenStars
 from .monthly_action_powers import MonthlyActionPowers
 from .monthly_powers import MonthlyPowers
+from .role_panel import RolePanel
 from .star_grades import StarGrades
 from .starred_messages import StarredMessages
 from .user_birthdays import UserBirthdays
@@ -22,3 +23,4 @@ class DatabaseRepositories:
         self.monthly_action_powers = MonthlyActionPowers(self)
         self.monthly_powers = MonthlyPowers(self)
         self.user_birthdays = UserBirthdays(self)
+        self.role_panel = RolePanel(self)

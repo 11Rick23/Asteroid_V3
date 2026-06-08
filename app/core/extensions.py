@@ -19,6 +19,7 @@ FEATURE_EXTENSION_MAP = (
     ("log_login", "app.features.log.login"),
     ("punish", "app.features.punish.cog"),
     ("report", "app.features.report.cog"),
+    ("rolepanel", "app.features.rolepanel.cog"),
     ("roles", "app.features.roles.cog"),
     ("starboard", "app.features.starboard.cog"),
     ("suggest", "app.features.suggest.cog"),

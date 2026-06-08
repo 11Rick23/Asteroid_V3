@@ -58,6 +58,7 @@ class AsteroidBot(Bot):
             self.db.monthly_action_powers.create_table,
             self.db.monthly_powers.create_table,
             self.db.user_birthdays.create_table,
+            self.db.role_panel.create_table,
         )
         for create_table in table_initializers:
             await create_table()

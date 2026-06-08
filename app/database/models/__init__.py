@@ -1,6 +1,7 @@
 from .given_stars import GivenStarModel
 from .monthly_action_powers import MonthlyActionPowerModel
 from .monthly_powers import MonthlyPowerModel
+from .role_panel import RolePanelCategoryModel, RolePanelRoleModel
 from .star_grades import StarGradeModel
 from .starred_messages import StarredMessageModel
 from .user_birthdays import UserBirthdayModel
@@ -12,6 +13,8 @@ __all__ = [
     "GivenStarModel",
     "MonthlyActionPowerModel",
     "MonthlyPowerModel",
+    "RolePanelCategoryModel",
+    "RolePanelRoleModel",
     "StarGradeModel",
     "StarredMessageModel",
     "UserBirthdayModel",
