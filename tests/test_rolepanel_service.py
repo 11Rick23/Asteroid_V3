@@ -9,6 +9,7 @@ from app.database.repositories.role_panel import (
 from app.features.rolepanel.service import (
     RolePanelService,
     build_role_sync_plan,
+    get_visible_category_roles,
     member_needs_boost,
     sort_roles_by_hierarchy,
 )
@@ -121,6 +122,24 @@ def test_build_role_sync_plan_syncs_only_category_manageable_roles() -> None:
     assert [role.id for role in plan.remove_roles] == [10]
     assert plan.ignored_role_ids == {30}
     assert plan.unmanageable_role_ids == {40, 50}
+
+
+def test_build_role_sync_plan_uses_visible_sorted_role_limit() -> None:
+    default_role = FakeRole(1, 1)
+    hidden_current_role = FakeRole(10, 1)
+    visible_added_role = FakeRole(35, 200)
+    middle_roles = [FakeRole(role_id, 100 - role_id) for role_id in range(11, 35)]
+    bot_top_role = FakeRole(999, 999)
+    guild = FakeGuild([default_role, hidden_current_role, *middle_roles, visible_added_role], bot_top_role)
+    member = FakeMember(guild, [default_role, hidden_current_role])
+    category = build_category(roles=[10, *range(11, 35), 35])
+
+    plan = build_role_sync_plan(member, category, {35})
+
+    assert [role.id for role in plan.add_roles] == [35]
+    assert plan.remove_roles == []
+    assert plan.ignored_role_ids == set()
+    assert 10 not in {role.role_id for role in get_visible_category_roles(category, guild)}
 
 
 def test_build_panel_embed_shows_only_category_name_and_roles() -> None:

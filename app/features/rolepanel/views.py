@@ -7,10 +7,9 @@ import discord
 from app.database.repositories.role_panel import RolePanelCategoryDetail
 
 from .service import (
-    ROLE_SELECT_LIMIT,
     RolePanelService,
+    get_visible_category_roles,
     member_needs_boost,
-    sort_roles_by_hierarchy,
 )
 
 logger = getLogger(__name__)
@@ -26,7 +25,7 @@ def build_role_select_options(
 ) -> list[discord.SelectOption]:
     member_role_ids = {role.id for role in member.roles}
     options: list[discord.SelectOption] = []
-    for role_data in sort_roles_by_hierarchy(category.roles, member.guild)[:ROLE_SELECT_LIMIT]:
+    for role_data in get_visible_category_roles(category, member.guild):
         role = member.guild.get_role(role_data.role_id)
         if role is None:
             continue

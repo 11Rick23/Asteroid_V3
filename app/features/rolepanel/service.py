@@ -59,12 +59,19 @@ def sort_roles_by_hierarchy(
     return [role_data for _, role_data in sorted(indexed_roles, key=sort_key)]
 
 
+def get_visible_category_roles(
+    category: RolePanelCategoryDetail,
+    guild: discord.Guild | None,
+) -> list[RolePanelRoleData]:
+    return sort_roles_by_hierarchy(category.roles, guild)[:ROLE_SELECT_LIMIT]
+
+
 def build_role_sync_plan(
     member: discord.Member,
     category: RolePanelCategoryDetail,
     selected_role_ids: set[int],
 ) -> RoleSyncPlan:
-    category_role_ids = {role_data.role_id for role_data in category.roles[:ROLE_SELECT_LIMIT]}
+    category_role_ids = {role_data.role_id for role_data in get_visible_category_roles(category, member.guild)}
     member_role_ids = {role.id for role in member.roles}
     ignored_role_ids = selected_role_ids - category_role_ids
 
