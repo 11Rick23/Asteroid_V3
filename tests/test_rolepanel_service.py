@@ -12,7 +12,7 @@ from app.features.rolepanel.service import (
     member_needs_boost,
     sort_roles_by_hierarchy,
 )
-from app.features.rolepanel.views import build_role_select_options
+from app.features.rolepanel.views import RolePanelSelectView, build_role_select_options
 
 
 class FakeRole:
@@ -33,13 +33,16 @@ class FakeGuild:
         self.me = type("FakeMe", (), {"top_role": top_role})()
         self.premium_subscriber_role = premium_subscriber_role
         self._roles = {role.id: role for role in roles}
+        self.get_role_calls: list[int] = []
 
     def get_role(self, role_id: int) -> FakeRole | None:
+        self.get_role_calls.append(role_id)
         return self._roles.get(role_id)
 
 
 class FakeMember:
-    def __init__(self, guild: FakeGuild, roles: list[FakeRole]):
+    def __init__(self, guild: FakeGuild, roles: list[FakeRole], member_id: int = 100):
+        self.id = member_id
         self.guild = guild
         self.roles = roles
 
@@ -81,6 +84,20 @@ def test_build_role_select_options_only_includes_category_roles() -> None:
 
     assert [option.value for option in options] == ["20", "10"]
     assert [option.default for option in options] == [False, True]
+
+
+def test_role_panel_select_view_uses_prebuilt_options() -> None:
+    roles = [FakeRole(1, 1), FakeRole(10, 10), FakeRole(20, 20)]
+    guild = FakeGuild(roles, FakeRole(999, 999))
+    member = FakeMember(guild, [roles[0]])
+    category = build_category(roles=[10, 20])
+    options = build_role_select_options(category, member)
+    get_role_call_count = len(guild.get_role_calls)
+
+    view = RolePanelSelectView(RolePanelService(bot=object()), category, member, options)
+
+    assert len(view.children) == 1
+    assert len(guild.get_role_calls) == get_role_call_count
 
 
 def test_build_role_sync_plan_syncs_only_category_manageable_roles() -> None:

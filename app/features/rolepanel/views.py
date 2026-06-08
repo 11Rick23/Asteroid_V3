@@ -46,8 +46,8 @@ class RolePanelRoleSelect(discord.ui.Select["RolePanelSelectView"]):
         service: RolePanelService,
         category: RolePanelCategoryDetail,
         member: discord.Member,
+        options: list[discord.SelectOption],
     ):
-        options = build_role_select_options(category, member)
         super().__init__(
             custom_id=f"rolepanel_select:{category.category_id}:{member.id}",
             placeholder="付与したいロールを選択",
@@ -87,10 +87,11 @@ class RolePanelSelectView(discord.ui.View):
         service: RolePanelService,
         category: RolePanelCategoryDetail,
         member: discord.Member,
+        options: list[discord.SelectOption],
     ):
         super().__init__(timeout=300)
-        if build_role_select_options(category, member):
-            self.add_item(RolePanelRoleSelect(service, category, member))
+        if options:
+            self.add_item(RolePanelRoleSelect(service, category, member, options))
 
 
 class RolePanelCategoryButton(discord.ui.Button["RolePanelView"]):
@@ -141,7 +142,8 @@ class RolePanelCategoryButton(discord.ui.Button["RolePanelView"]):
             )
             return
 
-        if not build_role_select_options(category, interaction.user):
+        options = build_role_select_options(category, interaction.user)
+        if not options:
             await interaction.response.send_message(
                 embed=_response_embed("ロール未設定", "このカテゴリには選択可能なロールが設定されていません。"),
                 ephemeral=True,
@@ -150,7 +152,7 @@ class RolePanelCategoryButton(discord.ui.Button["RolePanelView"]):
 
         await interaction.response.send_message(
             embed=_response_embed("ロールを選択", f"**{category.name}** のロールを選択してください。"),
-            view=RolePanelSelectView(self.service, category, interaction.user),
+            view=RolePanelSelectView(self.service, category, interaction.user, options),
             ephemeral=True,
         )
 
