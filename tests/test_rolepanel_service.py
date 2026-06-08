@@ -14,7 +14,12 @@ from app.features.rolepanel.service import (
     member_needs_boost,
     sort_roles_by_hierarchy,
 )
-from app.features.rolepanel.views import RolePanelSelectView, build_role_select_options
+from app.features.rolepanel.views import (
+    CATEGORY_BUTTON_LABEL_LIMIT,
+    RolePanelSelectView,
+    RolePanelView,
+    build_role_select_options,
+)
 
 
 class FakeRole:
@@ -106,6 +111,15 @@ def test_role_panel_select_view_uses_prebuilt_options() -> None:
 
     assert len(view.children) == 1
     assert len(guild.get_role_calls) == get_role_call_count
+
+
+def test_role_panel_view_truncates_category_button_labels() -> None:
+    category = build_category(roles=[10], name="あ" * (CATEGORY_BUTTON_LABEL_LIMIT + 1))
+
+    view = RolePanelView(RolePanelService(bot=object()), [category])
+
+    button = view.children[0]
+    assert button.label == "あ" * CATEGORY_BUTTON_LABEL_LIMIT
 
 
 def test_build_role_sync_plan_syncs_only_category_manageable_roles() -> None:

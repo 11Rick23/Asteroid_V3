@@ -15,6 +15,8 @@ from .service import (
 
 logger = getLogger(__name__)
 
+CATEGORY_BUTTON_LABEL_LIMIT = 80
+
 
 def _response_embed(title: str, description: str, *, color: int = 0xB2B1B5) -> discord.Embed:
     return discord.Embed(title=title, description=description, color=color)
@@ -97,7 +99,7 @@ class RolePanelSelectView(discord.ui.View):
 class RolePanelCategoryButton(discord.ui.Button["RolePanelView"]):
     def __init__(self, service: RolePanelService, category: RolePanelCategoryDetail, row: int):
         super().__init__(
-            label=category.name,
+            label=category.name[:CATEGORY_BUTTON_LABEL_LIMIT],
             style=discord.ButtonStyle.blurple,
             custom_id=f"rolepanel_category:{category.category_id}",
             row=row,
