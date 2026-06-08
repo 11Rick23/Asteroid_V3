@@ -35,3 +35,12 @@ run = "uv run ruff format ."
 description = "Ruff のチェックを実行し、可能な修正を行う。"
 depends = ["sync"]
 run = "uv run ruff check . --fix"
+
+[tasks.typecheck]
+description = "Pyright の型チェックを実行する。"
+depends = ["sync"]
+run = "uv run pyright"
+
+[tasks.check]
+description = "Lint・型チェック・テストをまとめて実行する。"
+depends = ["lint", "typecheck", "test"]
