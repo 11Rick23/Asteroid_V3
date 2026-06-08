@@ -50,7 +50,7 @@ class RolePanelRoleSelect(discord.ui.Select["RolePanelSelectView"]):
         options = build_role_select_options(category, member)
         super().__init__(
             custom_id=f"rolepanel_select:{category.category_id}:{member.id}",
-            placeholder=f"{category.name} のロールを選択",
+            placeholder="付与したいロールを選択",
             min_values=0,
             max_values=max(1, len(options)),
             options=options,
@@ -134,8 +134,8 @@ class RolePanelCategoryButton(discord.ui.Button["RolePanelView"]):
             )
             await interaction.response.send_message(
                 embed=_response_embed(
-                    "利用条件を満たしていません",
-                    "このカテゴリを利用するにはサーバーをブーストする必要があります。",
+                    "ブースター専用ロールです",
+                    "このカテゴリのロールを入手するにはサーバーをブーストする必要があります。",
                 ),
                 ephemeral=True,
             )

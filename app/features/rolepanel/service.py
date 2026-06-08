@@ -109,7 +109,7 @@ class RolePanelService:
         embed = discord.Embed(
             title="ロールパネル",
             description="カテゴリを選択して、付け外ししたいロールを選んでください。",
-            color=AsteroidColor.INFO,
+            color=AsteroidColor.GREEN,
         )
         if not categories:
             embed.add_field(
