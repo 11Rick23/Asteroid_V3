@@ -264,6 +264,8 @@ class RolePanelAdminRoleEditView(discord.ui.View):
 
 
 @category_group.command(name="add", description="ロールパネルカテゴリを追加します")
+@app_commands.rename(name="カテゴリ名", order="表示順")
+@app_commands.describe(name="追加するカテゴリ名", order="カテゴリの表示順。小さい値ほど先に表示されます")
 @admin_only
 async def category_add(
     interaction: discord.Interaction,
@@ -284,6 +286,12 @@ async def category_add(
 
 
 @category_group.command(name="edit", description="ロールパネルカテゴリを編集します")
+@app_commands.rename(category="カテゴリ", name="カテゴリ名", order="表示順")
+@app_commands.describe(
+    category="編集するカテゴリ",
+    name="変更後のカテゴリ名",
+    order="変更後の表示順。小さい値ほど先に表示されます",
+)
 @app_commands.autocomplete(category=category_autocomplete)
 @admin_only
 async def category_edit(
@@ -324,6 +332,8 @@ async def category_edit(
 
 
 @category_group.command(name="remove", description="ロールパネルカテゴリを削除します")
+@app_commands.rename(category="カテゴリ")
+@app_commands.describe(category="削除するカテゴリ")
 @app_commands.autocomplete(category=category_autocomplete)
 @admin_only
 async def category_remove(interaction: discord.Interaction, category: int) -> None:
@@ -348,6 +358,8 @@ async def category_remove(interaction: discord.Interaction, category: int) -> No
 
 
 @rolepanel_group.command(name="edit_role", description="カテゴリ内ロールを編集します")
+@app_commands.rename(category="カテゴリ")
+@app_commands.describe(category="ロールを編集するカテゴリ")
 @app_commands.autocomplete(category=category_autocomplete)
 @admin_only
 async def role_edit(interaction: discord.Interaction, category: int) -> None:
@@ -381,6 +393,8 @@ async def role_edit(interaction: discord.Interaction, category: int) -> None:
 
 
 @rolepanel_group.command(name="edit_required_role", description="カテゴリのVIPロール必須条件を編集します")
+@app_commands.rename(category="カテゴリ", required="vip必須")
+@app_commands.describe(category="VIPロール必須条件を編集するカテゴリ", required="VIPロールを必須にするかどうか")
 @app_commands.autocomplete(category=category_autocomplete)
 @admin_only
 async def required_edit(interaction: discord.Interaction, category: int, required: bool) -> None:
