@@ -13,6 +13,7 @@ from app.database.repositories.role_panel import RolePanelCategoryDetail, RolePa
 logger = getLogger(__name__)
 
 ROLE_SELECT_LIMIT = 25
+PANEL_CATEGORY_LIMIT = 25
 
 
 @dataclass(slots=True)
@@ -126,7 +127,10 @@ class RolePanelService:
             )
             return embed
 
-        for category in categories:
+        if len(categories) > PANEL_CATEGORY_LIMIT:
+            embed.description += f"\n表示対象は先頭{PANEL_CATEGORY_LIMIT}カテゴリです。"
+
+        for category in categories[:PANEL_CATEGORY_LIMIT]:
             category_roles = sort_roles_by_hierarchy(category.roles, guild)
             role_mentions = (
                 "\n".join(f"<@&{role.role_id}>" for role in category_roles[:ROLE_SELECT_LIMIT]) or "ロール未設定"

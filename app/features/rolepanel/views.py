@@ -7,6 +7,7 @@ import discord
 from app.database.repositories.role_panel import RolePanelCategoryDetail
 
 from .service import (
+    PANEL_CATEGORY_LIMIT,
     RolePanelService,
     get_visible_category_roles,
     member_needs_boost,
@@ -159,5 +160,5 @@ class RolePanelCategoryButton(discord.ui.Button["RolePanelView"]):
 class RolePanelView(discord.ui.View):
     def __init__(self, service: RolePanelService, categories: list[RolePanelCategoryDetail]):
         super().__init__(timeout=None)
-        for index, category in enumerate(categories[:25]):
+        for index, category in enumerate(categories[:PANEL_CATEGORY_LIMIT]):
             self.add_item(RolePanelCategoryButton(service, category, row=index // 5))

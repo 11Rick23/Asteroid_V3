@@ -7,6 +7,7 @@ from app.database.repositories.role_panel import (
     RolePanelRoleData,
 )
 from app.features.rolepanel.service import (
+    PANEL_CATEGORY_LIMIT,
     RolePanelService,
     build_role_sync_plan,
     get_visible_category_roles,
@@ -48,11 +49,17 @@ class FakeMember:
         self.roles = roles
 
 
-def build_category(*, roles: list[int], requires_boost: bool = False) -> RolePanelCategoryDetail:
+def build_category(
+    *,
+    roles: list[int],
+    requires_boost: bool = False,
+    category_id: int = 1,
+    name: str = "通知",
+) -> RolePanelCategoryDetail:
     now = datetime.now()
     return RolePanelCategoryDetail(
-        category_id=1,
-        name="通知",
+        category_id=category_id,
+        name=name,
         description=None,
         display_order=1,
         requires_boost=requires_boost,
@@ -157,6 +164,20 @@ def test_build_panel_embed_shows_only_category_name_and_roles() -> None:
     assert "<@&10>" in field.value
     assert "<@&20>" in field.value
     assert "<@&30>" not in field.value
+
+
+def test_build_panel_embed_limits_categories_to_discord_field_limit() -> None:
+    categories = [
+        build_category(roles=[10], category_id=index, name=f"カテゴリ{index}")
+        for index in range(1, PANEL_CATEGORY_LIMIT + 2)
+    ]
+    service = RolePanelService(bot=object())
+
+    embed = service.build_panel_embed(categories)
+
+    assert len(embed.fields) == PANEL_CATEGORY_LIMIT
+    assert embed.fields[-1].name == f"カテゴリ{PANEL_CATEGORY_LIMIT}"
+    assert f"表示対象は先頭{PANEL_CATEGORY_LIMIT}カテゴリです。" in (embed.description or "")
 
 
 def test_sort_roles_by_hierarchy_orders_higher_roles_first() -> None:
