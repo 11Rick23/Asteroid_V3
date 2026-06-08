@@ -151,7 +151,7 @@ class RolePanel:
                     RolePanelRoleModel.role_id.asc(),
                 )
             )
-            role_models = await session.scalars(role_stmt)
+            role_models = (await session.scalars(role_stmt)).all()
 
         category = RolePanelCategoryDetail(**category_data.__dict__)
         category.roles = [
@@ -170,8 +170,8 @@ class RolePanel:
                 RolePanelRoleModel.display_order.asc(),
                 RolePanelRoleModel.role_id.asc(),
             )
-            category_models = await session.scalars(category_stmt)
-            role_models = await session.scalars(role_stmt)
+            category_models = (await session.scalars(category_stmt)).all()
+            role_models = (await session.scalars(role_stmt)).all()
 
         categories: list[RolePanelCategoryDetail] = []
         category_by_id: dict[int, RolePanelCategoryDetail] = {}
