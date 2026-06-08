@@ -15,6 +15,15 @@ def test_iter_enabled_extensions_loads_leveling_once() -> None:
     assert list(iter_enabled_extensions(config)) == ["app.features.leveling.cog"]
 
 
+def test_iter_enabled_extensions_loads_rolepanel() -> None:
+    feature_flags = dict.fromkeys(AsteroidConfig().features.model_dump(), False)
+    feature_flags["rolepanel"] = True
+
+    config = AsteroidConfig.model_validate({"features": feature_flags})
+
+    assert list(iter_enabled_extensions(config)) == ["app.features.rolepanel.cog"]
+
+
 def test_iter_enabled_extensions_logs_feature_decisions(caplog) -> None:
     feature_flags = dict.fromkeys(AsteroidConfig().features.model_dump(), False)
     feature_flags["leveling"] = True

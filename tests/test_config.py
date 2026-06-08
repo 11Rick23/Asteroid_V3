@@ -37,6 +37,7 @@ leveling:
     assert config.report.report_ping_role_id == 123
     assert config.leveling.message_cooldown == 30
     assert config.leveling.action_power_channel_id == 0
+    assert config.rolepanel.panel_channel_id == 0
 
 
 def test_config_provides_defaults(tmp_path: Path) -> None:
@@ -59,6 +60,7 @@ vc:
     assert config.permission_roles_id_list.admin == 0
     assert config.report.report_ping_role_id == 0
     assert config.leveling.action_power_channel_id == 0
+    assert config.rolepanel.panel_channel_id == 0
 
 
 def test_permission_roles_enabled_role_ids_ignores_zero_values(tmp_path: Path) -> None:
