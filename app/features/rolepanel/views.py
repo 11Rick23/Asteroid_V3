@@ -130,7 +130,7 @@ class RolePanelCategoryButton(discord.ui.Button["RolePanelView"]):
             return
 
         if member_needs_boost(interaction.user, category):
-            logger.warning(
+            logger.debug(
                 "ロールパネルカテゴリの条件不足でUI表示を拒否しました: "
                 f"guild_id={interaction.guild.id} actor_id={interaction.user.id} "
                 f"category_id={self.category_id} required=boost"

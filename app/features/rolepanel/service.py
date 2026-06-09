@@ -164,7 +164,7 @@ class RolePanelService:
             return "このカテゴリは存在しません。"
 
         if member_needs_boost(interaction.user, category):
-            logger.warning(
+            logger.debug(
                 "ロールパネルカテゴリの条件不足で拒否しました: "
                 f"guild_id={interaction.guild.id} actor_id={interaction.user.id} "
                 f"category_id={category_id} required=boost"
