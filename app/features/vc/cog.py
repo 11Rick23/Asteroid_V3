@@ -40,7 +40,7 @@ class VoiceCreateCog(commands.Cog):
 async def vc_ui(interaction: discord.Interaction) -> None:
     service = get_vc_service(get_bot(interaction))
     channel = await service.ensure_voice_channel(interaction, allow_create_channel=False)
-    if channel is None:
+    if channel is None or not isinstance(interaction.user, discord.Member):
         return
 
     await service.send_control_message(channel, interaction.user)

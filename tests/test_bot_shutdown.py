@@ -13,8 +13,9 @@ class FakeLogChannel(discord.abc.Messageable):
     def __init__(self) -> None:
         self.messages: list[dict[str, Any]] = []
 
-    async def send(self, **kwargs: Any) -> None:
+    async def send(self, content: str | None = None, **kwargs: Any) -> discord.Message:
         self.messages.append(kwargs)
+        return None  # type: ignore[return-value]
 
 
 class FakeBot:

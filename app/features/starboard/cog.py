@@ -9,6 +9,7 @@ from discord.ext import commands
 
 from app.common.command_groups import get_bot, register_group, register_setup_command
 from app.common.constants import AsteroidColor
+from app.common.discord_types import as_text_channel
 from app.common.pages import Paginator
 from app.common.permissions import admin_only
 from app.core.bot import AsteroidBot
@@ -31,7 +32,7 @@ class Starboard(commands.Cog):
     async def on_raw_reaction_add(self, event: discord.RawReactionActionEvent) -> None:
         if event.member is None or event.member.bot or event.guild_id is None or str(event.emoji) != "⭐":
             return
-        channel = self.bot.get_channel(event.channel_id)
+        channel = as_text_channel(self.bot.get_channel(event.channel_id))
         if channel is None:
             logger.warning(f"スターボード対象チャンネルが見つかりませんでした: channel_id={event.channel_id}")
             return
@@ -66,7 +67,7 @@ class Starboard(commands.Cog):
         if guild is None:
             logger.warning(f"スターボード対象ギルドが見つかりませんでした: guild_id={event.guild_id}")
             return
-        channel = guild.get_channel(event.channel_id)
+        channel = as_text_channel(guild.get_channel(event.channel_id))
         if channel is None:
             logger.warning(f"スターボード対象チャンネルが見つかりませんでした: channel_id={event.channel_id}")
             return
@@ -90,7 +91,7 @@ class Starboard(commands.Cog):
             if starred_message_data is None:
                 return
 
-            starboard_channel = self.bot.get_channel(self.bot.config.starboard.starboard_channel_id)
+            starboard_channel = as_text_channel(self.bot.get_channel(self.bot.config.starboard.starboard_channel_id))
             if starboard_channel is None:
                 logger.warning("スターボードチャンネルが未設定または未解決です。")
                 return
@@ -119,7 +120,7 @@ class Starboard(commands.Cog):
             )
 
     async def update_starboard(self, starred_message: discord.Message, star_amount: int) -> None:
-        starboard_channel = self.bot.get_channel(self.bot.config.starboard.starboard_channel_id)
+        starboard_channel = as_text_channel(self.bot.get_channel(self.bot.config.starboard.starboard_channel_id))
         if starboard_channel is None:
             logger.warning("スターボードチャンネルが未設定または未解決です。")
             return
@@ -182,7 +183,12 @@ class Starboard(commands.Cog):
             embed.set_image(url=images[0])
         if files:
             embed.add_field(name="添付ファイル", value="\n".join(files))
-        return f"{self.get_star_emoji(star_amount)} **{star_amount}** {starred_message.channel.mention}", embed
+        channel_mention = (
+            starred_message.channel.mention
+            if isinstance(starred_message.channel, discord.abc.GuildChannel)
+            else f"#{starred_message.channel.id}"
+        )
+        return f"{self.get_star_emoji(star_amount)} **{star_amount}** {channel_mention}", embed
 
     def get_star_emoji(self, star_amount: int) -> str:
         return "🌟" if star_amount < 10 else "💫"
@@ -238,12 +244,14 @@ async def setup_starboard(interaction: discord.Interaction) -> None:
         f"actor_id={getattr(getattr(interaction, 'user', None), 'id', None)}"
     )
 
-    if interaction.guild is None or interaction.channel is None:
+    source_starboard_channel = as_text_channel(interaction.channel)
+    if interaction.guild is None or source_starboard_channel is None:
         await interaction.followup.send("サーバー内チャンネルで実行してください。", ephemeral=True)
         return
 
-    source_starboard_channel = interaction.channel
-    target_starboard_channel = interaction.guild.get_channel(bot.config.starboard.starboard_channel_id)
+    target_starboard_channel = as_text_channel(
+        interaction.guild.get_channel(bot.config.starboard.starboard_channel_id)
+    )
     if target_starboard_channel is None:
         logger.warning("スターボード再作成先チャンネルが未設定または未解決です。")
         await interaction.followup.send("スターボードチャンネル設定が不足しています。", ephemeral=True)
@@ -396,7 +404,10 @@ async def random_starboard(interaction: discord.Interaction) -> None:
         logger.warning("ランダムなスターボードが取得できませんでした: reason=no_data")
         await interaction.response.send_message("ランダムなスターボードを取得できませんでした。", ephemeral=True)
         return
-    starboard_channel = interaction.guild.get_channel(bot.config.starboard.starboard_channel_id)
+    if interaction.guild is None:
+        await interaction.response.send_message("サーバー内でのみ使用できます。", ephemeral=True)
+        return
+    starboard_channel = as_text_channel(interaction.guild.get_channel(bot.config.starboard.starboard_channel_id))
     if starboard_channel is None:
         logger.warning("ランダムスターボード取得時にチャンネルが見つかりませんでした。")
         await interaction.response.send_message("スターボードチャンネルが見つかりません。", ephemeral=True)
@@ -434,6 +445,9 @@ async def starboard_ranking(interaction: discord.Interaction) -> None:
         return
 
     cog = next((c for c in bot.cogs.values() if isinstance(c, Starboard)), None)
+    if interaction.guild is None or cog is None:
+        await interaction.response.send_message("ランキングを作成するための情報が不足しています。")
+        return
     raw_4_data_list = [
         (
             f"{cog.int_to_emoji(i)} : "

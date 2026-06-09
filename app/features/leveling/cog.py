@@ -12,6 +12,7 @@ from discord.ext import commands, tasks
 
 from app.common.command_groups import get_bot, register_setup_command
 from app.common.constants import AsteroidColor, AsteroidEmoji
+from app.common.discord_types import as_messageable
 from app.common.permissions import admin_only
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
@@ -54,7 +55,12 @@ class ClaimVoiceXP(discord.ui.View):
             return
 
         await interaction.response.send_message(content=build_voice_xp_claim_message(interaction.user, claim_result))
-        await apply_voice_xp_claim_side_effects(self.bot, interaction.channel, interaction.user, claim_result)
+        await apply_voice_xp_claim_side_effects(
+            self.bot,
+            as_messageable(interaction.channel),
+            interaction.user,
+            claim_result,
+        )
 
 
 class LevelingSystemCore(commands.Cog):
@@ -68,7 +74,7 @@ class LevelingSystemCore(commands.Cog):
         self.update_ranking_board.start()
         self.monthly_ranking.start()
 
-    def cog_unload(self) -> None:
+    async def cog_unload(self) -> None:
         self.voice_xp_claim.cancel()
         self.delete_expired_xp_boosts.cancel()
         self.update_ranking_board.cancel()
@@ -121,7 +127,12 @@ class LevelingSystemCore(commands.Cog):
         self.bot.remember_message(message)
         if await self.try_handle_action_power_command(message):
             return
-        if message.author.bot or message.guild is None or message.guild.id != self.bot.config.discord.guild_id:
+        if (
+            message.author.bot
+            or message.guild is None
+            or message.guild.id != self.bot.config.discord.guild_id
+            or not isinstance(message.author, discord.Member)
+        ):
             return
         if message.author.id in self.cooldown and (self.cooldown[message.author.id] + self.cooldown_time) >= time():
             logger.debug(
@@ -250,15 +261,15 @@ class LevelingSystemCore(commands.Cog):
         )
         embed = build_power_ranking_embed(self.bot, monthly_powers, base_embed)[0]
         channel = self.bot.get_channel(self.bot.config.leveling.month_ranking_board_channel_id)
-        if channel is not None:
-            await channel.send(
+        if (messageable_channel := as_messageable(channel)) is not None:
+            await messageable_channel.send(
                 content=f"ということで、今回のtop10は...\n\n{monthly_power_ranking_text}\n\nこのようになりました！おめでとうございます！",
                 embed=embed,
             )
         action_channel = self.bot.get_channel(self.bot.config.leveling.action_power_channel_id)
-        if action_channel is not None:
+        if (messageable_action_channel := as_messageable(action_channel)) is not None:
             total_action_power = await self.bot.db.monthly_action_powers.sum_action_power()
-            await action_channel.send(build_accumulated_action_power_message(total_action_power))
+            await messageable_action_channel.send(build_accumulated_action_power_message(total_action_power))
         await self.bot.db.monthly_powers.truncate_table()
         await self.bot.db.monthly_action_powers.truncate_table()
         await self.bot.db.voice_xp_limits.reset_voice_power()
@@ -448,15 +459,19 @@ class LevelingSystemCore(commands.Cog):
 
     async def _send_ranking_board_message(self, embeds: list[discord.Embed]) -> None:
         channel = self.bot.get_channel(self.bot.config.leveling.ranking_board_channel_id)
-        if channel is None:
+        messageable_channel = as_messageable(channel)
+        if messageable_channel is None:
             logger.warning(
                 f"ランキングボード送信先チャンネルが見つかりませんでした: "
                 f"channel_id={self.bot.config.leveling.ranking_board_channel_id}"
             )
             return
-        message = await channel.send(embeds=embeds)
+        message = await messageable_channel.send(embeds=embeds)
         self.ranking_board_messages.append(message)
-        logger.info(f"ランキングボードを初期化しました: channel_id={channel.id} message_id={message.id}")
+        logger.info(
+            f"ランキングボードを初期化しました: "
+            f"channel_id={getattr(channel, 'id', None)} message_id={message.id}"
+        )
 
     async def _cleanup_ranking_board_messages(self) -> None:
         deleted_count = 0
@@ -488,10 +503,14 @@ class LevelingSystemCore(commands.Cog):
 @admin_only
 async def claim_voice_xp_button(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
+    channel = as_messageable(interaction.channel)
+    if channel is None:
+        await interaction.response.send_message("このチャンネルには送信できません。", ephemeral=True)
+        return
     embed = discord.Embed(
         title="VC経験値獲得はこちら", description="ボタンを押すとVC経験値を獲得します", color=AsteroidColor.INFO
     )
-    await interaction.channel.send(embed=embed, view=ClaimVoiceXP(bot=bot))
+    await channel.send(embed=embed, view=ClaimVoiceXP(bot=bot))
     logger.info(
         "VC経験値獲得ボタンを設置しました: command=/setup claim_voice_xp_button "
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id}"

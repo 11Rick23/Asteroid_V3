@@ -8,6 +8,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 
 from app.common.command_groups import get_bot, register_group
+from app.common.discord_types import as_member, as_messageable
 from app.common.permissions import ADMINISTRATOR_PERMISSIONS, admin_only
 from app.core.bot import AsteroidBot
 
@@ -43,7 +44,7 @@ class RolePanelCog(commands.Cog):
         self.role_panel_message: discord.Message | None = None
         self.initialize_role_panel.start()
 
-    def cog_unload(self) -> None:
+    async def cog_unload(self) -> None:
         self.initialize_role_panel.cancel()
 
     async def cleanup_on_shutdown(self) -> None:
@@ -66,8 +67,8 @@ class RolePanelCog(commands.Cog):
 
     async def send_or_update_role_panel(self) -> bool:
         channel_id = self.bot.config.rolepanel.panel_channel_id
-        channel = self.bot.get_channel(channel_id)
-        if channel is None or not hasattr(channel, "send"):
+        channel = as_messageable(self.bot.get_channel(channel_id))
+        if channel is None:
             logger.warning(f"ロールパネル送信先チャンネルが見つかりませんでした: channel_id={channel_id}")
             return False
 
@@ -193,13 +194,14 @@ class RolePanelAdminRoleSelect(discord.ui.RoleSelect["RolePanelAdminRoleEditView
         self.on_update = on_update
 
     async def callback(self, interaction: discord.Interaction) -> None:
-        if interaction.user.id != self.actor_id and not isinstance(interaction.user, discord.Member):
+        actor = as_member(interaction.user)
+        if interaction.user.id != self.actor_id and actor is None:
             await interaction.response.send_message(
                 embed=_response_embed("権限がありません", "この操作を実行する権限がありません。"),
                 ephemeral=True,
             )
             return
-        if interaction.user.id != self.actor_id and not interaction.user.guild_permissions.administrator:
+        if interaction.user.id != self.actor_id and (actor is None or not actor.guild_permissions.administrator):
             logger.warning(
                 "ロールパネル編集UIの操作を拒否しました: "
                 f"guild_id={interaction.guild_id} actor_id={interaction.user.id} owner_id={self.actor_id} "

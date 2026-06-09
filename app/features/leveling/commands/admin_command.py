@@ -163,6 +163,8 @@ async def add_power(
             await bot.db.monthly_action_powers.add_action_power_lock(session, action_power, amount)
             await session.commit()
         power = await bot.db.monthly_powers.get_monthly_power(user.id)
+        if power is None:
+            power = await bot.db.monthly_powers.create_monthly_power(user.id)
     else:
         power = await bot.db.monthly_powers.get_monthly_power(user.id)
         if power is None:
@@ -199,6 +201,8 @@ async def remove_power(
             await bot.db.monthly_action_powers.remove_action_power_lock(session, action_power, amount)
             await session.commit()
         power = await bot.db.monthly_powers.get_monthly_power(user.id)
+        if power is None:
+            power = await bot.db.monthly_powers.create_monthly_power(user.id)
     else:
         power = await bot.db.monthly_powers.get_monthly_power(user.id)
         if power is None:

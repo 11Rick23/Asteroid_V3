@@ -7,6 +7,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from app.common.command_groups import get_bot, register_group, register_setup_command
+from app.common.discord_types import as_messageable
 from app.common.permissions import admin_only
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
@@ -38,7 +39,7 @@ class FreeCategory(commands.Cog):
 async def free_category_button(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
     service = get_free_category_service(bot)
-    channel = interaction.channel
+    channel = as_messageable(interaction.channel)
     if channel is None:
         await interaction.response.send_message("このチャンネルには送信できません。", ephemeral=True)
         return
@@ -143,6 +144,7 @@ async def edit(
         await interaction.followup.send(embed=embed)
         return
 
+    assert name is not None and topic is not None
     await channel.edit(
         name=name,
         topic=topic,

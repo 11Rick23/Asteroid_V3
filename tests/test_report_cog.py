@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import logging
 from types import SimpleNamespace
+from typing import Any, cast
 
+import discord
 import pytest
 
+from app.core.bot import AsteroidBot
 from app.features.report.cog import ReportCog
 
 
@@ -40,12 +43,17 @@ async def test_report_logs_warning_when_destination_channel_missing(caplog: pyte
     bot = SimpleNamespace(
         config=SimpleNamespace(report=SimpleNamespace(report_receive_channel_id=999, report_ping_role_id=0))
     )
-    cog = ReportCog(bot)
+    cog = ReportCog(cast(AsteroidBot, bot))
     interaction = DummyInteraction()
     violator = SimpleNamespace(id=40)
 
     with caplog.at_level(logging.DEBUG, logger="app.features.report.cog"):
-        await ReportCog.report.callback(cog, interaction, violator, "rule violation")
+        await cast(Any, ReportCog.report.callback)(
+            cog,
+            cast(discord.Interaction, interaction),
+            cast(discord.User, violator),
+            "rule violation",
+        )
 
     assert "レポートを送信しました: command=/report" in caplog.text
     assert "レポート送信先チャンネルが見つかりませんでした: guild_id=10 reporter_id=30 channel_id=999" in caplog.text

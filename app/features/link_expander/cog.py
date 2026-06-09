@@ -7,6 +7,7 @@ import discord
 from discord.ext import commands
 
 from app.common.constants import AsteroidColor
+from app.common.discord_types import as_text_channel
 from app.core.bot import AsteroidBot
 
 logger = getLogger(__name__)
@@ -34,7 +35,7 @@ class LinkExpander(commands.Cog):
 
         referenced_messages: list[discord.Message] = []
         for channel_id, message_id in urls:
-            channel = self.bot.get_channel(int(channel_id))
+            channel = as_text_channel(self.bot.get_channel(int(channel_id)))
             if channel is None:
                 logger.debug(f"リンク展開対象チャンネルが見つかりませんでした: channel_id={channel_id}")
                 continue
@@ -49,7 +50,8 @@ class LinkExpander(commands.Cog):
                 referenced_messages.append(fetched_message)
 
         for referenced_message in referenced_messages:
-            embeds = self.generate_embed(referenced_message, bool(message.channel and message.channel.is_nsfw()))
+            allow_nsfw = isinstance(message.channel, discord.TextChannel) and message.channel.is_nsfw()
+            embeds = self.generate_embed(referenced_message, allow_nsfw)
             await message.reply(content=None, embeds=embeds, mention_author=False)
         if referenced_messages:
             logger.debug(
@@ -58,7 +60,8 @@ class LinkExpander(commands.Cog):
             )
 
     def generate_embed(self, message: discord.Message, allow_nsfw: bool) -> list[discord.Embed]:
-        if getattr(message.channel, "nsfw", False) and not allow_nsfw:
+        is_nsfw = isinstance(message.channel, discord.TextChannel) and message.channel.is_nsfw()
+        if is_nsfw and not allow_nsfw:
             embed = discord.Embed(
                 description="NSFWメッセージのため非表示\nリンク先の添付ファイルなどに気を付けて参照してください。",
                 color=AsteroidColor.INFO,
@@ -70,12 +73,13 @@ class LinkExpander(commands.Cog):
         embed.set_author(
             name=message.author.display_name, url=message.jump_url, icon_url=message.author.display_avatar.url
         )
+        channel_name = message.channel.name if isinstance(message.channel, discord.abc.GuildChannel) else "unknown"
         if message.guild and message.guild.icon:
-            embed.set_footer(text=message.channel.name, icon_url=message.guild.icon.url)
+            embed.set_footer(text=channel_name, icon_url=message.guild.icon.url)
         else:
-            embed.set_footer(text=message.channel.name)
+            embed.set_footer(text=channel_name)
 
-        if getattr(message.channel, "nsfw", False) and not allow_nsfw:
+        if is_nsfw and not allow_nsfw:
             return [embed]
 
         banner_image = None

@@ -3,6 +3,7 @@ from __future__ import annotations
 import discord
 
 from app.common.constants import AsteroidColor, AsteroidEmoji
+from app.common.discord_types import as_messageable
 from app.common.utils import humanize_number
 from app.core.bot import AsteroidBot
 from app.database.repositories.monthly_powers import MonthlyPowerData, MonthlyPowerRankingData
@@ -65,7 +66,7 @@ async def send_prestige_announce(bot: AsteroidBot, member: discord.Member, prest
             prestige_role = member.guild.get_role(prestige_roles[0].role_id)
     if prestige_announce_channel_id == 0:
         return
-    channel = bot.get_channel(prestige_announce_channel_id)
+    channel = as_messageable(bot.get_channel(prestige_announce_channel_id))
     if channel is None:
         return
     await channel.send(

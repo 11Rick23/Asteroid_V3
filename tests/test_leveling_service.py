@@ -3,9 +3,12 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from types import SimpleNamespace
+from typing import cast
 
+import discord
 import pytest
 
+from app.core.bot import AsteroidBot
 from app.database.repositories.star_grades import StarGradeData
 from app.database.repositories.voice_xp_limits import VoiceXPLimitData
 from app.features.leveling.service import VoiceXPClaimResult, build_voice_xp_claim_message, claim_voice_xp_rewards
@@ -24,7 +27,7 @@ def test_build_voice_xp_claim_message_formats_claim_summary() -> None:
         prestige_amount=0,
     )
 
-    message = build_voice_xp_claim_message(FakeUser(), claim_result)
+    message = build_voice_xp_claim_message(cast(discord.User, FakeUser()), claim_result)
 
     assert message == (
         "<@123> ボイスシャードを`1.2K`獲得しました\n"
@@ -106,7 +109,7 @@ async def test_claim_voice_xp_rewards_logs_success(caplog) -> None:
     )
 
     with caplog.at_level(logging.DEBUG, logger="app.features.leveling.service"):
-        result = await claim_voice_xp_rewards(bot, 123)
+        result = await claim_voice_xp_rewards(cast(AsteroidBot, bot), 123)
 
     assert result is not None
     assert "VC経験値を受け取りました: user_id=123" in caplog.text

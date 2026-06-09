@@ -8,6 +8,7 @@ from sqlalchemy import delete, select
 
 from app.common.utils import generate_timestamp
 from app.database.models.user_roles import UserRoleModel
+from app.database.table_utils import model_table
 
 
 @dataclass
@@ -35,17 +36,17 @@ class UserRoles:
 
     async def create_table(self) -> None:
         async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: UserRoleModel.__table__.create(sync_conn, checkfirst=True))
+            await conn.run_sync(lambda sync_conn: model_table(UserRoleModel).create(sync_conn, checkfirst=True))
 
     async def drop_table(self) -> None:
         async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: UserRoleModel.__table__.drop(sync_conn, checkfirst=True))
+            await conn.run_sync(lambda sync_conn: model_table(UserRoleModel).drop(sync_conn, checkfirst=True))
 
     async def get_user_roles(self, user_id: int) -> list[UserRoleData]:
         async with self.db.session() as session:
             stmt = select(UserRoleModel).where(UserRoleModel.user_id == user_id)
             raw_roles = await session.scalars(stmt)
-            return [self._to_data(role) for role in raw_roles if role is not None]
+            return [role for raw_role in raw_roles if (role := self._to_data(raw_role)) is not None]
 
     async def save_user_roles(self, member: discord.Member) -> None:
         ignored_save_role_ids = self.db.config.roles.ignored_save_role_id_list

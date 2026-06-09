@@ -65,6 +65,23 @@ async def send_punish_message(
         logger.debug(f"処罰DMの送信に失敗しました: target_id={user.id}")
 
 
+async def require_punishment_context(
+    bot: AsteroidBot, interaction: discord.Interaction
+) -> tuple[discord.Guild, discord.Member, discord.TextChannel] | None:
+    if interaction.guild is None or not isinstance(interaction.user, discord.Member):
+        await interaction.response.send_message("サーバー内でのみ使用できます。", ephemeral=True)
+        return None
+    punishment_board = interaction.guild.get_channel(bot.config.punish.punishment_board_channel_id)
+    if not isinstance(punishment_board, discord.TextChannel):
+        logger.warning(
+            "処罰板チャンネルが見つかりませんでした: "
+            f"guild_id={interaction.guild.id} channel_id={bot.config.punish.punishment_board_channel_id}"
+        )
+        await interaction.response.send_message("処罰板チャンネルが見つかりません。", ephemeral=True)
+        return None
+    return interaction.guild, interaction.user, punishment_board
+
+
 async def give_crime_record_role(
     bot: AsteroidBot, guild: discord.Guild, user: discord.User | discord.Member, moderator: discord.Member
 ) -> bool:
@@ -129,6 +146,10 @@ class PermRoleSelect(discord.ui.Select):
             return
 
         log_punishment_action("権限剥奪", interaction, self.target.id, probation=self.probation)
+        if not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message("サーバー内でのみ使用できます。", ephemeral=True)
+            return
+
         await give_crime_record_role(self.bot, guild, self.target, interaction.user)
         roles = [guild.get_role(int(value)) for value in self.values]
         roles = [role for role in roles if role is not None]
@@ -136,6 +157,9 @@ class PermRoleSelect(discord.ui.Select):
             await self.target.remove_roles(*roles, reason=generate_reason(interaction.user), atomic=False)
 
         punishment_board = guild.get_channel(self.bot.config.punish.punishment_board_channel_id)
+        if not isinstance(punishment_board, discord.TextChannel):
+            await interaction.response.send_message("処罰板チャンネルが見つかりません。", ephemeral=True)
+            return
         role_names = [role.name for role in roles]
         await send_punish_message(punishment_board, self.target, self.reason, f"権限剥奪 {role_names}", self.probation)
         await interaction.response.edit_message(content="送信完了です！", view=None)
@@ -146,8 +170,11 @@ class PermRoleSelect(discord.ui.Select):
 @admin_only
 async def punish_none(interaction: discord.Interaction, defendant: discord.User, content: str, reason: str) -> None:
     bot = get_bot(interaction)
+    context = await require_punishment_context(bot, interaction)
+    if context is None:
+        return
+    _, _, punishment_board = context
     log_punishment_action("無し", interaction, defendant.id)
-    punishment_board = interaction.guild.get_channel(bot.config.punish.punishment_board_channel_id)
     await punishment_board.send(
         f"```{defendant.name}\n"
         f"日付: {datetime.datetime.now().strftime('%m/%d')}\n"
@@ -163,8 +190,11 @@ async def punish_none(interaction: discord.Interaction, defendant: discord.User,
 @admin_only
 async def lecture(interaction: discord.Interaction, violator: discord.User, reason: str) -> None:
     bot = get_bot(interaction)
+    context = await require_punishment_context(bot, interaction)
+    if context is None:
+        return
+    _, _, punishment_board = context
     log_punishment_action("口頭注意", interaction, violator.id)
-    punishment_board = interaction.guild.get_channel(bot.config.punish.punishment_board_channel_id)
     await send_punish_message(punishment_board, violator, reason, "口頭注意", None)
     await interaction.response.send_message("送信完了です！")
 
@@ -174,8 +204,11 @@ async def lecture(interaction: discord.Interaction, violator: discord.User, reas
 @admin_only
 async def delete(interaction: discord.Interaction, violator: discord.User, reason: str) -> None:
     bot = get_bot(interaction)
+    context = await require_punishment_context(bot, interaction)
+    if context is None:
+        return
+    _, _, punishment_board = context
     log_punishment_action("メッセージ削除", interaction, violator.id)
-    punishment_board = interaction.guild.get_channel(bot.config.punish.punishment_board_channel_id)
     await send_punish_message(punishment_board, violator, reason, "メッセージ削除", None)
     await interaction.response.send_message("送信完了です！")
 
@@ -207,14 +240,17 @@ async def timeout(
         return
 
     bot = get_bot(interaction)
+    context = await require_punishment_context(bot, interaction)
+    if context is None:
+        return
+    guild, moderator, punishment_board = context
     log_punishment_action("タイムアウト", interaction, violator.id, probation=probation, duration=duration)
-    failed = await give_crime_record_role(bot, interaction.guild, violator, interaction.user)
+    failed = await give_crime_record_role(bot, guild, violator, moderator)
     if not failed and probation is None:
-        member = interaction.guild.get_member(violator.id)
+        member = guild.get_member(violator.id)
         if member is not None:
-            await member.timeout(datetime.timedelta(seconds=length), reason=generate_reason(interaction.user))
+            await member.timeout(datetime.timedelta(seconds=length), reason=generate_reason(moderator))
 
-    punishment_board = interaction.guild.get_channel(bot.config.punish.punishment_board_channel_id)
     await send_punish_message(punishment_board, violator, reason, "タイムアウト", probation, duration)
     warning = (
         "\n:warning:メンバーが見つからなかったためタイムアウト・前科ロールの付与をできませんでした！" if failed else ""
@@ -229,6 +265,9 @@ async def disrobe(
     interaction: discord.Interaction, violator: discord.Member, reason: str, probation: str | None = None
 ) -> None:
     bot = get_bot(interaction)
+    if interaction.guild is None:
+        await interaction.response.send_message("サーバー内でのみ使用できます。", ephemeral=True)
+        return
     logger.debug(
         "権限剥奪対象の選択を開始します: "
         f"guild_id={interaction.guild.id if interaction.guild is not None else None} "
@@ -244,7 +283,7 @@ async def disrobe(
     options = []
     for role_id in perms_role_id_list:
         role = interaction.guild.get_role(role_id)
-        if role in violator.roles:
+        if role is not None and role in violator.roles:
             options.append(discord.SelectOption(label=role.name, value=str(role.id)))
 
     view = discord.ui.View(timeout=300)
@@ -262,14 +301,17 @@ async def mute(
     interaction: discord.Interaction, user: discord.User, reason: str, probation: str | None = None
 ) -> None:
     bot = get_bot(interaction)
+    context = await require_punishment_context(bot, interaction)
+    if context is None:
+        return
+    guild, moderator, punishment_board = context
     log_punishment_action("MUTE", interaction, user.id, probation=probation)
-    failed = await give_crime_record_role(bot, interaction.guild, user, interaction.user)
+    failed = await give_crime_record_role(bot, guild, user, moderator)
     if not failed and probation is None:
-        mute_role = interaction.guild.get_role(bot.config.punish.mute_role_id)
-        member = interaction.guild.get_member(user.id)
+        mute_role = guild.get_role(bot.config.punish.mute_role_id)
+        member = guild.get_member(user.id)
         if mute_role is not None and member is not None:
-            await member.add_roles(mute_role, reason=generate_reason(interaction.user))
-    punishment_board = interaction.guild.get_channel(bot.config.punish.punishment_board_channel_id)
+            await member.add_roles(mute_role, reason=generate_reason(moderator))
     await send_punish_message(punishment_board, user, reason, "MUTE", probation)
     warning = (
         "\n:warning:メンバーが見つからなかったため前科ロール・MUTEロールの付与をできませんでした！" if failed else ""
@@ -284,14 +326,17 @@ async def forbid(
     interaction: discord.Interaction, user: discord.User, reason: str, probation: str | None = None
 ) -> None:
     bot = get_bot(interaction)
+    context = await require_punishment_context(bot, interaction)
+    if context is None:
+        return
+    guild, moderator, punishment_board = context
     log_punishment_action("閲覧禁止", interaction, user.id, probation=probation)
-    failed = await give_crime_record_role(bot, interaction.guild, user, interaction.user)
+    failed = await give_crime_record_role(bot, guild, user, moderator)
     if not failed and probation is None:
-        forbid_role = interaction.guild.get_role(bot.config.punish.forbid_role_id)
-        member = interaction.guild.get_member(user.id)
+        forbid_role = guild.get_role(bot.config.punish.forbid_role_id)
+        member = guild.get_member(user.id)
         if forbid_role is not None and member is not None:
-            await member.add_roles(forbid_role, reason=generate_reason(interaction.user))
-    punishment_board = interaction.guild.get_channel(bot.config.punish.punishment_board_channel_id)
+            await member.add_roles(forbid_role, reason=generate_reason(moderator))
     await send_punish_message(punishment_board, user, reason, "閲覧禁止", probation)
     warning = (
         "\n:warning:メンバーが見つからなかったため前科ロール・閲覧禁止ロールの付与をできませんでした！"
@@ -306,15 +351,18 @@ async def forbid(
 @admin_only
 async def ban(interaction: discord.Interaction, user: discord.User, reason: str, probation: str | None = None) -> None:
     bot = get_bot(interaction)
+    context = await require_punishment_context(bot, interaction)
+    if context is None:
+        return
+    guild, moderator, punishment_board = context
     log_punishment_action("BAN", interaction, user.id, probation=probation)
-    punishment_board = interaction.guild.get_channel(bot.config.punish.punishment_board_channel_id)
     await send_punish_message(punishment_board, user, reason, "BAN", probation)
 
     failed = False
     if probation is None:
-        await interaction.guild.ban(user, reason=generate_reason(interaction.user))
+        await guild.ban(user, reason=generate_reason(moderator))
     else:
-        failed = await give_crime_record_role(bot, interaction.guild, user, interaction.user)
+        failed = await give_crime_record_role(bot, guild, user, moderator)
 
     warning = "\n:warning:メンバーが見つからなかったため前科ロールを付与できませんでした！" if failed else ""
     await interaction.response.send_message("送信完了です！" + warning)

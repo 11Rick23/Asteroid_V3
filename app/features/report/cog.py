@@ -6,6 +6,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from app.common.discord_types import as_messageable
 from app.core.bot import AsteroidBot
 from app.features.report.service import build_report_embed
 from app.features.report.views import ReportResolveView
@@ -47,7 +48,9 @@ class ReportCog(commands.Cog):
             await interaction.edit_original_response(content="サーバー内でのみ使用できます。")
             return
 
-        report_receive_channel = interaction.guild.get_channel(self.bot.config.report.report_receive_channel_id)
+        report_receive_channel = as_messageable(
+            interaction.guild.get_channel(self.bot.config.report.report_receive_channel_id)
+        )
         if report_receive_channel is None:
             logger.warning(
                 "レポート送信先チャンネルが見つかりませんでした: "
@@ -68,7 +71,7 @@ class ReportCog(commands.Cog):
         logger.debug(
             "レポート送信が完了しました: "
             f"guild_id={interaction.guild.id} reporter_id={interaction.user.id} "
-            f"violator_id={violator.id} destination_channel_id={report_receive_channel.id}"
+            f"violator_id={violator.id} destination_channel_id={getattr(report_receive_channel, 'id', None)}"
         )
         await interaction.edit_original_response(content="レポート送信完了。\nレポートありがとうございました。")
 

@@ -6,6 +6,7 @@ from datetime import datetime
 from sqlalchemy import select
 
 from app.database.models.given_stars import GivenStarModel
+from app.database.table_utils import model_table
 
 
 @dataclass
@@ -33,11 +34,11 @@ class GivenStars:
 
     async def create_table(self) -> None:
         async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: GivenStarModel.__table__.create(sync_conn, checkfirst=True))
+            await conn.run_sync(lambda sync_conn: model_table(GivenStarModel).create(sync_conn, checkfirst=True))
 
     async def drop_table(self) -> None:
         async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: GivenStarModel.__table__.drop(sync_conn, checkfirst=True))
+            await conn.run_sync(lambda sync_conn: model_table(GivenStarModel).drop(sync_conn, checkfirst=True))
 
     async def get_given_star(self, user_id: int) -> GivenStarData | None:
         async with self.db.session() as session:
@@ -47,7 +48,9 @@ class GivenStars:
         async with self.db.session() as session:
             stmt = select(GivenStarModel).order_by(GivenStarModel.given_star_amount.desc()).limit(limit)
             given_stars = await session.scalars(stmt)
-            return [self._to_data(given_star) for given_star in given_stars if given_star is not None]
+            return [
+                data for given_star in given_stars if (data := self._to_data(given_star)) is not None
+            ]
 
     async def create_given_star(self, user_id: int, given_star_amount: int = 1) -> None:
         async with self.db.session() as session:

@@ -122,7 +122,10 @@ class VoiceCreateService:
             await self.send_interaction_message(interaction, "VC作成用チャンネル自体は操作できません。")
             return None
 
-        if require_manage and not channel.permissions_for(interaction.user).manage_channels:
+        if require_manage and (
+            not isinstance(interaction.user, discord.Member)
+            or not channel.permissions_for(interaction.user).manage_channels
+        ):
             logger.debug(
                 f"VC管理権限不足で操作を拒否しました: guild_id={channel.guild.id} "
                 f"channel_id={channel.id} user_id={interaction.user.id}"

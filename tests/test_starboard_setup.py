@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from types import SimpleNamespace
+from typing import Any, cast
 
 import discord
 import pytest
@@ -61,7 +62,7 @@ def build_starred_message_data(*, starred_message_id: int, starboard_message_id:
 
 def build_http_exception(exception_cls: type[discord.HTTPException], *, status: int, reason: str, text: str):
     response = SimpleNamespace(status=status, reason=reason)
-    return exception_cls(response, {"message": text, "code": 0})
+    return exception_cls(cast(Any, response), {"message": text, "code": 0})
 
 
 @pytest.mark.asyncio
@@ -232,7 +233,7 @@ async def test_setup_starboard_recreates_messages_and_updates_database(monkeypat
     interaction = DummyInteraction(DummyGuild({222: target_channel}), source_channel)
     monkeypatch.setattr(starboard_cog, "get_bot", lambda _: bot)
 
-    await starboard_cog.setup_starboard.callback(interaction)
+    await cast(Any, starboard_cog.setup_starboard.callback)(interaction)
 
     assert interaction.response.defer_calls == [{"ephemeral": True, "thinking": True}]
     assert starred_messages.updated_ids == [(1, 9001)]
@@ -262,7 +263,7 @@ async def test_setup_starboard_stops_when_destination_already_has_bot_message(
     interaction = DummyInteraction(DummyGuild({222: target_channel}), source_channel)
     monkeypatch.setattr(starboard_cog, "get_bot", lambda _: bot)
 
-    await starboard_cog.setup_starboard.callback(interaction)
+    await cast(Any, starboard_cog.setup_starboard.callback)(interaction)
 
     assert starred_messages.get_all_calls == 0
     assert interaction.followup.send_calls == [
@@ -295,7 +296,7 @@ async def test_setup_starboard_deletes_missing_source_message_and_continues(
     interaction = DummyInteraction(DummyGuild({222: target_channel}), source_channel)
     monkeypatch.setattr(starboard_cog, "get_bot", lambda _: bot)
 
-    await starboard_cog.setup_starboard.callback(interaction)
+    await cast(Any, starboard_cog.setup_starboard.callback)(interaction)
 
     assert starred_messages.deleted_ids == [1]
     assert starred_messages.updated_ids == [(2, 9001)]
@@ -316,7 +317,7 @@ async def test_setup_starboard_rejects_same_source_and_target_channel(monkeypatc
     interaction = DummyInteraction(DummyGuild({222: channel}), channel)
     monkeypatch.setattr(starboard_cog, "get_bot", lambda _: bot)
 
-    await starboard_cog.setup_starboard.callback(interaction)
+    await cast(Any, starboard_cog.setup_starboard.callback)(interaction)
 
     assert starred_messages.get_all_calls == 0
     assert interaction.followup.send_calls == [
@@ -348,7 +349,7 @@ async def test_setup_starboard_stops_when_destination_send_fails(monkeypatch: py
     interaction = DummyInteraction(DummyGuild({222: target_channel}), source_channel)
     monkeypatch.setattr(starboard_cog, "get_bot", lambda _: bot)
 
-    await starboard_cog.setup_starboard.callback(interaction)
+    await cast(Any, starboard_cog.setup_starboard.callback)(interaction)
 
     assert starred_messages.updated_ids == []
     assert interaction.followup.send_calls == [
@@ -375,7 +376,7 @@ async def test_setup_starboard_stops_when_destination_channel_is_missing(monkeyp
     interaction = DummyInteraction(DummyGuild({}), source_channel)
     monkeypatch.setattr(starboard_cog, "get_bot", lambda _: bot)
 
-    await starboard_cog.setup_starboard.callback(interaction)
+    await cast(Any, starboard_cog.setup_starboard.callback)(interaction)
 
     assert starred_messages.get_all_calls == 0
     assert interaction.followup.send_calls == [("スターボードチャンネル設定が不足しています。", True)]

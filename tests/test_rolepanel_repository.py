@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -10,10 +12,10 @@ from app.database.repositories.role_panel import RolePanel
 
 
 class DummyAsyncSessionContext:
-    def __init__(self, session: object) -> None:
+    def __init__(self, session: Any) -> None:
         self.session = session
 
-    async def __aenter__(self) -> object:
+    async def __aenter__(self) -> Any:
         return self.session
 
     async def __aexit__(self, exc_type, exc, tb) -> bool:
@@ -23,9 +25,9 @@ class DummyAsyncSessionContext:
 
 
 class DummyScalarResult:
-    def __init__(self, session: object, rows: list[object]) -> None:
+    def __init__(self, session: object, rows: Sequence[object]) -> None:
         self.session = session
-        self.rows = rows
+        self.rows = list(rows)
         self.all_called = False
 
     def all(self) -> list[object]:
@@ -70,7 +72,7 @@ class DummyRolePanelListSession:
         categories: list[RolePanelCategoryModel],
         roles: list[RolePanelRoleModel],
     ) -> None:
-        self.scalar_rows: list[list[object]] = [categories, roles]
+        self.scalar_rows: list[Sequence[object]] = [categories, roles]
         self.scalar_statements: list[object] = []
         self.scalar_results: list[DummyScalarResult] = []
         self.closed = False
