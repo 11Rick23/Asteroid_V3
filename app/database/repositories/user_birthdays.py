@@ -7,6 +7,7 @@ from datetime import datetime
 from sqlalchemy import select
 
 from app.database.models.user_birthdays import UserBirthdayModel
+from app.database.table_utils import model_table
 
 
 @dataclass
@@ -34,11 +35,11 @@ class UserBirthdays:
 
     async def create_table(self) -> None:
         async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: UserBirthdayModel.__table__.create(sync_conn, checkfirst=True))
+            await conn.run_sync(lambda sync_conn: model_table(UserBirthdayModel).create(sync_conn, checkfirst=True))
 
     async def drop_table(self) -> None:
         async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: UserBirthdayModel.__table__.drop(sync_conn, checkfirst=True))
+            await conn.run_sync(lambda sync_conn: model_table(UserBirthdayModel).drop(sync_conn, checkfirst=True))
 
     async def get_user_data(self, user_id: int) -> UserBirthdayData | None:
         async with self.db.session() as session:
@@ -48,12 +49,12 @@ class UserBirthdays:
         async with self.db.session() as session:
             stmt = select(UserBirthdayModel).where(UserBirthdayModel.date == date)
             raw_data = await session.scalars(stmt)
-            return [self._to_data(data) for data in raw_data if data is not None]
+            return [data for raw in raw_data if (data := self._to_data(raw)) is not None]
 
     async def get_sorted_all_user_data(self) -> list[UserBirthdayData]:
         async with self.db.session() as session:
             raw_data = await session.scalars(select(UserBirthdayModel))
-            data = [self._to_data(raw) for raw in raw_data if raw is not None]
+            data = [birthday for raw in raw_data if (birthday := self._to_data(raw)) is not None]
         return sorted(data, key=lambda x: (x.date.month, x.date.day))
 
     async def upsert_data(self, user_id: int, date: Date) -> None:

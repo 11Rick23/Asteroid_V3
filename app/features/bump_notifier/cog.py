@@ -34,7 +34,7 @@ class BumpNotifier(commands.Cog):
         if (
             after.author.id == 761562078095867916
             and first_field is not None
-            and "をアップしたよ" in first_field.name
+            and "をアップしたよ" in (first_field.name or "")
             and before.flags.loading
         ):
             embed = discord.Embed(

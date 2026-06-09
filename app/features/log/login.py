@@ -8,6 +8,7 @@ import discord
 from discord.ext import commands
 
 from app.common.constants import AsteroidColor
+from app.common.discord_types import as_messageable
 from app.core.bot import AsteroidBot
 
 logger = getLogger(__name__)
@@ -25,7 +26,7 @@ class LogIn(commands.Cog):
             logger.warning("ログイン通知チャンネルが未設定です。")
             return
 
-        log_channel = self.bot.get_channel(log_channel_id)
+        log_channel = as_messageable(self.bot.get_channel(log_channel_id))
         if log_channel is None or self.bot.user is None:
             logger.warning(
                 f"ログイン通知の送信先を解決できませんでした: "

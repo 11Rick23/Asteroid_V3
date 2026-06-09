@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, overload
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models.star_grades import StarGradeModel
+from app.database.table_utils import model_table
 from app.features.leveling.domain.math_calculation import calculation_grade, calculation_prestige, calculation_shard
 
 
@@ -84,11 +85,11 @@ class StarGrades:
 
     async def create_table(self) -> None:
         async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: StarGradeModel.__table__.create(sync_conn, checkfirst=True))
+            await conn.run_sync(lambda sync_conn: model_table(StarGradeModel).create(sync_conn, checkfirst=True))
 
     async def drop_table(self) -> None:
         async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: StarGradeModel.__table__.drop(sync_conn, checkfirst=True))
+            await conn.run_sync(lambda sync_conn: model_table(StarGradeModel).drop(sync_conn, checkfirst=True))
 
     async def get_star_grade(self, user_id: int) -> StarGradeData | None:
         async with self.db.session() as session:
@@ -97,6 +98,16 @@ class StarGrades:
     async def get_star_grade_lock(self, session: AsyncSession, user_id: int) -> StarGradeData | None:
         stmt = select(StarGradeModel).where(StarGradeModel.user_id == user_id).with_for_update()
         return self._to_data(await session.scalar(stmt))
+
+    @overload
+    async def get_star_grade_ranking(
+        self, show_user_id: int, limit: int | None = None
+    ) -> StarGradeRankingData | None: ...
+
+    @overload
+    async def get_star_grade_ranking(
+        self, show_user_id: None = None, limit: int | None = None
+    ) -> list[StarGradeRankingData]: ...
 
     async def get_star_grade_ranking(
         self, show_user_id: int | None = None, limit: int | None = None

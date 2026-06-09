@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import cast
+
 import discord
 import pytest
 
@@ -63,7 +65,7 @@ async def test_paginator_respond_returns_original_response_message() -> None:
         followup_message=object(),
     )
 
-    message = await paginator.respond(interaction)
+    message = await paginator.respond(cast(discord.Interaction, interaction))
 
     assert message is original_message
     assert len(interaction.response.send_calls) == 1
@@ -80,7 +82,7 @@ async def test_paginator_respond_returns_followup_message_when_response_done() -
         followup_message=followup_message,
     )
 
-    message = await paginator.respond(interaction)
+    message = await paginator.respond(cast(discord.Interaction, interaction))
 
     assert message is followup_message
     assert len(interaction.followup.send_calls) == 1
@@ -100,7 +102,7 @@ def test_paginator_hides_disabled_navigation_buttons_when_requested() -> None:
         show_disabled=paginator.show_disabled,
     )
 
-    assert [item.label for item in view.children] == ["1/2", ">"]
+    assert [cast(discord.ui.Button, item).label for item in view.children] == ["1/2", ">"]
 
 
 @pytest.mark.asyncio
@@ -115,10 +117,10 @@ async def test_paginator_loops_pages_when_enabled() -> None:
         loop_pages=paginator.loop_pages,
         show_disabled=paginator.show_disabled,
     )
-    prev_button = next(item for item in view.children if item.label == "<")
+    prev_button = next(item for item in view.children if cast(discord.ui.Button, item).label == "<")
     interaction = DummyCallbackInteraction()
 
-    await prev_button.callback(interaction)
+    await prev_button.callback(cast(discord.Interaction, interaction))
 
     assert view.page_index == 1
     assert interaction.response.edit_calls[0][0].title == "page2"

@@ -101,7 +101,7 @@ class FreeCategoryService:
     def get_manageable_text_channel(self, interaction: discord.Interaction) -> discord.TextChannel | None:
         """ユーザーが管理できるテキストチャンネルならチャンネルを返す。"""
         channel = interaction.channel
-        if not isinstance(channel, discord.TextChannel):
+        if not isinstance(channel, discord.TextChannel) or not isinstance(interaction.user, discord.Member):
             return None
         if not channel.permissions_for(interaction.user).manage_channels:
             return None
@@ -112,7 +112,7 @@ class FreeCategoryService:
     ) -> discord.TextChannel | None:
         """管理可能なテキストチャンネルであることを確認し、失敗時はエラ〜メッセージを送信する。"""
         channel = interaction.channel
-        if not isinstance(channel, discord.TextChannel):
+        if not isinstance(channel, discord.TextChannel) or not isinstance(interaction.user, discord.Member):
             logger.debug(
                 f"テキストチャンネル外でフリーカテゴリ操作が呼ばれました: "
                 f"channel_id={interaction.channel_id} user_id={interaction.user.id}"
@@ -231,6 +231,8 @@ class FreeCategoryService:
         await self.prepare_free_category_slot(guild)
 
         overwrites = dict(free_category.overwrites)
+        if not isinstance(interaction.user, discord.Member):
+            raise ValueError("サーバー内でのみ利用できます。")
         overwrites[interaction.user] = op_permissions
         reason = f"[{generate_timestamp()}] フリーチャンネル作成。"
         new_channel = await guild.create_text_channel(

@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import logging
 from types import SimpleNamespace
+from typing import Any, cast
 
 import discord
 import pytest
 
+from app.core.bot import AsteroidBot
 from app.features.punish import cog
 from app.features.punish.cog import PermRoleSelect, punish_group
 
@@ -48,15 +50,15 @@ async def test_perm_role_select_callback_rejects_dm_interaction(monkeypatch: pyt
     monkeypatch.setattr(cog, "give_crime_record_role", fake_give_crime_record_role)
 
     select = PermRoleSelect(
-        bot=object(),
-        target=object(),
+        bot=cast(AsteroidBot, object()),
+        target=cast(discord.Member, object()),
         select_options=[discord.SelectOption(label="role", value="1")],
         reason="reason",
         probation=None,
     )
     interaction = DummyInteraction()
 
-    await select.callback(interaction)
+    await select.callback(cast(discord.Interaction, interaction))
 
     assert called is False
     assert interaction.response.send_message_calls == [("サーバー内でのみ使用できます。", True)]
@@ -118,8 +120,13 @@ async def test_mute_logs_when_target_member_is_missing(
     )
     monkeypatch.setattr(cog, "get_bot", lambda _: bot)
 
+    async def fake_require_punishment_context(*args: object, **kwargs: object):
+        return interaction.guild, interaction.user, board
+
+    monkeypatch.setattr(cog, "require_punishment_context", fake_require_punishment_context)
+
     with caplog.at_level(logging.INFO, logger="app.features.punish.cog"):
-        await cog.mute.callback(interaction, DummyTargetUser(77), "reason", None)
+        await cast(Any, cog.mute.callback)(interaction, DummyTargetUser(77), "reason", None)
 
     assert "処罰を実行します: action=MUTE" in caplog.text
     assert "前科ロールの付与対象メンバーが見つかりませんでした: guild_id=100 target_id=77" in caplog.text

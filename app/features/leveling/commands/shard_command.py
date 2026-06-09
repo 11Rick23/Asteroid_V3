@@ -72,7 +72,7 @@ async def xp_boost(interaction: discord.Interaction) -> None:
         page_num = i // 10
         if len(embeds) <= page_num:
             embeds.append(base_embed.copy())
-        role = interaction.guild.get_role(boost.role_id)
+        role = interaction.guild.get_role(boost.role_id) if interaction.guild is not None else None
         embeds[page_num].add_field(
             name=boost.name,
             value=f"対象ロール: {role.mention if role else 'ロールが見つかりません'}\n"
@@ -101,7 +101,7 @@ async def reward_grade(interaction: discord.Interaction) -> None:
         title="グレードロール報酬", description="グレードに応じたロール報酬を表示します", color=AsteroidColor.INFO
     )
     for grade_role in grade_roles:
-        role = interaction.guild.get_role(grade_role.role_id)
+        role = interaction.guild.get_role(grade_role.role_id) if interaction.guild is not None else None
         embed.add_field(
             name=f"Grade. {grade_role.grade}",
             value=role.mention if role else "ロールが見つかりません",
@@ -125,7 +125,7 @@ async def reward_prestige(interaction: discord.Interaction) -> None:
         color=AsteroidColor.INFO,
     )
     for prestige_role in prestige_roles:
-        role = interaction.guild.get_role(prestige_role.role_id)
+        role = interaction.guild.get_role(prestige_role.role_id) if interaction.guild is not None else None
         embed.add_field(
             name=f"Prestige. {prestige_role.prestige}",
             value=role.mention if role else "ロールが見つかりません",

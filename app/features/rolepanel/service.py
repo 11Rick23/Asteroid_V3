@@ -128,7 +128,7 @@ class RolePanelService:
             return embed
 
         if len(categories) > PANEL_CATEGORY_LIMIT:
-            embed.description += f"\n表示対象は先頭{PANEL_CATEGORY_LIMIT}カテゴリです。"
+            embed.description = (embed.description or "") + f"\n表示対象は先頭{PANEL_CATEGORY_LIMIT}カテゴリです。"
 
         for category in categories[:PANEL_CATEGORY_LIMIT]:
             category_roles = sort_roles_by_hierarchy(category.roles, guild)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, overload
 
 from sqlalchemy import delete, func, select, union
 from sqlalchemy.dialects.mysql import insert as mysql_insert
@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models.monthly_action_powers import MonthlyActionPowerModel
 from app.database.models.monthly_powers import MonthlyPowerModel
+from app.database.table_utils import model_table
 
 
 @dataclass
@@ -106,11 +107,11 @@ class MonthlyPowers:
 
     async def create_table(self) -> None:
         async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: MonthlyPowerModel.__table__.create(sync_conn, checkfirst=True))
+            await conn.run_sync(lambda sync_conn: model_table(MonthlyPowerModel).create(sync_conn, checkfirst=True))
 
     async def drop_table(self) -> None:
         async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: MonthlyPowerModel.__table__.drop(sync_conn, checkfirst=True))
+            await conn.run_sync(lambda sync_conn: model_table(MonthlyPowerModel).drop(sync_conn, checkfirst=True))
 
     async def truncate_table(self) -> None:
         async with self.db.session() as session:
@@ -127,6 +128,16 @@ class MonthlyPowers:
     async def get_monthly_power_lock(self, session: AsyncSession, user_id: int) -> MonthlyPowerData | None:
         stmt = select(MonthlyPowerModel).where(MonthlyPowerModel.user_id == user_id).with_for_update()
         return self._to_data(await session.scalar(stmt))
+
+    @overload
+    async def get_monthly_power_ranking(
+        self, show_user_id: int, limit: int | None = None
+    ) -> MonthlyPowerRankingData | None: ...
+
+    @overload
+    async def get_monthly_power_ranking(
+        self, show_user_id: None = None, limit: int | None = None
+    ) -> list[MonthlyPowerRankingData]: ...
 
     async def get_monthly_power_ranking(
         self, show_user_id: int | None = None, limit: int | None = None

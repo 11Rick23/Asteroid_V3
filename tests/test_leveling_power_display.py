@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any, cast
 
 import discord
 import pytest
 from sqlalchemy.dialects import mysql
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.bot import AsteroidBot
 from app.database.models.monthly_powers import MonthlyPowerModel
 from app.database.repositories.monthly_powers import MonthlyPowerRankingData, MonthlyPowers
 from app.database.repositories.star_grades import StarGradeRankingData
@@ -60,7 +63,7 @@ def test_build_power_embed_shows_action_power() -> None:
     user = FakeUser(123, "Alice")
     monthly_power = MonthlyPowerRankingData(123, 100, 50, 25, now, now, 1)
 
-    embed = build_power_embed(user, monthly_power)
+    embed = build_power_embed(cast(discord.abc.User, user), monthly_power)
 
     assert len(embed.fields) == 3
     assert embed.fields[2].name == "アクションパワー数"
@@ -73,13 +76,13 @@ def test_build_power_ranking_embed_shows_action_power_and_total() -> None:
     bot = FakeBot({123: FakeUser(123, "Alice")})
     base_embed = discord.Embed(title="Power Ranking")
 
-    embeds = build_power_ranking_embed(bot, [monthly_power], base_embed=base_embed)
+    embeds = build_power_ranking_embed(cast(AsteroidBot, bot), [monthly_power], base_embed=base_embed)
 
     assert len(embeds) == 1
     field = embeds[0].fields[-1]
     assert field.name == "1位: Alice"
-    assert "<:_:1488099100518776993> 25" in field.value
-    assert "計: 175" in field.value
+    assert "<:_:1488099100518776993> 25" in (field.value or "")
+    assert "計: 175" in (field.value or "")
 
 
 def test_build_rank_embed_shows_action_power() -> None:
@@ -88,10 +91,10 @@ def test_build_rank_embed_shows_action_power() -> None:
     monthly_power = MonthlyPowerRankingData(123, 100, 50, 25, now, now, 1)
     star_grade = StarGradeRankingData(123, 1, 2, 3, 4, 5, 6, now, now, 2)
 
-    embed = build_rank_embed(user, monthly_power, star_grade)
+    embed = build_rank_embed(cast(discord.abc.User, user), monthly_power, star_grade)
 
-    assert "<:_:1488099100518776993> 25" in embed.fields[1].value
-    assert "175パワー" in embed.fields[1].name
+    assert "<:_:1488099100518776993> 25" in (embed.fields[1].value or "")
+    assert "175パワー" in (embed.fields[1].name or "")
 
 
 def test_monthly_power_aggregated_subquery_references_action_power_table() -> None:
@@ -114,9 +117,9 @@ async def test_get_or_create_monthly_power_model_lock_uses_mysql_upsert_for_miss
     existing_model = MonthlyPowerModel(user_id=123, text_power=0, voice_power=0)
     session = FakeAsyncSession([None, existing_model])
 
-    model = await MonthlyPowers(db=None)._get_or_create_monthly_power_model_lock(session, 123)
+    model = await MonthlyPowers(db=None)._get_or_create_monthly_power_model_lock(cast(AsyncSession, session), 123)
 
     assert model is existing_model
     assert len(session.executed_statements) == 1
-    compiled = str(session.executed_statements[0].compile(dialect=mysql.dialect()))
+    compiled = str(cast(Any, session.executed_statements[0]).compile(dialect=mysql.dialect()))
     assert "ON DUPLICATE KEY UPDATE" in compiled

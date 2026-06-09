@@ -9,6 +9,7 @@ from app.database.models.role_panel import (
     RolePanelCategoryModel,
     RolePanelRoleModel,
 )
+from app.database.table_utils import model_table
 
 
 @dataclass
@@ -68,13 +69,15 @@ class RolePanel:
 
     async def create_table(self) -> None:
         async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: RolePanelCategoryModel.__table__.create(sync_conn, checkfirst=True))
-            await conn.run_sync(lambda sync_conn: RolePanelRoleModel.__table__.create(sync_conn, checkfirst=True))
+            await conn.run_sync(
+                lambda sync_conn: model_table(RolePanelCategoryModel).create(sync_conn, checkfirst=True)
+            )
+            await conn.run_sync(lambda sync_conn: model_table(RolePanelRoleModel).create(sync_conn, checkfirst=True))
 
     async def drop_table(self) -> None:
         async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: RolePanelRoleModel.__table__.drop(sync_conn, checkfirst=True))
-            await conn.run_sync(lambda sync_conn: RolePanelCategoryModel.__table__.drop(sync_conn, checkfirst=True))
+            await conn.run_sync(lambda sync_conn: model_table(RolePanelRoleModel).drop(sync_conn, checkfirst=True))
+            await conn.run_sync(lambda sync_conn: model_table(RolePanelCategoryModel).drop(sync_conn, checkfirst=True))
 
     async def create_category(
         self,

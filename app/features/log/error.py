@@ -7,6 +7,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from app.common.discord_types import as_messageable
 from app.core.bot import AsteroidBot
 
 logger = getLogger(__name__)
@@ -61,7 +62,7 @@ class Error(commands.Cog):
         )
 
         log_channel_id = self.bot.config.log.main_log_channel_id
-        log_channel = self.bot.get_channel(log_channel_id) if log_channel_id else None
+        log_channel = as_messageable(self.bot.get_channel(log_channel_id)) if log_channel_id else None
         if log_channel is not None:
             await log_channel.send(build_log_message(interaction, original, traceback_tail))
 

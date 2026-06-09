@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import cast
 
+import discord
+
+from app.core.bot import AsteroidBot
 from app.database.repositories.role_panel import (
     RolePanelCategoryDetail,
     RolePanelRoleData,
@@ -80,11 +84,11 @@ def test_member_needs_boost_checks_guild_premium_subscriber_role() -> None:
     member = FakeMember(guild, [roles[0], roles[1]])
     category = build_category(roles=[20], requires_boost=True)
 
-    assert member_needs_boost(member, category) is True
+    assert member_needs_boost(cast(discord.Member, member), category) is True
 
     member.roles.append(roles[2])
 
-    assert member_needs_boost(member, category) is False
+    assert member_needs_boost(cast(discord.Member, member), category) is False
 
 
 def test_build_role_select_options_only_includes_category_roles() -> None:
@@ -93,7 +97,7 @@ def test_build_role_select_options_only_includes_category_roles() -> None:
     member = FakeMember(guild, [roles[0], roles[1], roles[3]])
     category = build_category(roles=[10, 20])
 
-    options = build_role_select_options(category, member)
+    options = build_role_select_options(category, cast(discord.Member, member))
 
     assert [option.value for option in options] == ["20", "10"]
     assert [option.default for option in options] == [False, True]
@@ -104,10 +108,15 @@ def test_role_panel_select_view_uses_prebuilt_options() -> None:
     guild = FakeGuild(roles, FakeRole(999, 999))
     member = FakeMember(guild, [roles[0]])
     category = build_category(roles=[10, 20])
-    options = build_role_select_options(category, member)
+    options = build_role_select_options(category, cast(discord.Member, member))
     get_role_call_count = len(guild.get_role_calls)
 
-    view = RolePanelSelectView(RolePanelService(bot=object()), category, member, options)
+    view = RolePanelSelectView(
+        RolePanelService(bot=cast(AsteroidBot, object())),
+        category,
+        cast(discord.Member, member),
+        options,
+    )
 
     assert len(view.children) == 1
     assert len(guild.get_role_calls) == get_role_call_count
@@ -116,9 +125,9 @@ def test_role_panel_select_view_uses_prebuilt_options() -> None:
 def test_role_panel_view_truncates_category_button_labels() -> None:
     category = build_category(roles=[10], name="あ" * (CATEGORY_BUTTON_LABEL_LIMIT + 1))
 
-    view = RolePanelView(RolePanelService(bot=object()), [category])
+    view = RolePanelView(RolePanelService(bot=cast(AsteroidBot, object())), [category])
 
-    button = view.children[0]
+    button = cast(discord.ui.Button, view.children[0])
     assert button.label == "あ" * CATEGORY_BUTTON_LABEL_LIMIT
 
 
@@ -137,7 +146,7 @@ def test_build_role_sync_plan_syncs_only_category_manageable_roles() -> None:
     member = FakeMember(guild, [default_role, current_role])
     category = build_category(roles=[10, 20, 40, 50])
 
-    plan = build_role_sync_plan(member, category, {20, 30, 40, 50})
+    plan = build_role_sync_plan(cast(discord.Member, member), category, {20, 30, 40, 50})
 
     assert [role.id for role in plan.add_roles] == [20]
     assert [role.id for role in plan.remove_roles] == [10]
@@ -155,29 +164,30 @@ def test_build_role_sync_plan_uses_visible_sorted_role_limit() -> None:
     member = FakeMember(guild, [default_role, hidden_current_role])
     category = build_category(roles=[10, *range(11, 35), 35])
 
-    plan = build_role_sync_plan(member, category, {35})
+    plan = build_role_sync_plan(cast(discord.Member, member), category, {35})
 
     assert [role.id for role in plan.add_roles] == [35]
     assert plan.remove_roles == []
     assert plan.ignored_role_ids == set()
-    assert 10 not in {role.role_id for role in get_visible_category_roles(category, guild)}
+    assert 10 not in {role.role_id for role in get_visible_category_roles(category, cast(discord.Guild, guild))}
 
 
 def test_build_panel_embed_shows_only_category_name_and_roles() -> None:
     category = build_category(roles=[10, 20], requires_boost=True)
     category.description = "説明"
-    service = RolePanelService(bot=object())
+    service = RolePanelService(bot=cast(AsteroidBot, object()))
 
     embed = service.build_panel_embed([category])
 
     field = embed.fields[0]
     assert field.name == "通知"
     assert "[ID:" not in field.name
-    assert "説明" not in field.value
-    assert "必要ロール" not in field.value
-    assert "<@&10>" in field.value
-    assert "<@&20>" in field.value
-    assert "<@&30>" not in field.value
+    field_value = field.value or ""
+    assert "説明" not in field_value
+    assert "必要ロール" not in field_value
+    assert "<@&10>" in field_value
+    assert "<@&20>" in field_value
+    assert "<@&30>" not in field_value
 
 
 def test_build_panel_embed_limits_categories_to_discord_field_limit() -> None:
@@ -185,7 +195,7 @@ def test_build_panel_embed_limits_categories_to_discord_field_limit() -> None:
         build_category(roles=[10], category_id=index, name=f"カテゴリ{index}")
         for index in range(1, PANEL_CATEGORY_LIMIT + 2)
     ]
-    service = RolePanelService(bot=object())
+    service = RolePanelService(bot=cast(AsteroidBot, object()))
 
     embed = service.build_panel_embed(categories)
 
@@ -201,6 +211,6 @@ def test_sort_roles_by_hierarchy_orders_higher_roles_first() -> None:
     guild = FakeGuild([FakeRole(1, 1), role_low, role_high, role_middle], FakeRole(999, 999))
     category = build_category(roles=[10, 20, 30])
 
-    sorted_roles = sort_roles_by_hierarchy(category.roles, guild)
+    sorted_roles = sort_roles_by_hierarchy(category.roles, cast(discord.Guild, guild))
 
     assert [role.role_id for role in sorted_roles] == [20, 30, 10]

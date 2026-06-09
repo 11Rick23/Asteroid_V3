@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from typing import Any, cast
 
 from discord import app_commands
 
 from app.common.command_groups import get_or_create_setup_group, register_setup_command
+from app.core.bot import AsteroidBot
 from app.core.system_commands import stop_bot
 from app.features.auth.cog import setup_auth
 from app.features.birthday.cog import birthday_set_others
@@ -26,7 +28,7 @@ class FakeTree:
         return self.commands.get(name)
 
     def add_command(self, command: object) -> None:
-        self.commands[command.name] = command
+        self.commands[cast(Any, command).name] = command
 
 
 class FakeBot:
@@ -66,7 +68,7 @@ def test_stop_command_is_admin_only() -> None:
 
 
 def test_setup_group_and_setup_commands_are_admin_only() -> None:
-    bot = FakeBot()
+    bot = cast(AsteroidBot, FakeBot())
 
     for command in [setup_auth, free_category_button, claim_voice_xp_button, setup_starboard, transfer_mee6]:
         register_setup_command(bot, command)

@@ -7,6 +7,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models.monthly_action_powers import MonthlyActionPowerModel
+from app.database.table_utils import model_table
 
 
 @dataclass
@@ -34,11 +35,15 @@ class MonthlyActionPowers:
 
     async def create_table(self) -> None:
         async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: MonthlyActionPowerModel.__table__.create(sync_conn, checkfirst=True))
+            await conn.run_sync(
+                lambda sync_conn: model_table(MonthlyActionPowerModel).create(sync_conn, checkfirst=True)
+            )
 
     async def drop_table(self) -> None:
         async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: MonthlyActionPowerModel.__table__.drop(sync_conn, checkfirst=True))
+            await conn.run_sync(
+                lambda sync_conn: model_table(MonthlyActionPowerModel).drop(sync_conn, checkfirst=True)
+            )
 
     async def truncate_table(self) -> None:
         async with self.db.session() as session:

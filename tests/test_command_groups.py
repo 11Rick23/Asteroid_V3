@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from discord import app_commands
 
@@ -10,6 +10,7 @@ from app.common.command_groups import (
     register_command,
     register_setup_command,
 )
+from app.core.bot import AsteroidBot
 from app.core.system_commands import register_system_commands, stop_bot
 
 
@@ -42,34 +43,37 @@ async def setup_ping_command(_: Any) -> None:
 
 
 def test_register_command_is_idempotent() -> None:
-    bot = FakeBot()
+    fake_bot = FakeBot()
+    bot = cast(AsteroidBot, fake_bot)
 
     register_command(bot, ping_command)
     register_command(bot, ping_command)
 
-    assert bot.tree.get_command("ping") is ping_command
-    assert bot.tree.add_count == 1
+    assert fake_bot.tree.get_command("ping") is ping_command
+    assert fake_bot.tree.add_count == 1
 
 
 def test_register_setup_command_creates_single_setup_group() -> None:
-    bot = FakeBot()
+    fake_bot = FakeBot()
+    bot = cast(AsteroidBot, fake_bot)
 
     register_setup_command(bot, setup_ping_command)
     register_setup_command(bot, setup_ping_command)
 
     setup_group = get_or_create_setup_group(bot)
     assert setup_group.name == SETUP_GROUP_NAME
-    assert bot.tree.get_command(SETUP_GROUP_NAME) is setup_group
+    assert fake_bot.tree.get_command(SETUP_GROUP_NAME) is setup_group
     assert setup_group.get_command("setup_ping") is setup_ping_command
     assert len(list(setup_group.walk_commands())) == 1
-    assert bot.tree.add_count == 1
+    assert fake_bot.tree.add_count == 1
 
 
 def test_register_system_commands_is_idempotent() -> None:
-    bot = FakeBot()
+    fake_bot = FakeBot()
+    bot = cast(AsteroidBot, fake_bot)
 
     register_system_commands(bot)
     register_system_commands(bot)
 
-    assert bot.tree.get_command("stop") is stop_bot
-    assert bot.tree.add_count == 1
+    assert fake_bot.tree.get_command("stop") is stop_bot
+    assert fake_bot.tree.add_count == 1

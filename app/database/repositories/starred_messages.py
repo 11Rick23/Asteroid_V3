@@ -6,6 +6,7 @@ from datetime import datetime
 from sqlalchemy import func, select
 
 from app.database.models.starred_messages import StarredMessageModel
+from app.database.table_utils import model_table
 
 
 @dataclass
@@ -45,11 +46,11 @@ class StarredMessages:
 
     async def create_table(self) -> None:
         async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: StarredMessageModel.__table__.create(sync_conn, checkfirst=True))
+            await conn.run_sync(lambda sync_conn: model_table(StarredMessageModel).create(sync_conn, checkfirst=True))
 
     async def drop_table(self) -> None:
         async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: StarredMessageModel.__table__.drop(sync_conn, checkfirst=True))
+            await conn.run_sync(lambda sync_conn: model_table(StarredMessageModel).drop(sync_conn, checkfirst=True))
 
     async def get_starred_message(self, message_id: int) -> StarredMessageData | None:
         async with self.db.session() as session:
@@ -63,7 +64,7 @@ class StarredMessages:
             )
             starred_messages = await session.scalars(stmt)
             return [
-                self._to_data(starred_message) for starred_message in starred_messages if starred_message is not None
+                data for starred_message in starred_messages if (data := self._to_data(starred_message)) is not None
             ]
 
     async def get_random_starred_message(self) -> StarredMessageData | None:
@@ -76,7 +77,7 @@ class StarredMessages:
             stmt = select(StarredMessageModel).order_by(StarredMessageModel.star_amount.desc()).limit(limit)
             starred_messages = await session.scalars(stmt)
             return [
-                self._to_data(starred_message) for starred_message in starred_messages if starred_message is not None
+                data for starred_message in starred_messages if (data := self._to_data(starred_message)) is not None
             ]
 
     async def get_star_amount_ranking(self, limit: int = 10) -> list[StarAmountRankingData]:

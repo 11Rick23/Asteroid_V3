@@ -10,6 +10,7 @@ from discord.ext import commands
 
 from app.common.command_groups import get_bot, register_setup_command
 from app.common.constants import AsteroidColor
+from app.common.discord_types import as_messageable
 from app.common.permissions import admin_only
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
@@ -44,6 +45,12 @@ class AuthInput(discord.ui.Modal):
                 f"認証に成功しました: guild_id={interaction.guild.id if interaction.guild is not None else None} "
                 f"user_id={interaction.user.id if interaction.user is not None else None}"
             )
+            if interaction.guild is None or not isinstance(interaction.user, discord.Member):
+                await interaction.response.send_message(
+                    "サーバー内で認証してください。",
+                    ephemeral=True,
+                )
+                return
             unauthorized_role = interaction.guild.get_role(self.bot.config.auth.unauthorized_role_id)
             if unauthorized_role is not None:
                 await interaction.user.remove_roles(
@@ -145,12 +152,16 @@ class Authenticator(commands.Cog):
 @admin_only
 async def setup_auth(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
+    channel = as_messageable(interaction.channel)
+    if channel is None:
+        await interaction.response.send_message("このチャンネルには送信できません。", ephemeral=True)
+        return
     embed = discord.Embed(
         title="下のボタンを押して認証してください！",
         description="下のボタンを押して認証を開始してください。",
         color=AsteroidColor.DARK_GREEN,
     )
-    await interaction.channel.send(embed=embed, view=AuthButton(bot, timeout=None))
+    await channel.send(embed=embed, view=AuthButton(bot, timeout=None))
     logger.info(
         "認証ボタンを設置しました: command=/setup auth "
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id}"

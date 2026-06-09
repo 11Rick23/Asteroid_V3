@@ -168,6 +168,8 @@ def run_mysql_script_with_input(url: URL, sql: str, *, label: str) -> None:
 
 
 def dump_source_data(source_url: URL, dump_path: Path, tables: list[str]) -> None:
+    if source_url.database is None:
+        raise ValueError("移行元DB名が指定されていません。")
     command = ["mysqldump", *_mysql_connection_args(source_url)]
     command.extend(
         [
