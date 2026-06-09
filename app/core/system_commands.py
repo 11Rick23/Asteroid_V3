@@ -21,7 +21,7 @@ logger = getLogger(__name__)
 async def stop_bot(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
     if bot.shutdown_requested:
-        logger.warning(
+        logger.info(
             "BOT 停止コマンドを拒否しました: command=/stop reason=already_requested "
             f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id}"
         )

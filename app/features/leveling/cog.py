@@ -431,7 +431,7 @@ class LevelingSystemCore(commands.Cog):
                 await ranking_board_message.edit(embeds=[shard_embed[0], monthly_embed[0]])
             except discord.NotFound:
                 self.ranking_board_messages.remove(ranking_board_message)
-                logger.info(
+                logger.warning(
                     f"ランキングボードメッセージが見つからなかったため管理対象から削除しました: "
                     f"message_id={ranking_board_message.id}"
                 )
@@ -442,7 +442,7 @@ class LevelingSystemCore(commands.Cog):
                 )
         if len(self.ranking_board_messages) == 0:
             await self._send_ranking_board_message(embeds=[shard_embed[0], monthly_embed[0]])
-            logger.info("ランキングボードメッセージが削除されていたため再作成しました。")
+            logger.warning("ランキングボードメッセージが削除されていたため再作成しました。")
         logger.debug(f"ランキングボードを更新しました: message_count={len(self.ranking_board_messages)}")
 
     @update_ranking_board.before_loop

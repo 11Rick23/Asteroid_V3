@@ -136,7 +136,7 @@ async def birthday_set(interaction: discord.Interaction, month: int, day: int) -
 async def birthday_set_others(interaction: discord.Interaction, user: discord.User, month: int, day: int) -> None:
     bot = get_bot(interaction)
     if not validate_date(month, day):
-        logger.info(
+        logger.debug(
             "他人の誕生日設定を拒否しました: command=/birthday set_others reason=invalid_date "
             f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
             f"actor_id={interaction.user.id} target_id={user.id} month={month} day={day}"
@@ -195,7 +195,7 @@ async def birthday_remove(interaction: discord.Interaction, user: discord.User |
     bot = get_bot(interaction)
     actor = interaction.user
     if user and (not isinstance(actor, discord.Member) or not actor.guild_permissions.administrator):
-        logger.warning(f"誕生日削除の権限が不足しています: actor_id={interaction.user.id} target_id={user.id}")
+        logger.debug(f"誕生日削除の権限が不足しています: actor_id={interaction.user.id} target_id={user.id}")
         await interaction.response.send_message(
             embed=discord.Embed(
                 color=AsteroidColor.WARNING,

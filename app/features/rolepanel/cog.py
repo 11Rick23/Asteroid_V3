@@ -91,7 +91,7 @@ class RolePanelCog(commands.Cog):
         try:
             await self.role_panel_message.edit(embed=embed, view=view)
         except discord.NotFound:
-            logger.info(
+            logger.warning(
                 f"ロールパネルメッセージが見つからなかったため再作成します: message_id={self.role_panel_message.id}"
             )
             try:
