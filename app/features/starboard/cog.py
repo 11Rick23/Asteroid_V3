@@ -183,11 +183,9 @@ class Starboard(commands.Cog):
             embed.set_image(url=images[0])
         if files:
             embed.add_field(name="添付ファイル", value="\n".join(files))
-        channel_mention = (
-            starred_message.channel.mention
-            if isinstance(starred_message.channel, discord.abc.GuildChannel)
-            else f"#{starred_message.channel.id}"
-        )
+        channel_mention = getattr(starred_message.channel, "mention", None)
+        if not isinstance(channel_mention, str):
+            channel_mention = f"<#{starred_message.channel.id}>"
         return f"{self.get_star_emoji(star_amount)} **{star_amount}** {channel_mention}", embed
 
     def get_star_emoji(self, star_amount: int) -> str:
