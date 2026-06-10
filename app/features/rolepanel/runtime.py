@@ -27,6 +27,20 @@ class RolePanelCog(commands.Cog):
     async def cleanup_on_shutdown(self) -> None:
         await self._cleanup_role_panel_message()
 
+    @commands.Cog.listener()
+    async def on_member_update(self, before: discord.Member, after: discord.Member) -> None:
+        if not self.bot.is_operating_guild(after.guild):
+            return
+        if before.premium_since is None or after.premium_since is not None:
+            return
+        try:
+            await self.service.remove_boost_required_roles(after)
+        except discord.HTTPException as error:
+            logger.warning(
+                "ブースト解除時のロール削除に失敗しました: "
+                f"guild_id={after.guild.id} user_id={after.id} status={error.status} code={error.code}"
+            )
+
     @tasks.loop(count=1)
     async def initialize_role_panel(self) -> None:
         if self.bot.db.is_initialized():

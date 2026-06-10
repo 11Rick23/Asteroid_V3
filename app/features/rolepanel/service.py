@@ -24,6 +24,12 @@ class RoleSyncPlan:
     unmanageable_role_ids: set[int]
 
 
+@dataclass(slots=True)
+class BoostRoleRemovalPlan:
+    remove_roles: list[discord.Role]
+    unmanageable_role_ids: set[int]
+
+
 def get_rolepanel_service(bot: AsteroidBot) -> RolePanelService:
     service = bot.services.get("rolepanel")
     if isinstance(service, RolePanelService):
@@ -99,6 +105,32 @@ def build_role_sync_plan(
     )
 
 
+def build_boost_role_removal_plan(
+    member: discord.Member,
+    categories: list[RolePanelCategoryDetail],
+) -> BoostRoleRemovalPlan:
+    boost_role_ids = {
+        role_data.role_id
+        for category in categories
+        if category.requires_boost
+        for role_data in category.roles
+    }
+    remove_roles: list[discord.Role] = []
+    unmanageable_role_ids: set[int] = set()
+    for role in member.roles:
+        if role.id not in boost_role_ids:
+            continue
+        if not role_is_manageable(member.guild, role):
+            unmanageable_role_ids.add(role.id)
+            continue
+        remove_roles.append(role)
+
+    return BoostRoleRemovalPlan(
+        remove_roles=remove_roles,
+        unmanageable_role_ids=unmanageable_role_ids,
+    )
+
+
 class RolePanelService:
     def __init__(self, bot: AsteroidBot):
         self.bot = bot
@@ -108,6 +140,28 @@ class RolePanelService:
 
     async def get_category(self, category_id: int) -> RolePanelCategoryDetail | None:
         return await self.bot.db.role_panel.get_category(category_id)
+
+    async def remove_boost_required_roles(self, member: discord.Member) -> list[discord.Role]:
+        categories = await self.get_categories()
+        plan = build_boost_role_removal_plan(member, categories)
+        if plan.remove_roles:
+            await member.remove_roles(
+                *plan.remove_roles,
+                reason=f"[{generate_timestamp()}] サーバーブースト解除により剥奪されました。",
+                atomic=False,
+            )
+        if plan.unmanageable_role_ids:
+            logger.warning(
+                "ブースト解除時に管理不能なロールを削除できませんでした: "
+                f"guild_id={member.guild.id} user_id={member.id} "
+                f"role_ids={sorted(plan.unmanageable_role_ids)}"
+            )
+        logger.debug(
+            "ブースト解除に伴うロール削除が完了しました: "
+            f"guild_id={member.guild.id} user_id={member.id} "
+            f"removed_role_ids={[role.id for role in plan.remove_roles]}"
+        )
+        return plan.remove_roles
 
     def build_panel_embed(
         self,

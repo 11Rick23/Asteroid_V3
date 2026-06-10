@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import cast
 
 import discord
+import pytest
 
 from app.core.bot import AsteroidBot
 from app.database.repositories.role_panel import (
@@ -13,6 +14,7 @@ from app.database.repositories.role_panel import (
 from app.features.rolepanel.service import (
     PANEL_CATEGORY_LIMIT,
     RolePanelService,
+    build_boost_role_removal_plan,
     build_role_sync_plan,
     get_visible_category_roles,
     member_needs_boost,
@@ -40,6 +42,7 @@ class FakeRole:
 
 class FakeGuild:
     def __init__(self, roles: list[FakeRole], top_role: FakeRole):
+        self.id = 500
         self.default_role = roles[0]
         self.me = type("FakeMe", (), {"top_role": top_role})()
         self._roles = {role.id: role for role in roles}
@@ -62,6 +65,23 @@ class FakeMember:
         self.guild = guild
         self.roles = roles
         self.premium_since = premium_since
+        self.remove_roles_calls: list[tuple[tuple[FakeRole, ...], str | None, bool]] = []
+
+    async def remove_roles(
+        self,
+        *roles: FakeRole,
+        reason: str | None = None,
+        atomic: bool = True,
+    ) -> None:
+        self.remove_roles_calls.append((roles, reason, atomic))
+
+
+class FakeRolePanelRepository:
+    def __init__(self, categories: list[RolePanelCategoryDetail]):
+        self.categories = categories
+
+    async def get_categories(self) -> list[RolePanelCategoryDetail]:
+        return self.categories
 
 
 def build_category(
@@ -158,6 +178,49 @@ def test_build_role_sync_plan_syncs_only_category_manageable_roles() -> None:
     assert [role.id for role in plan.remove_roles] == [10]
     assert plan.ignored_role_ids == {30}
     assert plan.unmanageable_role_ids == {40, 50}
+
+
+def test_build_boost_role_removal_plan_selects_owned_manageable_roles_once() -> None:
+    default_role = FakeRole(1, 1)
+    boost_role = FakeRole(10, 10)
+    normal_role = FakeRole(20, 20)
+    too_high_role = FakeRole(30, 300)
+    managed_role = FakeRole(40, 40, managed=True)
+    guild = FakeGuild(
+        [default_role, boost_role, normal_role, too_high_role, managed_role],
+        FakeRole(999, 100),
+    )
+    member = FakeMember(guild, [default_role, boost_role, normal_role, too_high_role, managed_role])
+    categories = [
+        build_category(roles=[10, 30, 40], requires_boost=True, category_id=1),
+        build_category(roles=[10], requires_boost=True, category_id=2),
+        build_category(roles=[20], requires_boost=False, category_id=3),
+    ]
+
+    plan = build_boost_role_removal_plan(cast(discord.Member, member), categories)
+
+    assert [role.id for role in plan.remove_roles] == [10]
+    assert plan.unmanageable_role_ids == {30, 40}
+
+
+@pytest.mark.asyncio
+async def test_remove_boost_required_roles_removes_planned_roles() -> None:
+    default_role = FakeRole(1, 1)
+    boost_role = FakeRole(10, 10)
+    guild = FakeGuild([default_role, boost_role], FakeRole(999, 100))
+    member = FakeMember(guild, [default_role, boost_role])
+    repository = FakeRolePanelRepository([build_category(roles=[10], requires_boost=True)])
+    bot = cast(AsteroidBot, type("FakeBot", (), {"db": type("FakeDB", (), {"role_panel": repository})()})())
+    service = RolePanelService(bot)
+
+    removed_roles = await service.remove_boost_required_roles(cast(discord.Member, member))
+
+    assert [role.id for role in removed_roles] == [10]
+    assert len(member.remove_roles_calls) == 1
+    roles, reason, atomic = member.remove_roles_calls[0]
+    assert [role.id for role in roles] == [10]
+    assert reason is not None and "サーバーブースト解除" in reason
+    assert atomic is False
 
 
 def test_build_role_sync_plan_uses_visible_sorted_role_limit() -> None:
