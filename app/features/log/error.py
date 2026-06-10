@@ -7,6 +7,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from app.common.constants import AsteroidColor
 from app.common.discord_types import as_messageable
 from app.common.guild_scope import OutsideOperatingGuild, send_outside_operating_guild_message
 from app.core.bot import AsteroidBot
@@ -14,6 +15,7 @@ from app.core.bot import AsteroidBot
 logger = getLogger(__name__)
 TRACEBACK_TAIL_LINES = 12
 TRACEBACK_MAX_LENGTH = 1800
+DEFAULT_ERROR_MESSAGE = "コマンドの実行中にエラーが発生しました。"
 
 
 def unwrap_app_command_error(exception: app_commands.AppCommandError) -> Exception:
@@ -30,18 +32,32 @@ def build_traceback_tail(exception: BaseException) -> str:
     return tail
 
 
-def build_log_message(interaction: discord.Interaction, exception: BaseException, traceback_tail: str) -> str:
+def build_error_embed(message: str) -> discord.Embed:
+    return discord.Embed(title="エラー", description=message, color=AsteroidColor.WARNING)
+
+
+def build_traceback_embed(traceback_tail: str) -> discord.Embed:
+    return discord.Embed(
+        title="トレースバック",
+        description=f"```python\n{traceback_tail}\n```",
+        color=AsteroidColor.DARK_EMBED_COLOR,
+    )
+
+
+def build_log_error_embed(interaction: discord.Interaction, exception: BaseException) -> discord.Embed:
     command_name = interaction.command.qualified_name if interaction.command is not None else "unknown"
     user_id = interaction.user.id if interaction.user is not None else "unknown"
     guild_id = interaction.guild_id or "DM"
     channel_id = interaction.channel_id or "unknown"
-    return (
-        "エラー！\n"
-        f"command: `{command_name}`\n"
-        f"user: `{interaction.user}` ({user_id})\n"
-        f"guild: `{guild_id}` channel: `{channel_id}`\n"
-        f"```python\n{traceback_tail}\n```"
+    embed = discord.Embed(
+        title="アプリコマンドエラー",
+        description=f"`{type(exception).__name__}`: {exception}",
+        color=AsteroidColor.WARNING,
     )
+    embed.add_field(name="コマンド", value=f"`{command_name}`", inline=False)
+    embed.add_field(name="ユーザー", value=f"`{interaction.user}` (`{user_id}`)", inline=False)
+    embed.add_field(name="サーバー / チャンネル", value=f"`{guild_id}` / `{channel_id}`", inline=False)
+    return embed
 
 
 class Error(commands.Cog):
@@ -73,25 +89,40 @@ class Error(commands.Cog):
         log_channel_id = self.bot.config.log.main_log_channel_id
         log_channel = as_messageable(self.bot.get_channel(log_channel_id)) if log_channel_id else None
         if log_channel is not None and self.bot.is_operating_channel(log_channel):
-            await log_channel.send(build_log_message(interaction, original, traceback_tail))
+            await log_channel.send(
+                embeds=[
+                    build_log_error_embed(interaction, original),
+                    build_traceback_embed(traceback_tail),
+                ]
+            )
 
-        message = f"エラー！\n```python\n{traceback_tail}\n```"
+        message = DEFAULT_ERROR_MESSAGE
+        show_traceback = True
 
         if isinstance(exception, app_commands.MissingPermissions):
             message = "権限が足りません！"
+            show_traceback = False
         elif isinstance(exception, app_commands.BotMissingPermissions):
             message = "コマンドを実行するのにBOTに必要な権限がありません！"
+            show_traceback = False
         elif isinstance(exception, app_commands.CommandOnCooldown):
             message = f"コマンドはクールダウン中です！\n`{round(exception.retry_after, 2)}秒後`に再度試してください。"
+            show_traceback = False
         elif isinstance(exception, app_commands.TransformerError):
             message = "渡された引数が無効です！"
+            show_traceback = False
         elif isinstance(exception, app_commands.CheckFailure):
             message = "このコマンドを実行する権限がありません。"
+            show_traceback = False
+
+        embeds = [build_error_embed(message)]
+        if show_traceback:
+            embeds.append(build_traceback_embed(traceback_tail))
 
         if interaction.response.is_done():
-            await interaction.followup.send(message, ephemeral=True)
+            await interaction.followup.send(embeds=embeds, ephemeral=True)
         else:
-            await interaction.response.send_message(message, ephemeral=True)
+            await interaction.response.send_message(embeds=embeds, ephemeral=True)
 
 
 async def setup(bot: AsteroidBot) -> None:
