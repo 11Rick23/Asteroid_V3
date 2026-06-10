@@ -59,7 +59,7 @@ class RolePanelAdminRoleSelect(discord.ui.RoleSelect["RolePanelAdminRoleEditView
     async def callback(self, interaction: discord.Interaction) -> None:
         actor = as_member(interaction.user)
         if interaction.user.id != self.actor_id and (actor is None or not actor.guild_permissions.administrator):
-            logger.warning(
+            logger.debug(
                 "ロールパネル編集UIの操作を拒否しました: "
                 f"guild_id={interaction.guild_id} actor_id={interaction.user.id} owner_id={self.actor_id} "
                 f"category_id={self.category_id}"

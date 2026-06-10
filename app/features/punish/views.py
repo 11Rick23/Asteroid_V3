@@ -46,7 +46,7 @@ class PermRoleSelect(discord.ui.Select):
             and interaction.user.id != self.moderator_id
             and not is_administrator(interaction.user)
         ):
-            logger.warning(
+            logger.debug(
                 "権限剥奪UIの操作を拒否しました: "
                 f"guild_id={guild.id} actor_id={interaction.user.id} moderator_id={self.moderator_id} "
                 f"target_id={self.target.id}"

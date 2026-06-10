@@ -63,7 +63,7 @@ class RolePanelRoleSelect(discord.ui.Select["RolePanelSelectView"]):
 
     async def callback(self, interaction: discord.Interaction) -> None:
         if interaction.user.id != self.member_id:
-            logger.warning(
+            logger.debug(
                 "ロールパネル選択メニューの操作を拒否しました: "
                 f"guild_id={interaction.guild_id} actor_id={interaction.user.id} "
                 f"owner_id={self.member_id} category_id={self.category_id}"
