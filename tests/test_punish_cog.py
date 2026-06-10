@@ -8,7 +8,7 @@ import discord
 import pytest
 
 from app.core.bot import AsteroidBot
-from app.features.punish import cog
+from app.features.punish import cog, views
 from app.features.punish.cog import PermRoleSelect, punish_group
 
 
@@ -47,7 +47,7 @@ async def test_perm_role_select_callback_rejects_dm_interaction(monkeypatch: pyt
         called = True
         return False
 
-    monkeypatch.setattr(cog, "give_crime_record_role", fake_give_crime_record_role)
+    monkeypatch.setattr(views, "give_crime_record_role", fake_give_crime_record_role)
 
     select = PermRoleSelect(
         bot=cast(AsteroidBot, object()),
@@ -125,7 +125,7 @@ async def test_mute_logs_when_target_member_is_missing(
 
     monkeypatch.setattr(cog, "require_punishment_context", fake_require_punishment_context)
 
-    with caplog.at_level(logging.INFO, logger="app.features.punish.cog"):
+    with caplog.at_level(logging.INFO):
         await cast(Any, cog.mute.callback)(interaction, DummyTargetUser(77), "reason", None)
 
     assert "処罰を実行します: action=MUTE" in caplog.text

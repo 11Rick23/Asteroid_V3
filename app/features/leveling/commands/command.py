@@ -135,9 +135,7 @@ async def transfer_mee6(interaction: discord.Interaction, sync_role: bool, prest
         )
         if member:
             prestige_amount = sum(
-                1
-                for prestige_role_id in prestige_roles_id
-                if guild.get_role(prestige_role_id) in member.roles
+                1 for prestige_role_id in prestige_roles_id if guild.get_role(prestige_role_id) in member.roles
             )
             if prestige_amount > 0:
                 star_grade, _, _, _ = await bot.db.star_grades.add_prestige(star_grade, prestige_amount, "テキスト")

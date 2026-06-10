@@ -9,7 +9,7 @@ import pytest
 
 from app.database.models.starred_messages import StarredMessageModel
 from app.database.repositories.starred_messages import StarredMessageData, StarredMessages
-from app.features.starboard import cog as starboard_cog
+from app.features.starboard import commands as starboard_cog
 
 
 class DummyAsyncSessionContext:

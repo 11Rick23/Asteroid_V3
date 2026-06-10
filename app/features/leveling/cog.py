@@ -3,71 +3,36 @@ from __future__ import annotations
 import datetime
 import random
 from logging import getLogger
-from time import time
 from zoneinfo import ZoneInfo
 
 import discord
-from discord import app_commands
 from discord.ext import commands, tasks
 
-from app.common.command_groups import get_bot, register_setup_command
+from app.common.command_groups import register_setup_command
 from app.common.constants import AsteroidColor, AsteroidEmoji
 from app.common.discord_types import as_messageable
-from app.common.permissions import admin_only
-from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
-from app.features.leveling.action_power import (
-    build_accumulated_action_power_message,
-    parse_action_power_command,
-)
 from app.features.leveling.build_send_message import (
     build_power_ranking_embed,
     build_shard_ranking_embed,
-    send_grade_up_message,
-    send_prestige_announce,
-    send_prestige_up_message,
 )
 from app.features.leveling.commands.admin_command import register_leveling_admin_commands
 from app.features.leveling.commands.command import register_leveling_commands
 from app.features.leveling.commands.power_command import register_power_commands
 from app.features.leveling.commands.shard_command import register_shard_commands
-from app.features.leveling.manage_reward_role import sync_grade_prestige_role
-from app.features.leveling.service import (
-    apply_voice_xp_claim_side_effects,
-    build_voice_xp_claim_message,
-    claim_voice_xp_rewards,
-)
+from app.features.leveling.message_handler import LevelingMessageHandler
+from app.features.leveling.monthly import run_monthly_ranking
+from app.features.leveling.setup_command import claim_voice_xp_button
+from app.features.leveling.views import ClaimVoiceXP
 
 logger = getLogger(__name__)
 TOKYO_TZ = ZoneInfo("Asia/Tokyo")
 
 
-class ClaimVoiceXP(discord.ui.View):
-    def __init__(self, bot: AsteroidBot):
-        super().__init__(timeout=None)
-        self.bot = bot
-
-    @discord.ui.button(label="VC経験値を獲得する", style=discord.ButtonStyle.success, custom_id="claim_voice_xp")
-    async def button_callback(self, interaction: discord.Interaction, _: discord.ui.Button) -> None:
-        claim_result = await claim_voice_xp_rewards(self.bot, interaction.user.id)
-        if claim_result is None:
-            await interaction.response.send_message("VC経験値を獲得していません", ephemeral=True)
-            return
-
-        await interaction.response.send_message(content=build_voice_xp_claim_message(interaction.user, claim_result))
-        await apply_voice_xp_claim_side_effects(
-            self.bot,
-            as_messageable(interaction.channel),
-            interaction.user,
-            claim_result,
-        )
-
-
 class LevelingSystemCore(commands.Cog):
     def __init__(self, bot: AsteroidBot):
         self.bot = bot
-        self.cooldown: dict[int, float] = {}
-        self.cooldown_time = self.bot.config.leveling.message_cooldown
+        self.message_handler = LevelingMessageHandler(bot)
         self.ranking_board_messages: list[discord.Message] = []
         self.voice_xp_claim.start()
         self.delete_expired_xp_boosts.start()
@@ -86,171 +51,13 @@ class LevelingSystemCore(commands.Cog):
     async def cog_load(self) -> None:
         self.bot.add_view(ClaimVoiceXP(self.bot))
 
-    async def try_handle_action_power_command(self, message: discord.Message) -> bool:
-        if (
-            message.guild is None
-            or message.guild.id != self.bot.config.discord.guild_id
-            or not message.author.bot
-            or self.bot.config.leveling.action_power_channel_id == 0
-            or message.channel.id != self.bot.config.leveling.action_power_channel_id
-        ):
-            return False
-
-        command = parse_action_power_command(message.content)
-        if command is None:
-            return False
-
-        user_id, value = command
-        if message.guild.get_member(user_id) is None:
-            logger.debug(f"アクションパワー加算をスキップしました: guild_id={message.guild.id} user_id={user_id}")
-            return False
-
-        await self.bot.db.leveling.add_action_power(user_id, value)
-
-        try:
-            await message.add_reaction("✅")
-        except discord.HTTPException:
-            pass
-        logger.debug(
-            f"アクションパワーコマンドを処理しました: guild_id={message.guild.id} "
-            f"channel_id={message.channel.id} user_id={user_id} value={value}"
-        )
-        return True
-
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
-        self.bot.remember_message(message)
-        if await self.try_handle_action_power_command(message):
-            return
-        if (
-            message.author.bot
-            or message.guild is None
-            or message.guild.id != self.bot.config.discord.guild_id
-            or not isinstance(message.author, discord.Member)
-        ):
-            return
-        if message.author.id in self.cooldown and (self.cooldown[message.author.id] + self.cooldown_time) >= time():
-            logger.debug(
-                f"レベリング加算をクールダウンでスキップしました: guild_id={message.guild.id} "
-                f"channel_id={message.channel.id} user_id={message.author.id}"
-            )
-            return
-
-        self.cooldown[message.author.id] = time()
-        increase = random.randint(
-            self.bot.config.leveling.min_xp_per_message,
-            self.bot.config.leveling.max_xp_per_message,
-        )
-        if message.channel.type == discord.ChannelType.voice:
-            increase = int(increase * self.bot.config.leveling.voice_xp_adjust)
-
-        boost_increase = 0
-        xp_boosts = await self.bot.db.xp_boosts.get_xp_boosts()
-        if xp_boosts:
-            total_boost_amount = 0
-            for xp_boost in xp_boosts:
-                role = message.guild.get_role(xp_boost.role_id)
-                if role in message.author.roles:
-                    total_boost_amount += xp_boost.boost_amount / 100
-            if total_boost_amount < 1:
-                total_boost_amount += 1
-            boost_increase = int(increase * total_boost_amount) - increase
-
-        reward = await self.bot.db.leveling.apply_message_reward(
-            message.author.id,
-            increase,
-            boost_increase,
-        )
-        star_grade = reward.star_grade
-        grade_up_amount = reward.grade_up_amount
-        prestige_amount = reward.prestige_amount
-        if prestige_amount > 0:
-            await send_prestige_up_message(message.channel, message.author, star_grade.prestige, prestige_amount)
-            await send_prestige_announce(self.bot, message.author, star_grade.prestige)
-            logger.debug(
-                f"レベリングでプレステージ昇格が発生しました: guild_id={message.guild.id} "
-                f"channel_id={message.channel.id} user_id={message.author.id} "
-                f"prestige={star_grade.prestige} amount={prestige_amount}"
-            )
-        elif grade_up_amount > 0:
-            await send_grade_up_message(message.channel, message.author, star_grade.grade, grade_up_amount)
-            logger.debug(
-                f"レベリングでグレード昇格が発生しました: guild_id={message.guild.id} "
-                f"channel_id={message.channel.id} user_id={message.author.id} "
-                f"grade={star_grade.grade} amount={grade_up_amount}"
-            )
-        await sync_grade_prestige_role(self.bot, message.author, star_grade)
+        await self.message_handler.handle(message)
 
     @tasks.loop(time=datetime.time(hour=0, minute=0, tzinfo=TOKYO_TZ))
     async def monthly_ranking(self) -> None:
-        if not self.bot.db.is_initialized():
-            return
-        now = datetime.datetime.now()
-        if now.day != 1 or now.hour != 0 or now.minute != 0:
-            return
-
-        logger.info("月間ランキング集計を開始します。")
-        guild = self.bot.get_guild(self.bot.config.discord.guild_id)
-        if guild is None:
-            logger.warning(
-                f"月間ランキング集計先ギルドが見つかりませんでした: guild_id={self.bot.config.discord.guild_id}"
-            )
-            return
-        top1_role = guild.get_role(self.bot.config.leveling.top1_role_id)
-        top10_role = guild.get_role(self.bot.config.leveling.top10_role_id)
-        monthly_powers = await self.bot.db.monthly_powers.get_monthly_power_ranking(limit=10)
-        remove_top10_role_users_id = [member.id for member in top10_role.members] if top10_role else []
-
-        for monthly_power in monthly_powers:
-            member = guild.get_member(monthly_power.user_id)
-            if member is None:
-                continue
-            if monthly_power.ranking == 1 and top1_role is not None:
-                await member.add_roles(
-                    top1_role, reason=f"[{generate_timestamp()}] 月間ランキングにより付与されました"
-                )
-            if monthly_power.user_id in remove_top10_role_users_id:
-                remove_top10_role_users_id.remove(monthly_power.user_id)
-                continue
-            if top10_role is not None:
-                await member.add_roles(
-                    top10_role, reason=f"[{generate_timestamp()}] 月間ランキングにより付与されました"
-                )
-
-        for user_id in remove_top10_role_users_id:
-            member = guild.get_member(user_id)
-            if member is not None and top10_role is not None:
-                await member.remove_roles(
-                    top10_role, reason=f"[{generate_timestamp()}] 月間ランキングにより剥奪されました"
-                )
-
-        monthly_power_ranking_text = "\n".join(
-            f"> {monthly_power.ranking}位: <@{monthly_power.user_id}>" for monthly_power in monthly_powers
-        )
-        base_embed = discord.Embed(
-            title="月間ランキング",
-            description="月間ランキング 今回のTOP10\n\n"
-            f"{AsteroidEmoji.TEXT_POWER}: テキストパワー\n"
-            f"{AsteroidEmoji.VOICE_POWER}: ボイスパワー\n"
-            f"{AsteroidEmoji.ACTION_POWER}: アクションパワー\n"
-            f"{AsteroidEmoji.TRANSPARENT}",
-            color=AsteroidColor.INFO,
-        )
-        embed = build_power_ranking_embed(self.bot, monthly_powers, base_embed)[0]
-        channel = self.bot.get_channel(self.bot.config.leveling.month_ranking_board_channel_id)
-        if (messageable_channel := as_messageable(channel)) is not None:
-            await messageable_channel.send(
-                content=f"ということで、今回のtop10は...\n\n{monthly_power_ranking_text}\n\nこのようになりました！おめでとうございます！",
-                embed=embed,
-            )
-        action_channel = self.bot.get_channel(self.bot.config.leveling.action_power_channel_id)
-        if (messageable_action_channel := as_messageable(action_channel)) is not None:
-            total_action_power = await self.bot.db.monthly_action_powers.sum_action_power()
-            await messageable_action_channel.send(build_accumulated_action_power_message(total_action_power))
-        await self.bot.db.monthly_powers.truncate_table()
-        await self.bot.db.monthly_action_powers.truncate_table()
-        await self.bot.db.voice_xp_limits.reset_voice_power()
-        logger.info(f"月間ランキング集計が完了しました: guild_id={guild.id} ranked_count={len(monthly_powers)}")
+        await run_monthly_ranking(self.bot)
 
     @tasks.loop(minutes=1)
     async def voice_xp_claim(self) -> None:
@@ -438,26 +245,6 @@ class LevelingSystemCore(commands.Cog):
             logger.warning("VC経験値ループが失敗したため再起動します。")
             await self.bot.wait_until_ready()
             self.voice_xp_claim.restart()
-
-
-@app_commands.command(name="claim_voice_xp_button", description="VC経験値獲得用のボタンを設置します")
-@app_commands.guild_only()
-@admin_only
-async def claim_voice_xp_button(interaction: discord.Interaction) -> None:
-    bot = get_bot(interaction)
-    channel = as_messageable(interaction.channel)
-    if channel is None:
-        await interaction.response.send_message("このチャンネルには送信できません。", ephemeral=True)
-        return
-    embed = discord.Embed(
-        title="VC経験値獲得はこちら", description="ボタンを押すとVC経験値を獲得します", color=AsteroidColor.INFO
-    )
-    await channel.send(embed=embed, view=ClaimVoiceXP(bot=bot))
-    logger.info(
-        "VC経験値獲得ボタンを設置しました: command=/setup claim_voice_xp_button "
-        f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id}"
-    )
-    await interaction.response.send_message("VC経験値獲得用のボタンを設置しました！", ephemeral=True)
 
 
 def register_leveling_feature(bot: AsteroidBot) -> None:
