@@ -36,7 +36,7 @@ def get_rolepanel_service(bot: AsteroidBot) -> RolePanelService:
 def member_needs_boost(member: discord.Member, category: RolePanelCategoryDetail) -> bool:
     if not category.requires_boost:
         return False
-    return member.guild.premium_subscriber_role not in member.roles
+    return member.premium_since is None
 
 
 def role_is_manageable(guild: discord.Guild, role: discord.Role) -> bool:

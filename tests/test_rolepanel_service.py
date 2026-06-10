@@ -39,10 +39,9 @@ class FakeRole:
 
 
 class FakeGuild:
-    def __init__(self, roles: list[FakeRole], top_role: FakeRole, premium_subscriber_role: FakeRole | None = None):
+    def __init__(self, roles: list[FakeRole], top_role: FakeRole):
         self.default_role = roles[0]
         self.me = type("FakeMe", (), {"top_role": top_role})()
-        self.premium_subscriber_role = premium_subscriber_role
         self._roles = {role.id: role for role in roles}
         self.get_role_calls: list[int] = []
 
@@ -52,10 +51,17 @@ class FakeGuild:
 
 
 class FakeMember:
-    def __init__(self, guild: FakeGuild, roles: list[FakeRole], member_id: int = 100):
+    def __init__(
+        self,
+        guild: FakeGuild,
+        roles: list[FakeRole],
+        member_id: int = 100,
+        premium_since: datetime | None = None,
+    ):
         self.id = member_id
         self.guild = guild
         self.roles = roles
+        self.premium_since = premium_since
 
 
 def build_category(
@@ -78,15 +84,15 @@ def build_category(
     )
 
 
-def test_member_needs_boost_checks_guild_premium_subscriber_role() -> None:
+def test_member_needs_boost_checks_member_premium_since() -> None:
     roles = [FakeRole(1, 1), FakeRole(10, 10), FakeRole(20, 20)]
-    guild = FakeGuild(roles, FakeRole(999, 999), premium_subscriber_role=roles[2])
-    member = FakeMember(guild, [roles[0], roles[1]])
+    guild = FakeGuild(roles, FakeRole(999, 999))
+    member = FakeMember(guild, [roles[0], roles[1], roles[2]])
     category = build_category(roles=[20], requires_boost=True)
 
     assert member_needs_boost(cast(discord.Member, member), category) is True
 
-    member.roles.append(roles[2])
+    member.premium_since = datetime.now()
 
     assert member_needs_boost(cast(discord.Member, member), category) is False
 
