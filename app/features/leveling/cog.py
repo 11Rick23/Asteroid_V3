@@ -105,12 +105,7 @@ class LevelingSystemCore(commands.Cog):
             logger.debug(f"アクションパワー加算をスキップしました: guild_id={message.guild.id} user_id={user_id}")
             return False
 
-        async with self.bot.db.session() as session:
-            monthly_action_power = await self.bot.db.monthly_action_powers.get_monthly_action_power_lock(
-                session, user_id
-            ) or await self.bot.db.monthly_action_powers.create_monthly_action_power_lock(session, user_id)
-            await self.bot.db.monthly_action_powers.add_action_power_lock(session, monthly_action_power, value)
-            await session.commit()
+        await self.bot.db.leveling.add_action_power(user_id, value)
 
         try:
             await message.add_reaction("✅")
@@ -149,44 +144,26 @@ class LevelingSystemCore(commands.Cog):
         if message.channel.type == discord.ChannelType.voice:
             increase = int(increase * self.bot.config.leveling.voice_xp_adjust)
 
-        async with self.bot.db.session() as session:
-            monthly_power = await self.bot.db.monthly_powers.get_monthly_power_lock(
-                session, message.author.id
-            ) or await self.bot.db.monthly_powers.create_monthly_power_lock(session, message.author.id)
-            await self.bot.db.monthly_powers.add_text_power_lock(session, monthly_power, increase)
+        boost_increase = 0
+        xp_boosts = await self.bot.db.xp_boosts.get_xp_boosts()
+        if xp_boosts:
+            total_boost_amount = 0
+            for xp_boost in xp_boosts:
+                role = message.guild.get_role(xp_boost.role_id)
+                if role in message.author.roles:
+                    total_boost_amount += xp_boost.boost_amount / 100
+            if total_boost_amount < 1:
+                total_boost_amount += 1
+            boost_increase = int(increase * total_boost_amount) - increase
 
-            boost_increase = 0
-            xp_boosts = await self.bot.db.xp_boosts.get_xp_boosts()
-            if xp_boosts:
-                total_boost_amount = 0
-                for xp_boost in xp_boosts:
-                    role = message.guild.get_role(xp_boost.role_id)
-                    if role in message.author.roles:
-                        total_boost_amount += xp_boost.boost_amount / 100
-                if total_boost_amount < 1:
-                    total_boost_amount += 1
-                boost_increase = int(increase * total_boost_amount) - increase
-
-            star_grade = await self.bot.db.star_grades.get_star_grade_lock(
-                session, message.author.id
-            ) or await self.bot.db.star_grades.create_star_grade_lock(session, message.author.id)
-            star_grade, grade_up_amount_text, prestige_amount_text = await self.bot.db.star_grades.add_text_shard_lock(
-                session, star_grade, increase
-            )
-
-            grade_up_amount_bonus = 0
-            prestige_amount_bonus = 0
-            if boost_increase > 0:
-                (
-                    star_grade,
-                    grade_up_amount_bonus,
-                    prestige_amount_bonus,
-                ) = await self.bot.db.star_grades.add_bonus_shard_lock(session, star_grade, boost_increase)
-
-            await session.commit()
-
-        grade_up_amount = grade_up_amount_text + grade_up_amount_bonus
-        prestige_amount = prestige_amount_text + prestige_amount_bonus
+        reward = await self.bot.db.leveling.apply_message_reward(
+            message.author.id,
+            increase,
+            boost_increase,
+        )
+        star_grade = reward.star_grade
+        grade_up_amount = reward.grade_up_amount
+        prestige_amount = reward.prestige_amount
         if prestige_amount > 0:
             await send_prestige_up_message(message.channel, message.author, star_grade.prestige, prestige_amount)
             await send_prestige_announce(self.bot, message.author, star_grade.prestige)
@@ -300,68 +277,34 @@ class LevelingSystemCore(commands.Cog):
                     continue
                 rewarded_member_count += len(voice_active_members)
                 for member in voice_active_members:
-                    async with self.bot.db.session() as session:
-                        data = await self.bot.db.voice_xp_limits.get_voice_xp_limit_lock(
-                            session, member.id
-                        ) or await self.bot.db.voice_xp_limits.create_voice_xp_limit_lock(session, member.id)
-                        full_notified = data.full_notify
-                        half_notified = data.half_notify
-                        increase = random.randint(
-                            self.bot.config.leveling.min_xp_per_voice_minute,
-                            self.bot.config.leveling.max_xp_per_voice_minute,
-                        )
+                    increase = random.randint(
+                        self.bot.config.leveling.min_xp_per_voice_minute,
+                        self.bot.config.leveling.max_xp_per_voice_minute,
+                    )
+                    fix_increase = int(increase * self.bot.config.leveling.voice_xp_adjust)
+                    fix_boost_increase = 0
+                    if xp_boosts:
+                        total_boost_amount = 0
+                        for xp_boost in xp_boosts:
+                            role = guild.get_role(xp_boost.role_id)
+                            if role in member.roles:
+                                total_boost_amount += xp_boost.boost_amount / 100
+                        if total_boost_amount < 1:
+                            total_boost_amount += 1
+                        boost_increase = int(increase * total_boost_amount) - increase
+                        fix_boost_increase = int(boost_increase * self.bot.config.leveling.voice_xp_adjust)
 
-                        if data.voice_power < self.bot.config.leveling.voice_xp_limit:
-                            fix_increase = int(increase * self.bot.config.leveling.voice_xp_adjust)
-                            (
-                                data,
-                                half_limit_reached,
-                                limit_reached,
-                            ) = await self.bot.db.voice_xp_limits.add_voice_power_lock(
-                                session, data, fix_increase, self.bot.config.leveling.voice_xp_limit
-                            )
-                            if limit_reached and not full_notified:
-                                await self.voice_limit_reached_send(channel, member)
-                                full_notified = True
-                                half_notified = True
-                            elif half_limit_reached and not half_notified:
-                                await self.voice_half_limit_reached_send(channel, member)
-                                half_notified = True
-
-                        if (data.voice_shard + data.bonus_shard) < self.bot.config.leveling.voice_xp_limit:
-                            fix_boost_increase = 0
-                            if xp_boosts:
-                                total_boost_amount = 0
-                                for xp_boost in xp_boosts:
-                                    role = guild.get_role(xp_boost.role_id)
-                                    if role in member.roles:
-                                        total_boost_amount += xp_boost.boost_amount / 100
-                                if total_boost_amount < 1:
-                                    total_boost_amount += 1
-                                boost_increase = int(increase * total_boost_amount) - increase
-                                fix_boost_increase = int(boost_increase * self.bot.config.leveling.voice_xp_adjust)
-
-                            fix_increase = int(increase * self.bot.config.leveling.voice_xp_adjust)
-                            (
-                                data,
-                                half_limit_reached,
-                                limit_reached,
-                            ) = await self.bot.db.voice_xp_limits.add_voice_shard_lock(
-                                session, data, fix_increase, self.bot.config.leveling.voice_xp_limit
-                            )
-                            if fix_boost_increase > 0 and not limit_reached:
-                                (
-                                    data,
-                                    half_limit_reached,
-                                    limit_reached,
-                                ) = await self.bot.db.voice_xp_limits.add_bonus_shard_lock(
-                                    session, data, fix_boost_increase, self.bot.config.leveling.voice_xp_limit
-                                )
-                            if limit_reached and not full_notified:
-                                await self.voice_limit_reached_send(channel, member)
-                            elif half_limit_reached and not half_notified:
-                                await self.voice_half_limit_reached_send(channel, member)
-                        await session.commit()
+                    accrual = await self.bot.db.leveling.accrue_voice_xp(
+                        member.id,
+                        voice_power_amount=fix_increase,
+                        voice_shard_amount=fix_increase,
+                        bonus_shard_amount=fix_boost_increase,
+                        limit=self.bot.config.leveling.voice_xp_limit,
+                    )
+                    if accrual.notify_full_limit:
+                        await self.voice_limit_reached_send(channel, member)
+                    elif accrual.notify_half_limit:
+                        await self.voice_half_limit_reached_send(channel, member)
         logger.debug(
             f"VC経験値ループを実行しました: guild_count={len(self.bot.guilds)} "
             f"scanned_channel_count={scanned_channel_count} rewarded_member_count={rewarded_member_count}"
@@ -469,8 +412,7 @@ class LevelingSystemCore(commands.Cog):
         message = await messageable_channel.send(embeds=embeds)
         self.ranking_board_messages.append(message)
         logger.info(
-            f"ランキングボードを初期化しました: "
-            f"channel_id={getattr(channel, 'id', None)} message_id={message.id}"
+            f"ランキングボードを初期化しました: channel_id={getattr(channel, 'id', None)} message_id={message.id}"
         )
 
     async def _cleanup_ranking_board_messages(self) -> None:
