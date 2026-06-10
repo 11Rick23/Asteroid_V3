@@ -53,6 +53,7 @@ async def action_power_total(interaction: discord.Interaction) -> None:
 
 
 @xp_boost_group.command(name="add", description="経験値ブースターを追加します")
+@app_commands.rename(role="ロール", name="名前", amount="倍率")
 @admin_only
 async def xp_boost_add(interaction: discord.Interaction, role: discord.Role, name: str, amount: int) -> None:
     bot = get_bot(interaction)
@@ -66,6 +67,7 @@ async def xp_boost_add(interaction: discord.Interaction, role: discord.Role, nam
 
 
 @xp_boost_group.command(name="delete", description="経験値ブースターを削除します")
+@app_commands.rename(role="ロール")
 @admin_only
 async def xp_boost_delete(interaction: discord.Interaction, role: discord.Role) -> None:
     bot = get_bot(interaction)
@@ -79,6 +81,7 @@ async def xp_boost_delete(interaction: discord.Interaction, role: discord.Role) 
 
 
 @admin_shard_group.command(name="add", description="ユーザーにシャードを追加します")
+@app_commands.rename(user="ユーザー", shard_type="シャード種類", amount="数量")
 @app_commands.choices(shard_type=SHARD_TYPE_CHOICES)
 @admin_only
 async def add_shard(
@@ -112,6 +115,7 @@ async def add_shard(
 
 
 @admin_shard_group.command(name="remove", description="ユーザーからシャードを減らします")
+@app_commands.rename(user="ユーザー", shard_type="シャード種類", amount="数量")
 @app_commands.choices(shard_type=SHARD_TYPE_CHOICES)
 @admin_only
 async def remove_shard(
@@ -145,6 +149,7 @@ async def remove_shard(
 
 
 @admin_power_group.command(name="add", description="ユーザーにパワーを追加します")
+@app_commands.rename(user="ユーザー", target="パワー種類", amount="数量")
 @app_commands.choices(target=POWER_TYPE_CHOICES)
 @admin_only
 async def add_power(
@@ -178,6 +183,7 @@ async def add_power(
 
 
 @admin_power_group.command(name="remove", description="ユーザーからパワーを減らします")
+@app_commands.rename(user="ユーザー", target="パワー種類", amount="数量")
 @app_commands.choices(target=POWER_TYPE_CHOICES)
 @admin_only
 async def remove_power(

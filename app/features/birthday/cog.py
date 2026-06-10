@@ -110,6 +110,7 @@ class Birthday(commands.Cog):
 
 
 @birthday_group.command(name="set", description="誕生日を設定")
+@app_commands.rename(month="月", day="日")
 @app_commands.describe(month="誕生日の月", day="誕生日の日")
 async def birthday_set(interaction: discord.Interaction, month: int, day: int) -> None:
     bot = get_bot(interaction)
@@ -131,6 +132,7 @@ async def birthday_set(interaction: discord.Interaction, month: int, day: int) -
 
 
 @birthday_group.command(name="set_others", description="他人の誕生日を設定")
+@app_commands.rename(user="ユーザー", month="月", day="日")
 @app_commands.describe(user="設定するユーザー", month="誕生日の月", day="誕生日の日")
 @admin_only
 async def birthday_set_others(interaction: discord.Interaction, user: discord.User, month: int, day: int) -> None:
@@ -159,6 +161,7 @@ async def birthday_set_others(interaction: discord.Interaction, user: discord.Us
 
 
 @birthday_group.command(name="show", description="誕生日を表示")
+@app_commands.rename(user="ユーザー")
 @app_commands.describe(user="誕生日を表示するユーザー")
 async def birthday_show(interaction: discord.Interaction, user: discord.User | None = None) -> None:
     bot = get_bot(interaction)
@@ -190,6 +193,7 @@ async def birthday_show(interaction: discord.Interaction, user: discord.User | N
 
 
 @birthday_group.command(name="remove", description="誕生日を削除")
+@app_commands.rename(user="ユーザー")
 @app_commands.describe(user="誕生日を削除するユーザー")
 async def birthday_remove(interaction: discord.Interaction, user: discord.User | None = None) -> None:
     bot = get_bot(interaction)

@@ -22,6 +22,7 @@ class ReportCog(commands.Cog):
         self.bot.add_view(ReportResolveView())
 
     @app_commands.command(name="report", description="レポートを送信")
+    @app_commands.rename(violator="対象ユーザー", content="違反内容", image="画像")
     @app_commands.describe(
         violator="レポートするユーザー",
         content="違反した内容を詳しく書いて下さい。",

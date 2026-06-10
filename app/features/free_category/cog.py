@@ -74,6 +74,7 @@ async def archive(interaction: discord.Interaction) -> None:
 
 
 @free_category_group.command(name="edit", description="チャンネル情報を変更")
+@app_commands.rename(name="チャンネル名", topic="トピック")
 @app_commands.describe(name="新しいチャンネル名", topic="新しいチャンネルトピック")
 @app_commands.guild_only()
 async def edit(
@@ -164,6 +165,7 @@ async def edit(
 
 
 @free_category_group.command(name="block", description="指定したユーザーをブロック")
+@app_commands.rename(user="ユーザー")
 @app_commands.describe(user="チャンネルを閲覧できなくするユーザー")
 @app_commands.guild_only()
 async def block(interaction: discord.Interaction, user: discord.Member) -> None:
@@ -185,6 +187,7 @@ async def block(interaction: discord.Interaction, user: discord.Member) -> None:
 
 
 @free_category_group.command(name="unblock", description="指定したユーザーのブロックを解除")
+@app_commands.rename(user="ユーザー")
 @app_commands.describe(user="チャンネル閲覧不可を解除するユーザー")
 @app_commands.guild_only()
 async def unblock(interaction: discord.Interaction, user: discord.Member) -> None:
@@ -206,6 +209,7 @@ async def unblock(interaction: discord.Interaction, user: discord.Member) -> Non
 
 
 @free_category_group.command(name="op", description="指定したユーザーにチャンネルの管理権限を付与")
+@app_commands.rename(user="ユーザー")
 @app_commands.describe(user="チャンネルの管理権限を付与するユーザー")
 @app_commands.guild_only()
 async def op(interaction: discord.Interaction, user: discord.Member) -> None:
@@ -227,6 +231,7 @@ async def op(interaction: discord.Interaction, user: discord.Member) -> None:
 
 
 @free_category_group.command(name="deop", description="指定したユーザーからチャンネルの管理権限を剥奪")
+@app_commands.rename(user="ユーザー")
 @app_commands.describe(user="チャンネルの管理権限を剥奪するユーザー")
 @app_commands.guild_only()
 async def deop(interaction: discord.Interaction, user: discord.Member) -> None:
@@ -248,6 +253,7 @@ async def deop(interaction: discord.Interaction, user: discord.Member) -> None:
 
 
 @free_category_group.command(name="purge", description="指定した件数メッセージを削除")
+@app_commands.rename(count="件数")
 @app_commands.describe(count="削除するメッセージの件数")
 @app_commands.guild_only()
 async def purge(interaction: discord.Interaction, count: app_commands.Range[int, 1, 500]) -> None:

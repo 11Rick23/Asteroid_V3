@@ -67,6 +67,7 @@ async def suggestion_handler(interaction: discord.Interaction, judge: str, reaso
 
 
 @suggest_group.command(name="approve", description="要望を可決")
+@app_commands.rename(reason="理由")
 @app_commands.describe(reason="要望を可決する理由")
 @admin_only
 async def approve(interaction: discord.Interaction, reason: str) -> None:
@@ -74,6 +75,7 @@ async def approve(interaction: discord.Interaction, reason: str) -> None:
 
 
 @suggest_group.command(name="deny", description="要望を否決")
+@app_commands.rename(reason="理由")
 @app_commands.describe(reason="要望を否決する理由")
 @admin_only
 async def deny(interaction: discord.Interaction, reason: str) -> None:

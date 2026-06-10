@@ -49,6 +49,7 @@ async def claim_voice_xp(interaction: discord.Interaction) -> None:
 
 
 @app_commands.command(name="rank", description="自分の順位を表示します")
+@app_commands.rename(user="ユーザー")
 @app_commands.describe(user="順位を表示するユーザー")
 async def rank(interaction: discord.Interaction, user: discord.User | None = None) -> None:
     bot = get_bot(interaction)
@@ -80,6 +81,7 @@ async def rank(interaction: discord.Interaction, user: discord.User | None = Non
 
 
 @app_commands.command(name="transfer_mee6", description="MEE6から移行する")
+@app_commands.rename(sync_role="ロール同期", prestige_announce="プレステージ通知")
 @app_commands.describe(
     sync_role="グレード・プレステージロールを同期するか", prestige_announce="プレステージアナウンスを行うか"
 )

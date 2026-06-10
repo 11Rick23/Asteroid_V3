@@ -52,6 +52,7 @@ async def vc_ui(interaction: discord.Interaction) -> None:
 
 
 @vc_group.command(name="name", description="VCの名前を変更")
+@app_commands.rename(vc_name="vc名")
 @app_commands.describe(vc_name="新しく設定するVCの名前")
 @app_commands.guild_only()
 async def name(interaction: discord.Interaction, vc_name: str) -> None:
@@ -70,6 +71,7 @@ async def name(interaction: discord.Interaction, vc_name: str) -> None:
 
 
 @vc_group.command(name="limit", description="VCに人数制限を設定")
+@app_commands.rename(limit="人数制限")
 @app_commands.describe(limit="人数制限")
 @app_commands.guild_only()
 async def limit(interaction: discord.Interaction, limit: app_commands.Range[int, 0, 99] = 0) -> None:
@@ -88,6 +90,7 @@ async def limit(interaction: discord.Interaction, limit: app_commands.Range[int,
 
 
 @vc_group.command(name="block", description="VCからユーザーをブロック")
+@app_commands.rename(user="ユーザー")
 @app_commands.describe(user="VCに接続できなくするユーザー")
 @app_commands.guild_only()
 async def block(interaction: discord.Interaction, user: discord.Member) -> None:
@@ -115,6 +118,7 @@ async def block(interaction: discord.Interaction, user: discord.Member) -> None:
 
 
 @vc_group.command(name="unblock", description="VCからブロックしたユーザーをブロック解除")
+@app_commands.rename(user="ユーザー")
 @app_commands.describe(user="VCブロックを解除するユーザー")
 @app_commands.guild_only()
 async def unblock(interaction: discord.Interaction, user: discord.Member) -> None:
@@ -137,6 +141,7 @@ async def unblock(interaction: discord.Interaction, user: discord.Member) -> Non
 
 
 @vc_group.command(name="op", description="VCの管理権限を別のユーザーにも付与")
+@app_commands.rename(user="ユーザー")
 @app_commands.describe(user="VCの管理権限を与えるユーザー")
 @app_commands.guild_only()
 async def op(interaction: discord.Interaction, user: discord.Member) -> None:
@@ -159,6 +164,7 @@ async def op(interaction: discord.Interaction, user: discord.Member) -> None:
 
 
 @vc_group.command(name="deop", description="VCの管理権限を他のユーザーから剥奪")
+@app_commands.rename(user="ユーザー")
 @app_commands.describe(user="管理権限を剥奪するユーザー")
 @app_commands.guild_only()
 async def deop(interaction: discord.Interaction, user: discord.Member) -> None:
