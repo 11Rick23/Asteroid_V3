@@ -8,6 +8,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from app.common.discord_types import as_messageable
+from app.common.guild_scope import OutsideOperatingGuild, send_outside_operating_guild_message
 from app.core.bot import AsteroidBot
 
 logger = getLogger(__name__)
@@ -53,6 +54,14 @@ class Error(commands.Cog):
     async def on_app_command_error(
         self, interaction: discord.Interaction, exception: app_commands.AppCommandError
     ) -> None:
+        if isinstance(exception, OutsideOperatingGuild):
+            logger.debug(
+                f"稼働ギルド外のコマンド実行を拒否しました: guild_id={interaction.guild_id} "
+                f"channel_id={interaction.channel_id} user_id={interaction.user.id}"
+            )
+            await send_outside_operating_guild_message(interaction)
+            return
+
         original = unwrap_app_command_error(exception)
         traceback_tail = build_traceback_tail(original)
         logger.exception(
@@ -63,7 +72,7 @@ class Error(commands.Cog):
 
         log_channel_id = self.bot.config.log.main_log_channel_id
         log_channel = as_messageable(self.bot.get_channel(log_channel_id)) if log_channel_id else None
-        if log_channel is not None:
+        if log_channel is not None and self.bot.is_operating_channel(log_channel):
             await log_channel.send(build_log_message(interaction, original, traceback_tail))
 
         message = f"エラー！\n```python\n{traceback_tail}\n```"

@@ -32,6 +32,8 @@ class VoiceCreateCog(commands.Cog):
         before: discord.VoiceState,
         after: discord.VoiceState,
     ) -> None:
+        if not self.bot.is_operating_guild(member.guild):
+            return
         await self.service.handle_voice_state_update(member, before, after)
 
 

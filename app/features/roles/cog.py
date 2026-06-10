@@ -18,14 +18,14 @@ class JoinRolesCog(commands.Cog):
 
     @commands.Cog.listener("on_member_remove")
     async def save_roles(self, member: discord.Member) -> None:
-        if member.guild.id != self.bot.config.discord.guild_id:
+        if not self.bot.is_operating_guild(member.guild):
             return
         await self.bot.db.user_roles.save_user_roles(member)
         logger.debug(f"脱退メンバーのロールを保存しました: guild_id={member.guild.id} user_id={member.id}")
 
     @commands.Cog.listener("on_member_join")
     async def restore_or_give_roles(self, member: discord.Member) -> None:
-        if member.guild.id != self.bot.config.discord.guild_id:
+        if not self.bot.is_operating_guild(member.guild):
             return
 
         restore_roles_count = await self.bot.db.user_roles.restore_user_roles(member)

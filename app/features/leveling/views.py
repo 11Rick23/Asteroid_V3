@@ -3,12 +3,13 @@ from __future__ import annotations
 import discord
 
 from app.common.discord_types import as_messageable
+from app.common.guild_scope import GuildScopedView
 from app.core.bot import AsteroidBot
 
 from .service import apply_voice_xp_claim_side_effects, build_voice_xp_claim_message, claim_voice_xp_rewards
 
 
-class ClaimVoiceXP(discord.ui.View):
+class ClaimVoiceXP(GuildScopedView):
     def __init__(self, bot: AsteroidBot):
         super().__init__(timeout=None)
         self.bot = bot

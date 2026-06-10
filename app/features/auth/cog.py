@@ -11,6 +11,7 @@ from discord.ext import commands
 from app.common.command_groups import get_bot, register_setup_command
 from app.common.constants import AsteroidColor
 from app.common.discord_types import as_messageable
+from app.common.guild_scope import GuildScopedModal, GuildScopedView
 from app.common.permissions import admin_only
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
@@ -27,7 +28,7 @@ WELCOME_ASCII = """```
 ```"""
 
 
-class AuthInput(discord.ui.Modal):
+class AuthInput(GuildScopedModal):
     def __init__(self, bot: AsteroidBot, number_in_str: str):
         super().__init__(title="認証", timeout=None)
         self.bot = bot
@@ -124,12 +125,12 @@ async def auth(bot: AsteroidBot, interaction: discord.Interaction) -> None:
     )
     embed.set_image(url="attachment://captcha.png")
 
-    view = discord.ui.View(timeout=300)
+    view = GuildScopedView(timeout=300)
     view.add_item(InputButton(bot, number))
     await interaction.response.send_message(embed=embed, file=file, view=view, ephemeral=True)
 
 
-class AuthButton(discord.ui.View):
+class AuthButton(GuildScopedView):
     def __init__(self, bot: AsteroidBot, **kwargs):
         super().__init__(**kwargs)
         self.bot = bot

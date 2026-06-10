@@ -67,7 +67,7 @@ async def send_prestige_announce(bot: AsteroidBot, member: discord.Member, prest
     if prestige_announce_channel_id == 0:
         return
     channel = as_messageable(bot.get_channel(prestige_announce_channel_id))
-    if channel is None:
+    if channel is None or not bot.is_operating_channel(channel):
         return
     await channel.send(
         f"> {member.mention}さんが"

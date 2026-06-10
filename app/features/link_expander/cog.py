@@ -25,9 +25,10 @@ class LinkExpander(commands.Cog):
 
     @commands.Cog.listener("on_message")
     async def link_expander(self, message: discord.Message) -> None:
-        self.bot.remember_message(message)
-        if message.author.bot or message.guild is None or message.guild.id != self.bot.config.discord.guild_id:
+        guild = message.guild
+        if message.author.bot or guild is None or not self.bot.is_operating_guild(guild):
             return
+        self.bot.remember_message(message)
 
         urls = [i.group("channel", "message") for i in re.finditer(discord_message_url_pattern, message.content)]
         if not urls:
@@ -36,7 +37,7 @@ class LinkExpander(commands.Cog):
         referenced_messages: list[discord.Message] = []
         for channel_id, message_id in urls:
             channel = as_text_channel(self.bot.get_channel(int(channel_id)))
-            if channel is None:
+            if channel is None or not self.bot.is_operating_channel(channel):
                 logger.debug(f"リンク展開対象チャンネルが見つかりませんでした: channel_id={channel_id}")
                 continue
             try:
@@ -55,7 +56,7 @@ class LinkExpander(commands.Cog):
             await message.reply(content=None, embeds=embeds, mention_author=False)
         if referenced_messages:
             logger.debug(
-                f"リンク展開を実行しました: guild_id={message.guild.id} "
+                f"リンク展開を実行しました: guild_id={guild.id} "
                 f"channel_id={message.channel.id} count={len(referenced_messages)}"
             )
 

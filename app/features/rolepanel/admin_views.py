@@ -7,6 +7,7 @@ import discord
 
 from app.common.command_groups import get_bot
 from app.common.discord_types import as_member
+from app.common.guild_scope import GuildScopedView
 
 from .service import ROLE_SELECT_LIMIT, role_is_manageable
 
@@ -111,7 +112,7 @@ class RolePanelAdminRoleSelect(discord.ui.RoleSelect["RolePanelAdminRoleEditView
         )
 
 
-class RolePanelAdminRoleEditView(discord.ui.View):
+class RolePanelAdminRoleEditView(GuildScopedView):
     def __init__(self, item: discord.ui.Item):
         super().__init__(timeout=300)
         self.add_item(item)

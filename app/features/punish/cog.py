@@ -8,6 +8,7 @@ from discord import app_commands
 from pytimeparse import parse
 
 from app.common.command_groups import get_bot, register_group
+from app.common.guild_scope import GuildScopedView
 from app.common.permissions import ADMINISTRATOR_PERMISSIONS, admin_only
 from app.core.bot import AsteroidBot
 
@@ -156,7 +157,7 @@ async def disrobe(
         if role is not None and role in violator.roles:
             options.append(discord.SelectOption(label=role.name, value=str(role.id)))
 
-    view = discord.ui.View(timeout=300)
+    view = GuildScopedView(timeout=300)
     if options:
         view.add_item(PermRoleSelect(bot, violator, options, reason, probation, interaction.user.id))
         await interaction.response.send_message(content=f"{violator.mention} からどの権限を剥奪しますか？", view=view)

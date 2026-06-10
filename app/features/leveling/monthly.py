@@ -61,13 +61,13 @@ async def run_monthly_ranking(bot: AsteroidBot) -> None:
     )
     embed = build_power_ranking_embed(bot, monthly_powers, base_embed)[0]
     channel = as_messageable(bot.get_channel(bot.config.leveling.month_ranking_board_channel_id))
-    if channel is not None:
+    if channel is not None and bot.is_operating_channel(channel):
         await channel.send(
             content=f"ということで、今回のtop10は...\n\n{ranking_text}\n\nこのようになりました！おめでとうございます！",
             embed=embed,
         )
     action_channel = as_messageable(bot.get_channel(bot.config.leveling.action_power_channel_id))
-    if action_channel is not None:
+    if action_channel is not None and bot.is_operating_channel(action_channel):
         total = await bot.db.monthly_action_powers.sum_action_power()
         await action_channel.send(build_accumulated_action_power_message(total))
     await bot.db.monthly_powers.truncate_table()

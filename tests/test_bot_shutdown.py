@@ -10,8 +10,9 @@ from app.core.bot import AsteroidBot
 
 
 class FakeLogChannel(discord.abc.Messageable):
-    def __init__(self) -> None:
+    def __init__(self, guild_id: int = 456) -> None:
         self.messages: list[dict[str, Any]] = []
+        self.guild = SimpleNamespace(id=guild_id)
 
     async def send(self, content: str | None = None, **kwargs: Any) -> discord.Message:
         self.messages.append({"content": content, **kwargs})
@@ -20,9 +21,18 @@ class FakeLogChannel(discord.abc.Messageable):
 
 class FakeBot:
     def __init__(self, channel_id: int, channel: FakeLogChannel | None = None) -> None:
-        self.config = SimpleNamespace(log=SimpleNamespace(main_log_channel_id=channel_id))
+        self.config = SimpleNamespace(
+            discord=SimpleNamespace(guild_id=456),
+            log=SimpleNamespace(main_log_channel_id=channel_id),
+        )
         self.channel = channel
         self.fetched_channel: FakeLogChannel | None = None
+
+    def is_operating_guild(self, guild: object) -> bool:
+        return getattr(guild, "id", None) == self.config.discord.guild_id
+
+    def is_operating_channel(self, channel: object) -> bool:
+        return self.is_operating_guild(getattr(channel, "guild", None))
 
     def get_channel(self, channel_id: int) -> FakeLogChannel | None:
         return self.channel
@@ -68,3 +78,13 @@ async def test_send_shutdown_start_message_skips_when_log_channel_is_not_configu
     await AsteroidBot.send_shutdown_start_message(bot, "signal=SIGTERM")  # type: ignore[arg-type]
 
     assert bot.fetched_channel is None
+
+
+@pytest.mark.asyncio
+async def test_send_shutdown_start_message_skips_channel_in_other_guild() -> None:
+    channel = FakeLogChannel(guild_id=999)
+    bot = FakeBot(123, channel)
+
+    await AsteroidBot.send_shutdown_start_message(bot, "signal=SIGTERM")  # type: ignore[arg-type]
+
+    assert channel.messages == []

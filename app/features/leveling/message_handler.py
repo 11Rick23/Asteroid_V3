@@ -21,13 +21,14 @@ class LevelingMessageHandler:
         self.cooldown: dict[int, float] = {}
 
     async def handle(self, message: discord.Message) -> None:
+        if not self.bot.is_operating_guild(message.guild):
+            return
         self.bot.remember_message(message)
         if await self._try_action_power_command(message):
             return
         if (
             message.author.bot
             or message.guild is None
-            or message.guild.id != self.bot.config.discord.guild_id
             or not isinstance(message.author, discord.Member)
         ):
             return
@@ -77,7 +78,6 @@ class LevelingMessageHandler:
     async def _try_action_power_command(self, message: discord.Message) -> bool:
         if (
             message.guild is None
-            or message.guild.id != self.bot.config.discord.guild_id
             or not message.author.bot
             or self.bot.config.leveling.action_power_channel_id == 0
             or message.channel.id != self.bot.config.leveling.action_power_channel_id

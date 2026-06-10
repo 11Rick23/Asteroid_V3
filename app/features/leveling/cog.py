@@ -53,6 +53,8 @@ class LevelingSystemCore(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
+        if not self.bot.is_operating_guild(message.guild):
+            return
         await self.message_handler.handle(message)
 
     @tasks.loop(time=datetime.time(hour=0, minute=0, tzinfo=TOKYO_TZ))
@@ -66,6 +68,8 @@ class LevelingSystemCore(commands.Cog):
         scanned_channel_count = 0
         rewarded_member_count = 0
         for guild in self.bot.guilds:
+            if not self.bot.is_operating_guild(guild):
+                continue
             xp_boosts = await self.bot.db.xp_boosts.get_xp_boosts()
             for channel in guild.voice_channels:
                 scanned_channel_count += 1
@@ -113,7 +117,7 @@ class LevelingSystemCore(commands.Cog):
                     elif accrual.notify_half_limit:
                         await self.voice_half_limit_reached_send(channel, member)
         logger.debug(
-            f"VC経験値ループを実行しました: guild_count={len(self.bot.guilds)} "
+            "VC経験値ループを実行しました: guild_count=1 "
             f"scanned_channel_count={scanned_channel_count} rewarded_member_count={rewarded_member_count}"
         )
 
@@ -210,7 +214,7 @@ class LevelingSystemCore(commands.Cog):
     async def _send_ranking_board_message(self, embeds: list[discord.Embed]) -> None:
         channel = self.bot.get_channel(self.bot.config.leveling.ranking_board_channel_id)
         messageable_channel = as_messageable(channel)
-        if messageable_channel is None:
+        if messageable_channel is None or not self.bot.is_operating_channel(messageable_channel):
             logger.warning(
                 f"ランキングボード送信先チャンネルが見つかりませんでした: "
                 f"channel_id={self.bot.config.leveling.ranking_board_channel_id}"

@@ -23,14 +23,21 @@ class Starboard(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
+        if not self.bot.is_operating_guild(message.guild):
+            return
         self.bot.remember_message(message)
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, event: discord.RawReactionActionEvent) -> None:
-        if event.member is None or event.member.bot or event.guild_id is None or str(event.emoji) != "⭐":
+        if (
+            not self.bot.is_operating_guild_id(event.guild_id)
+            or event.member is None
+            or event.member.bot
+            or str(event.emoji) != "⭐"
+        ):
             return
         channel = as_text_channel(self.bot.get_channel(event.channel_id))
-        if channel is None:
+        if channel is None or not self.bot.is_operating_channel(channel):
             logger.warning(f"スターボード対象チャンネルが見つかりませんでした: channel_id={event.channel_id}")
             return
         message = self.bot.get_message(event.message_id) or await channel.fetch_message(event.message_id)
@@ -58,9 +65,10 @@ class Starboard(commands.Cog):
 
     @commands.Cog.listener()
     async def on_raw_reaction_remove(self, event: discord.RawReactionActionEvent) -> None:
-        if event.guild_id is None or str(event.emoji) != "⭐":
+        guild_id = event.guild_id
+        if guild_id is None or not self.bot.is_operating_guild_id(guild_id) or str(event.emoji) != "⭐":
             return
-        guild = self.bot.get_guild(event.guild_id)
+        guild = self.bot.get_guild(guild_id)
         if guild is None:
             logger.warning(f"スターボード対象ギルドが見つかりませんでした: guild_id={event.guild_id}")
             return
@@ -89,7 +97,7 @@ class Starboard(commands.Cog):
                 return
 
             starboard_channel = as_text_channel(self.bot.get_channel(self.bot.config.starboard.starboard_channel_id))
-            if starboard_channel is None:
+            if starboard_channel is None or not self.bot.is_operating_channel(starboard_channel):
                 logger.warning("スターボードチャンネルが未設定または未解決です。")
                 return
             starboard_message = self.bot.get_message(starred_message_data.starboard_message_id)
@@ -118,7 +126,7 @@ class Starboard(commands.Cog):
 
     async def update_starboard(self, starred_message: discord.Message, star_amount: int) -> None:
         starboard_channel = as_text_channel(self.bot.get_channel(self.bot.config.starboard.starboard_channel_id))
-        if starboard_channel is None:
+        if starboard_channel is None or not self.bot.is_operating_channel(starboard_channel):
             logger.warning("スターボードチャンネルが未設定または未解決です。")
             return
 

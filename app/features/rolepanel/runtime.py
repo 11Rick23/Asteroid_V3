@@ -44,7 +44,7 @@ class RolePanelCog(commands.Cog):
     async def send_or_update_role_panel(self) -> bool:
         channel_id = self.bot.config.rolepanel.panel_channel_id
         channel = as_messageable(self.bot.get_channel(channel_id))
-        if channel is None:
+        if channel is None or not self.bot.is_operating_channel(channel):
             logger.warning(f"ロールパネル送信先チャンネルが見つかりませんでした: channel_id={channel_id}")
             return False
 

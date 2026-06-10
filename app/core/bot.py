@@ -7,6 +7,7 @@ import discord
 from discord.ext.commands import Bot
 
 from app.common.constants import AsteroidColor
+from app.common.guild_scope import OperatingGuildCommandTree
 from app.database.manager import DatabaseManager
 from app.database.session import create_engine, create_session_factory
 
@@ -18,6 +19,9 @@ logger = getLogger(__name__)
 
 class AsteroidBot(Bot):
     def __init__(self, config: AsteroidConfig):
+        if not config.discord.guild_id:
+            raise RuntimeError("config.discord.guild_id を設定してください。")
+
         self.config = config
         self.engine = create_engine(config)
         self.session_factory = create_session_factory(self.engine)
@@ -33,10 +37,20 @@ class AsteroidBot(Bot):
         super().__init__(
             command_prefix=(),
             help_command=None,
+            tree_cls=OperatingGuildCommandTree,
             intents=discord.Intents.all(),
             activity=discord.Activity(type=discord.ActivityType.watching, name=config.discord.activity_name),
             status=getattr(discord.Status, config.discord.status, discord.Status.dnd),
         )
+
+    def is_operating_guild_id(self, guild_id: int | None) -> bool:
+        return guild_id is not None and guild_id == self.config.discord.guild_id
+
+    def is_operating_guild(self, guild: discord.Guild | None) -> bool:
+        return guild is not None and self.is_operating_guild_id(guild.id)
+
+    def is_operating_channel(self, channel: object) -> bool:
+        return self.is_operating_guild(getattr(channel, "guild", None))
 
     async def setup_hook(self) -> None:
         logger.info("セットアップを開始します。")
@@ -134,6 +148,11 @@ class AsteroidBot(Bot):
                 return
 
         if not isinstance(channel, discord.abc.Messageable):
+            return
+        if not self.is_operating_channel(channel):
+            logger.warning(
+                f"BOT終了通知先が稼働ギルド外です: guild_id={self.config.discord.guild_id} channel_id={channel_id}"
+            )
             return
 
         embed = discord.Embed(

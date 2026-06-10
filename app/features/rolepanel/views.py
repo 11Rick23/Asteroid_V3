@@ -4,6 +4,7 @@ from logging import getLogger
 
 import discord
 
+from app.common.guild_scope import GuildScopedView
 from app.database.repositories.role_panel import RolePanelCategoryDetail
 
 from .service import (
@@ -83,7 +84,7 @@ class RolePanelRoleSelect(discord.ui.Select["RolePanelSelectView"]):
         )
 
 
-class RolePanelSelectView(discord.ui.View):
+class RolePanelSelectView(GuildScopedView):
     def __init__(
         self,
         service: RolePanelService,
@@ -159,7 +160,7 @@ class RolePanelCategoryButton(discord.ui.Button["RolePanelView"]):
         )
 
 
-class RolePanelView(discord.ui.View):
+class RolePanelView(GuildScopedView):
     def __init__(self, service: RolePanelService, categories: list[RolePanelCategoryDetail]):
         super().__init__(timeout=None)
         for index, category in enumerate(categories[:PANEL_CATEGORY_LIMIT]):

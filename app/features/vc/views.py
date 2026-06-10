@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import discord
 
+from app.common.guild_scope import GuildScopedModal, GuildScopedView
+
 from .service import VoiceCreateService, build_select_default_values
 
 
@@ -9,7 +11,7 @@ def member_mentions(members: list[discord.Member]) -> str:
     return " ".join(member.mention for member in members) or "なし"
 
 
-class NameChangeModal(discord.ui.Modal, title="VC名変更"):
+class NameChangeModal(GuildScopedModal, title="VC名変更"):
     vc_name = discord.ui.TextInput(label="新しいVCの名前", max_length=100)
 
     def __init__(self, service: VoiceCreateService, channel_id: int | None = None):
@@ -206,7 +208,7 @@ class OperatorUserSelect(discord.ui.UserSelect["VoiceControlView"]):
         await interaction.followup.send(embed=embed)
 
 
-class VoiceControlView(discord.ui.View):
+class VoiceControlView(GuildScopedView):
     def __init__(self, service: VoiceCreateService, channel: discord.VoiceChannel | None = None):
         super().__init__(timeout=None)
         self.add_item(ChangeNameButton(service, channel.id if channel else None))

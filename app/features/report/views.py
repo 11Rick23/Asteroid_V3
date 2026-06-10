@@ -4,6 +4,7 @@ from logging import getLogger
 
 import discord
 
+from app.common.guild_scope import GuildScopedView
 from app.common.permissions import is_administrator
 
 from .service import build_resolved_report_embed
@@ -11,7 +12,7 @@ from .service import build_resolved_report_embed
 logger = getLogger(__name__)
 
 
-class ReportResolveView(discord.ui.View):
+class ReportResolveView(GuildScopedView):
     def __init__(self):
         super().__init__(timeout=None)
 

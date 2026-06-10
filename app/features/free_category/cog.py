@@ -30,6 +30,8 @@ class FreeCategory(commands.Cog):
 
     @commands.Cog.listener("on_message")
     async def auto_bump(self, message: discord.Message) -> None:
+        if not self.bot.is_operating_guild(message.guild):
+            return
         await self.service.maybe_auto_bump(message)
 
 

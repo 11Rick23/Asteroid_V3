@@ -3,12 +3,13 @@ from __future__ import annotations
 import discord
 
 from app.common.constants import AsteroidColor
+from app.common.guild_scope import GuildScopedModal, GuildScopedView
 from app.common.utils import generate_timestamp
 
 from .service import FreeCategoryService
 
 
-class CreateChannelModal(discord.ui.Modal, title="チャンネルを作成"):
+class CreateChannelModal(GuildScopedModal, title="チャンネルを作成"):
     channel_name = discord.ui.TextInput(label="チャンネル名", max_length=100)
 
     def __init__(self, service: FreeCategoryService):
@@ -40,7 +41,7 @@ class CreateChannelModal(discord.ui.Modal, title="チャンネルを作成"):
         await interaction.followup.send(f"{new_channel.mention} を作成しました！", ephemeral=True)
 
 
-class CreateChannelButtonView(discord.ui.View):
+class CreateChannelButtonView(GuildScopedView):
     def __init__(self, service: FreeCategoryService):
         super().__init__(timeout=None)
         self.service = service
