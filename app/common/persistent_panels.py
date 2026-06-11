@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from logging import getLogger
 from typing import Protocol
 
@@ -28,6 +29,7 @@ class PersistentPanel:
     panel_id: str
     channel_id: int
     render: PanelRenderer
+    offline_description: str
     message: discord.Message | None = None
 
 
@@ -55,13 +57,21 @@ class PersistentPanelManager:
         self._publish_lock = asyncio.Lock()
         self._offline = False
 
-    def register(self, panel_id: str, channel_id: int, render: PanelRenderer) -> None:
+    def register(
+        self,
+        panel_id: str,
+        channel_id: int,
+        render: PanelRenderer,
+        *,
+        offline_description: str,
+    ) -> None:
         if panel_id in self._panels:
             raise ValueError(f"パネルは既に登録されています: panel_id={panel_id}")
         self._panels[panel_id] = PersistentPanel(
             panel_id=panel_id,
             channel_id=channel_id,
             render=render,
+            offline_description=offline_description,
         )
         logger.debug(f"常駐パネルを登録しました: panel_id={panel_id} channel_id={channel_id}")
 
@@ -112,10 +122,20 @@ class PersistentPanelManager:
                 logger.exception("緊急連絡先の取得に失敗したため、常駐パネルをオフライン化できませんでした。")
                 return dict.fromkeys(self._panels, False)
 
-            content = PersistentPanelContent(embeds=(build_offline_embed(info, contacts),))
             results: dict[str, bool] = {}
+            updated_at = datetime.now(UTC)
             for panel in self._panels.values():
                 try:
+                    content = PersistentPanelContent(
+                        embeds=(
+                            build_offline_embed(
+                                info,
+                                panel.offline_description,
+                                contacts,
+                                updated_at=updated_at,
+                            ),
+                        )
+                    )
                     results[panel.panel_id] = await self._publish(
                         panel,
                         content,

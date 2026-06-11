@@ -9,6 +9,9 @@ from app.core.bot import AsteroidBot
 from .views import AuthButton
 
 AUTH_PANEL_ID = "auth"
+AUTH_OFFLINE_DESCRIPTION = (
+    "ご迷惑をおかけいたしますが、認証システムは現在利用できません。時間を空けてもう一度ご確認ください。"
+)
 
 
 class AuthPanel:
@@ -18,6 +21,7 @@ class AuthPanel:
             AUTH_PANEL_ID,
             self.bot.config.auth.panel_channel_id,
             self.render,
+            offline_description=AUTH_OFFLINE_DESCRIPTION,
         )
 
     async def initialize(self) -> bool:

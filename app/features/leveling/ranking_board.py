@@ -11,6 +11,9 @@ from app.features.leveling.build_send_message import (
 )
 
 RANKING_BOARD_PANEL_ID = "ranking_board"
+RANKING_BOARD_OFFLINE_DESCRIPTION = (
+    "ご迷惑をおかけいたしますが、ランキングは現在確認できません。時間を空けてもう一度ご確認ください。"
+)
 
 
 class RankingBoardPanel:
@@ -20,6 +23,7 @@ class RankingBoardPanel:
             RANKING_BOARD_PANEL_ID,
             self.bot.config.leveling.ranking_board_channel_id,
             self.render,
+            offline_description=RANKING_BOARD_OFFLINE_DESCRIPTION,
         )
 
     async def initialize(self) -> bool:

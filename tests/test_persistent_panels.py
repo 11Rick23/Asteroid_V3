@@ -90,7 +90,7 @@ async def test_initialize_reuses_latest_message_when_authored_by_bot() -> None:
     latest_message = FakeMessage(50, author_id=10)
     channel = FakeChannel(20, bot_user_id=10, history_messages=[latest_message])
     manager = PersistentPanelManager(cast(PersistentPanelBot, FakeBot({20: channel})))
-    manager.register("ranking", 20, render_panel)
+    manager.register("ranking", 20, render_panel, offline_description="ランキングは現在確認できません。")
 
     assert await manager.initialize("ranking") is True
 
@@ -104,7 +104,7 @@ async def test_initialize_reuses_latest_message_when_authored_by_bot() -> None:
 async def test_initialize_sends_new_message_when_latest_message_is_not_authored_by_bot() -> None:
     channel = FakeChannel(20, bot_user_id=10, history_messages=[FakeMessage(50, author_id=99)])
     manager = PersistentPanelManager(cast(PersistentPanelBot, FakeBot({20: channel})))
-    manager.register("rolepanel", 20, render_panel)
+    manager.register("rolepanel", 20, render_panel, offline_description="ロールパネルは現在利用できません。")
 
     assert await manager.initialize("rolepanel") is True
 
@@ -121,21 +121,25 @@ async def test_set_all_offline_updates_every_panel_and_removes_views() -> None:
         30: FakeChannel(30, bot_user_id=10, history_messages=[second_message]),
     }
     manager = PersistentPanelManager(cast(PersistentPanelBot, FakeBot(channels)))
-    manager.register("ranking", 20, render_panel)
-    manager.register("rolepanel", 30, render_panel)
+    manager.register("ranking", 20, render_panel, offline_description="ランキングは現在確認できません。")
+    manager.register("rolepanel", 30, render_panel, offline_description="ロールパネルは現在利用できません。")
 
     results = await manager.set_all_offline(
         OfflineInfo(reason="メンテナンス", planned_period="1時間"),
     )
 
     assert results == {"ranking": True, "rolepanel": True}
-    for message in (first_message, second_message):
+    expected_descriptions = ("ランキングは現在確認できません。", "ロールパネルは現在利用できません。")
+    for message, expected_description in zip((first_message, second_message), expected_descriptions, strict=True):
         edit = message.edits[0]
         embed = edit["embeds"][0]
         assert embed.title == "BOT は現在オフラインです"
+        assert embed.description == expected_description
         assert embed.fields[0].value == "メンテナンス"
         assert embed.fields[1].value == "1時間"
         assert embed.fields[2].value == "<@10>"
+        assert embed.fields[3].name == "最終更新日時"
+        assert all(field.inline for field in embed.fields)
         assert edit["view"] is None
 
 
@@ -144,7 +148,7 @@ async def test_refresh_does_not_overwrite_offline_display() -> None:
     message = FakeMessage(50, author_id=10)
     channel = FakeChannel(20, bot_user_id=10, history_messages=[message])
     manager = PersistentPanelManager(cast(PersistentPanelBot, FakeBot({20: channel})))
-    manager.register("auth", 20, render_panel)
+    manager.register("auth", 20, render_panel, offline_description="認証システムは現在利用できません。")
 
     assert await manager.initialize("auth") is True
     await manager.set_all_offline(OfflineInfo(reason="メンテナンス", planned_period="1時間"))
@@ -160,7 +164,7 @@ async def test_initialize_does_not_overwrite_offline_display() -> None:
     message = FakeMessage(50, author_id=10)
     channel = FakeChannel(20, bot_user_id=10, history_messages=[message])
     manager = PersistentPanelManager(cast(PersistentPanelBot, FakeBot({20: channel})))
-    manager.register("auth", 20, render_panel)
+    manager.register("auth", 20, render_panel, offline_description="認証システムは現在利用できません。")
 
     await manager.set_all_offline(OfflineInfo(reason="メンテナンス", planned_period="1時間"))
 
@@ -174,7 +178,12 @@ async def test_unregister_does_not_delete_panel_message() -> None:
     message = FakeMessage(50, author_id=10)
     channel = FakeChannel(20, bot_user_id=10, history_messages=[message])
     manager = PersistentPanelManager(cast(PersistentPanelBot, FakeBot({20: channel})))
-    manager.register("free_category", 20, render_panel)
+    manager.register(
+        "free_category",
+        20,
+        render_panel,
+        offline_description="フリーチャンネル作成機能は現在利用できません。",
+    )
 
     assert await manager.initialize("free_category") is True
     manager.unregister("free_category")
@@ -189,8 +198,8 @@ async def test_set_all_offline_continues_after_panel_failure() -> None:
         30: FakeChannel(30, bot_user_id=10, history_messages=[good_message]),
     }
     manager = PersistentPanelManager(cast(PersistentPanelBot, FakeBot(channels)))
-    manager.register("missing", 20, render_panel)
-    manager.register("rolepanel", 30, render_panel)
+    manager.register("missing", 20, render_panel, offline_description="利用できません。")
+    manager.register("rolepanel", 30, render_panel, offline_description="ロールパネルは現在利用できません。")
 
     results = await manager.set_all_offline(
         OfflineInfo(reason="メンテナンス", planned_period="1時間"),

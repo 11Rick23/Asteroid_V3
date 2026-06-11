@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import cast
 
@@ -23,18 +24,25 @@ class FakeApplicationInfoProvider:
 
 
 def test_build_offline_embed_displays_all_information() -> None:
+    updated_at = datetime(2026, 6, 12, 12, 34, tzinfo=UTC)
     embed = build_offline_embed(
         OfflineInfo(reason="メンテナンス", planned_period="1時間"),
+        "認証システムは現在利用できません。",
         ("<@100>", "<@200>"),
+        updated_at=updated_at,
     )
 
     assert embed.title == "BOT は現在オフラインです"
+    assert embed.description == "認証システムは現在利用できません。"
     assert embed.fields[0].name == "理由"
     assert embed.fields[0].value == "メンテナンス"
     assert embed.fields[1].name == "予定期間"
     assert embed.fields[1].value == "1時間"
     assert embed.fields[2].name == "緊急連絡先"
     assert embed.fields[2].value == "<@100>\n<@200>"
+    assert embed.fields[3].name == "最終更新日時"
+    assert embed.fields[3].value == discord.utils.format_dt(updated_at, style="F")
+    assert all(field.inline for field in embed.fields)
 
 
 @pytest.mark.asyncio

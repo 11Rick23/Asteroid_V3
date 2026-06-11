@@ -6,18 +6,18 @@ from typing import cast
 import pytest
 
 from app.core.bot import AsteroidBot
-from app.features.auth.panel import AUTH_PANEL_ID, AuthPanel
+from app.features.auth.panel import AUTH_OFFLINE_DESCRIPTION, AUTH_PANEL_ID, AuthPanel
 from app.features.auth.views import AuthButton
 
 
 class FakePanelManager:
     def __init__(self) -> None:
-        self.registrations: list[tuple[str, int, object]] = []
+        self.registrations: list[tuple[str, int, object, str]] = []
         self.initialized: list[str] = []
         self.unregistered: list[str] = []
 
-    def register(self, panel_id: str, channel_id: int, render: object) -> None:
-        self.registrations.append((panel_id, channel_id, render))
+    def register(self, panel_id: str, channel_id: int, render: object, *, offline_description: str) -> None:
+        self.registrations.append((panel_id, channel_id, render, offline_description))
 
     async def initialize(self, panel_id: str) -> bool:
         self.initialized.append(panel_id)
@@ -43,7 +43,7 @@ def build_panel() -> tuple[AuthPanel, FakePanelManager]:
 async def test_auth_panel_registers_and_uses_common_manager() -> None:
     panel, panels = build_panel()
 
-    assert panels.registrations == [(AUTH_PANEL_ID, 200, panel.render)]
+    assert panels.registrations == [(AUTH_PANEL_ID, 200, panel.render, AUTH_OFFLINE_DESCRIPTION)]
     assert await panel.initialize() is True
     panel.unregister()
 

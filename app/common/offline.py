@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Protocol
 
 import discord
@@ -33,13 +34,22 @@ async def get_emergency_contact_mentions(provider: ApplicationInfoProvider) -> t
     return (application_info.owner.mention,)
 
 
-def build_offline_embed(info: OfflineInfo, emergency_contact_mentions: Sequence[str]) -> discord.Embed:
+def build_offline_embed(
+    info: OfflineInfo,
+    description: str,
+    emergency_contact_mentions: Sequence[str],
+    *,
+    updated_at: datetime | None = None,
+) -> discord.Embed:
     contacts = "\n".join(emergency_contact_mentions)
+    updated_at = updated_at or datetime.now(UTC)
     embed = discord.Embed(
         title="BOT は現在オフラインです",
+        description=description,
         color=AsteroidColor.WARNING,
     )
-    embed.add_field(name="理由", value=info.reason, inline=False)
-    embed.add_field(name="予定期間", value=info.planned_period, inline=False)
-    embed.add_field(name="緊急連絡先", value=contacts, inline=False)
+    embed.add_field(name="理由", value=info.reason, inline=True)
+    embed.add_field(name="予定期間", value=info.planned_period, inline=True)
+    embed.add_field(name="緊急連絡先", value=contacts, inline=True)
+    embed.add_field(name="最終更新日時", value=discord.utils.format_dt(updated_at, style="F"), inline=True)
     return embed

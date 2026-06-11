@@ -7,6 +7,10 @@ from .service import get_free_category_service
 from .views import CreateChannelButtonView, build_creation_embed
 
 FREE_CATEGORY_PANEL_ID = "free_category"
+FREE_CATEGORY_OFFLINE_DESCRIPTION = (
+    "ご迷惑をおかけいたしますが、フリーチャンネル作成機能は現在利用できません。"
+    "時間を空けてもう一度ご確認ください。"
+)
 
 
 class FreeCategoryPanel:
@@ -17,6 +21,7 @@ class FreeCategoryPanel:
             FREE_CATEGORY_PANEL_ID,
             self.bot.config.free_category.text_create_channel_id,
             self.render,
+            offline_description=FREE_CATEGORY_OFFLINE_DESCRIPTION,
         )
 
     async def initialize(self) -> bool:

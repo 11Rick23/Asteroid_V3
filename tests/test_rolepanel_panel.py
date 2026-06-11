@@ -6,19 +6,19 @@ from typing import cast
 import pytest
 
 from app.core.bot import AsteroidBot
-from app.features.rolepanel.panel import ROLE_PANEL_ID, RolePanel
+from app.features.rolepanel.panel import ROLE_PANEL_ID, ROLE_PANEL_OFFLINE_DESCRIPTION, RolePanel
 from app.features.rolepanel.views import RolePanelView
 
 
 class FakePanelManager:
     def __init__(self) -> None:
-        self.registrations: list[tuple[str, int, object]] = []
+        self.registrations: list[tuple[str, int, object, str]] = []
         self.initialized: list[str] = []
         self.refreshed: list[str] = []
         self.unregistered: list[str] = []
 
-    def register(self, panel_id: str, channel_id: int, render: object) -> None:
-        self.registrations.append((panel_id, channel_id, render))
+    def register(self, panel_id: str, channel_id: int, render: object, *, offline_description: str) -> None:
+        self.registrations.append((panel_id, channel_id, render, offline_description))
 
     async def initialize(self, panel_id: str) -> bool:
         self.initialized.append(panel_id)
@@ -60,7 +60,7 @@ def build_panel() -> tuple[RolePanel, FakePanelManager]:
 async def test_role_panel_registers_and_uses_common_manager() -> None:
     panel, panels = build_panel()
 
-    assert panels.registrations == [(ROLE_PANEL_ID, 200, panel.render)]
+    assert panels.registrations == [(ROLE_PANEL_ID, 200, panel.render, ROLE_PANEL_OFFLINE_DESCRIPTION)]
     assert await panel.initialize() is True
     assert await panel.refresh() is True
     panel.unregister()

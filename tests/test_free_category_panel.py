@@ -6,18 +6,22 @@ from typing import cast
 import pytest
 
 from app.core.bot import AsteroidBot
-from app.features.free_category.panel import FREE_CATEGORY_PANEL_ID, FreeCategoryPanel
+from app.features.free_category.panel import (
+    FREE_CATEGORY_OFFLINE_DESCRIPTION,
+    FREE_CATEGORY_PANEL_ID,
+    FreeCategoryPanel,
+)
 from app.features.free_category.views import CreateChannelButtonView
 
 
 class FakePanelManager:
     def __init__(self) -> None:
-        self.registrations: list[tuple[str, int, object]] = []
+        self.registrations: list[tuple[str, int, object, str]] = []
         self.initialized: list[str] = []
         self.unregistered: list[str] = []
 
-    def register(self, panel_id: str, channel_id: int, render: object) -> None:
-        self.registrations.append((panel_id, channel_id, render))
+    def register(self, panel_id: str, channel_id: int, render: object, *, offline_description: str) -> None:
+        self.registrations.append((panel_id, channel_id, render, offline_description))
 
     async def initialize(self, panel_id: str) -> bool:
         self.initialized.append(panel_id)
@@ -49,7 +53,7 @@ def build_panel() -> tuple[FreeCategoryPanel, FakePanelManager]:
 async def test_free_category_panel_registers_and_uses_common_manager() -> None:
     panel, panels = build_panel()
 
-    assert panels.registrations == [(FREE_CATEGORY_PANEL_ID, 200, panel.render)]
+    assert panels.registrations == [(FREE_CATEGORY_PANEL_ID, 200, panel.render, FREE_CATEGORY_OFFLINE_DESCRIPTION)]
     assert await panel.initialize() is True
     panel.unregister()
 

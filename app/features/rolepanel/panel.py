@@ -7,6 +7,9 @@ from .service import get_rolepanel_service
 from .views import RolePanelView
 
 ROLE_PANEL_ID = "rolepanel"
+ROLE_PANEL_OFFLINE_DESCRIPTION = (
+    "ご迷惑をおかけいたしますが、ロールパネルは現在利用できません。時間を空けてもう一度ご確認ください。"
+)
 
 
 class RolePanel:
@@ -17,6 +20,7 @@ class RolePanel:
             ROLE_PANEL_ID,
             self.bot.config.rolepanel.panel_channel_id,
             self.render,
+            offline_description=ROLE_PANEL_OFFLINE_DESCRIPTION,
         )
 
     async def initialize(self) -> bool:
