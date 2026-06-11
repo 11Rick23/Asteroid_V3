@@ -4,16 +4,15 @@ from logging import getLogger
 
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 
-from app.common.command_groups import get_bot, register_group, register_setup_command
-from app.common.discord_types import as_messageable
-from app.common.permissions import admin_only
+from app.common.command_groups import get_bot, register_group
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
 
+from .panel import FreeCategoryPanel
 from .service import block_permissions, get_free_category_service, op_permissions
-from .views import CreateChannelButtonView, build_creation_embed
+from .views import CreateChannelButtonView
 
 logger = getLogger(__name__)
 
@@ -24,34 +23,29 @@ class FreeCategory(commands.Cog):
     def __init__(self, bot: AsteroidBot):
         self.bot = bot
         self.service = get_free_category_service(bot)
+        self.panel = FreeCategoryPanel(bot)
+        self.initialize_panel.start()
 
     async def cog_load(self) -> None:
         self.bot.add_view(CreateChannelButtonView(self.service))
+
+    async def cog_unload(self) -> None:
+        self.initialize_panel.cancel()
+        self.panel.unregister()
+
+    @tasks.loop(count=1)
+    async def initialize_panel(self) -> None:
+        await self.panel.initialize()
+
+    @initialize_panel.before_loop
+    async def before_initialize_panel(self) -> None:
+        await self.bot.wait_until_ready()
 
     @commands.Cog.listener("on_message")
     async def auto_bump(self, message: discord.Message) -> None:
         if not self.bot.is_operating_guild(message.guild):
             return
         await self.service.maybe_auto_bump(message)
-
-
-@app_commands.command(name="free_category_button", description="フリーチャンネル作成ボタンを送信します")
-@app_commands.guild_only()
-@admin_only
-async def free_category_button(interaction: discord.Interaction) -> None:
-    bot = get_bot(interaction)
-    service = get_free_category_service(bot)
-    channel = as_messageable(interaction.channel)
-    if channel is None:
-        await interaction.response.send_message("このチャンネルには送信できません。", ephemeral=True)
-        return
-
-    await channel.send(embed=build_creation_embed(), view=CreateChannelButtonView(service))
-    logger.info(
-        "フリーチャンネル作成ボタンを設置しました: command=/setup free_category_button "
-        f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id}"
-    )
-    await interaction.response.send_message("チャンネル作成ボタンを送信しました！", ephemeral=True)
 
 
 @free_category_group.command(name="archive", description="チャンネルをアーカイブ")
@@ -278,6 +272,5 @@ async def purge(interaction: discord.Interaction, count: app_commands.Range[int,
 
 async def setup(bot: AsteroidBot) -> None:
     get_free_category_service(bot)
-    register_setup_command(bot, free_category_button)
     register_group(bot, free_category_group)
     await bot.add_cog(FreeCategory(bot))

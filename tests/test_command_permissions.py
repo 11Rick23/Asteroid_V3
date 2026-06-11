@@ -10,7 +10,6 @@ from app.core.bot import AsteroidBot
 from app.core.system_commands import stop_bot
 from app.features.auth.cog import setup_auth
 from app.features.birthday.cog import birthday_set_others
-from app.features.free_category.cog import free_category_button
 from app.features.leveling.cog import claim_voice_xp_button
 from app.features.leveling.commands.admin_command import leveling_admin_group
 from app.features.leveling.commands.command import transfer_mee6
@@ -70,7 +69,7 @@ def test_stop_command_is_admin_only() -> None:
 def test_setup_group_and_setup_commands_are_admin_only() -> None:
     bot = cast(AsteroidBot, FakeBot())
 
-    for command in [setup_auth, free_category_button, claim_voice_xp_button, setup_starboard, transfer_mee6]:
+    for command in [setup_auth, claim_voice_xp_button, setup_starboard, transfer_mee6]:
         register_setup_command(bot, command)
 
     setup_group = get_or_create_setup_group(bot)
