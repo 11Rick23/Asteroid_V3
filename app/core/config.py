@@ -66,6 +66,7 @@ class LogConfig(BaseSection):
 
 
 class AuthConfig(BaseSection):
+    panel_channel_id: int = 0
     unauthorized_role_id: int = 0
     welcome_channel_id: int = 0
     welcome_ping_role_id: int = 0

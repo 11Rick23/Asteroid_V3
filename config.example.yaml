@@ -32,6 +32,7 @@ features:
   vc: true
 
 auth:
+  panel_channel_id: 0000000000000000000
   unauthorized_role_id: 0000000000000000000
   welcome_channel_id: 0000000000000000000
   welcome_ping_role_id: 0000000000000000000

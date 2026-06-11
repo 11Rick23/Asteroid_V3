@@ -37,6 +37,7 @@ leveling:
     assert config.report.report_ping_role_id == 123
     assert config.leveling.message_cooldown == 30
     assert config.leveling.action_power_channel_id == 0
+    assert config.auth.panel_channel_id == 0
     assert config.rolepanel.panel_channel_id == 0
 
 
@@ -60,6 +61,7 @@ vc:
     assert config.permission_roles_id_list.admin == 0
     assert config.report.report_ping_role_id == 0
     assert config.leveling.action_power_channel_id == 0
+    assert config.auth.panel_channel_id == 0
     assert config.rolepanel.panel_channel_id == 0
 
 
