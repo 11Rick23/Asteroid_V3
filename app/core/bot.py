@@ -9,6 +9,7 @@ from discord.ext.commands import Bot
 from app.common.constants import AsteroidColor
 from app.common.guild_scope import OperatingGuildCommandTree
 from app.common.offline import OfflineInfo
+from app.common.persistent_panels import PersistentPanelManager
 from app.database.manager import DatabaseManager
 from app.database.session import create_engine, create_session_factory
 
@@ -29,6 +30,7 @@ class AsteroidBot(Bot):
         self.db = DatabaseManager(config, self.engine, self.session_factory)
         self.repositories = self.db
         self.services: dict[str, object] = {}
+        self.panels = PersistentPanelManager(self)
         self.message_cache: dict[int, discord.Message] = {}
         self.shutdown_requested = False
         self.shutdown_task: asyncio.Task[None] | None = None
@@ -173,6 +175,7 @@ class AsteroidBot(Bot):
             f"BOT の停止処理を開始します: reason={info.reason} planned_period={info.planned_period}"
         )
         try:
+            await self.panels.set_all_offline(info)
             await self.send_shutdown_start_message(info)
             await self.set_offline_presence()
             await self.close()
@@ -192,8 +195,16 @@ class AsteroidBot(Bot):
             for cog in self.cogs.values():
                 cleanup = getattr(cog, "cleanup_on_shutdown", None)
                 if cleanup is not None:
-                    await cleanup()
-            await self.engine.dispose()
+                    try:
+                        await cleanup()
+                    except Exception:
+                        logger.exception(
+                            f"Cog の停止処理に失敗しました。終了処理は続行します: cog={cog.qualified_name}"
+                        )
+            try:
+                await self.engine.dispose()
+            except Exception:
+                logger.exception("データベース接続の終了に失敗しました。Discord 接続の終了処理は続行します。")
             await super().close()
             self._shutdown_cleanup_complete = True
             logger.info("BOT の停止処理が完了しました。")

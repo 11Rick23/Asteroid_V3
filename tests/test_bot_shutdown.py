@@ -44,6 +44,31 @@ class FakeBot:
         return self.fetched_channel
 
 
+class FakePanelManager:
+    def __init__(self, events: list[str]) -> None:
+        self.events = events
+
+    async def set_all_offline(self, info: OfflineInfo) -> dict[str, bool]:
+        self.events.append(f"panels:{info.reason}:{info.planned_period}")
+        return {"ranking": True}
+
+
+class FakeShutdownBot:
+    def __init__(self) -> None:
+        self.events: list[str] = []
+        self.panels = FakePanelManager(self.events)
+        self.shutdown_requested = True
+
+    async def send_shutdown_start_message(self, info: OfflineInfo) -> None:
+        self.events.append("log")
+
+    async def set_offline_presence(self) -> None:
+        self.events.append("presence")
+
+    async def close(self) -> None:
+        self.events.append("close")
+
+
 @pytest.mark.asyncio
 async def test_send_shutdown_start_message_uses_cached_log_channel() -> None:
     channel = FakeLogChannel()
@@ -104,3 +129,20 @@ async def test_send_shutdown_start_message_skips_channel_in_other_guild() -> Non
     )
 
     assert channel.messages == []
+
+
+@pytest.mark.asyncio
+async def test_shutdown_gracefully_offlines_panels_before_other_shutdown_steps() -> None:
+    bot = FakeShutdownBot()
+
+    await AsteroidBot.shutdown_gracefully(
+        cast(AsteroidBot, bot),
+        OfflineInfo(reason="メンテナンス", planned_period="1時間"),
+    )
+
+    assert bot.events == [
+        "panels:メンテナンス:1時間",
+        "log",
+        "presence",
+        "close",
+    ]
