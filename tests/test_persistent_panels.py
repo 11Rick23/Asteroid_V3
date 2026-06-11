@@ -140,7 +140,7 @@ async def test_set_all_offline_updates_every_panel_and_removes_views() -> None:
 
 
 @pytest.mark.asyncio
-async def test_refresh_restores_normal_content_after_offline_display() -> None:
+async def test_refresh_does_not_overwrite_offline_display() -> None:
     message = FakeMessage(50, author_id=10)
     channel = FakeChannel(20, bot_user_id=10, history_messages=[message])
     manager = PersistentPanelManager(cast(PersistentPanelBot, FakeBot({20: channel})))
@@ -148,11 +148,25 @@ async def test_refresh_restores_normal_content_after_offline_display() -> None:
 
     assert await manager.initialize("auth") is True
     await manager.set_all_offline(OfflineInfo(reason="メンテナンス", planned_period="1時間"))
-    assert await manager.refresh("auth") is True
+    assert await manager.refresh("auth") is False
 
-    restored = message.edits[-1]
-    assert restored["embeds"][0].title == "通常表示"
-    assert restored["view"] is not None
+    assert len(message.edits) == 2
+    assert message.edits[-1]["embeds"][0].title == "BOT は現在オフラインです"
+    assert message.edits[-1]["view"] is None
+
+
+@pytest.mark.asyncio
+async def test_initialize_does_not_overwrite_offline_display() -> None:
+    message = FakeMessage(50, author_id=10)
+    channel = FakeChannel(20, bot_user_id=10, history_messages=[message])
+    manager = PersistentPanelManager(cast(PersistentPanelBot, FakeBot({20: channel})))
+    manager.register("auth", 20, render_panel)
+
+    await manager.set_all_offline(OfflineInfo(reason="メンテナンス", planned_period="1時間"))
+
+    assert await manager.initialize("auth") is False
+    assert len(message.edits) == 1
+    assert message.edits[0]["embeds"][0].title == "BOT は現在オフラインです"
 
 
 @pytest.mark.asyncio

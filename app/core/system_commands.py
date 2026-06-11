@@ -21,7 +21,11 @@ logger = getLogger(__name__)
 @app_commands.describe(reason="BOTを停止する理由", planned_period="BOTがオフラインとなる予定期間")
 @app_commands.guild_only()
 @admin_only
-async def stop_bot(interaction: discord.Interaction, reason: str, planned_period: str) -> None:
+async def stop_bot(
+    interaction: discord.Interaction,
+    reason: app_commands.Range[str, 1, 1024],
+    planned_period: app_commands.Range[str, 1, 1024],
+) -> None:
     bot = get_bot(interaction)
     if bot.shutdown_requested:
         logger.info(

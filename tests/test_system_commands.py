@@ -63,11 +63,17 @@ class FakeInteraction:
 
 def test_stop_command_requires_reason_and_planned_period() -> None:
     parameters = {parameter.name: parameter for parameter in stop_bot.parameters}
+    reason_option = stop_bot._params["reason"].to_dict()
+    planned_period_option = stop_bot._params["planned_period"].to_dict()
 
     assert parameters["reason"].display_name == "理由"
     assert parameters["reason"].required is True
+    assert reason_option["min_length"] == 1
+    assert reason_option["max_length"] == 1024
     assert parameters["planned_period"].display_name == "予定期間"
     assert parameters["planned_period"].required is True
+    assert planned_period_option["min_length"] == 1
+    assert planned_period_option["max_length"] == 1024
 
 
 @pytest.mark.asyncio

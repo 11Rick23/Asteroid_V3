@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from logging import getLogger
@@ -51,6 +52,8 @@ class PersistentPanelManager:
     def __init__(self, bot: PersistentPanelBot) -> None:
         self.bot = bot
         self._panels: dict[str, PersistentPanel] = {}
+        self._publish_lock = asyncio.Lock()
+        self._offline = False
 
     def register(self, panel_id: str, channel_id: int, render: PanelRenderer) -> None:
         if panel_id in self._panels:
@@ -70,51 +73,61 @@ class PersistentPanelManager:
 
     async def initialize(self, panel_id: str) -> bool:
         panel = self._get_panel(panel_id)
-        try:
-            content = await panel.render()
-            return await self._publish(panel, content, reconcile_latest=True)
-        except Exception:
-            logger.exception(
-                f"常駐パネルの初期化中に予期しないエラーが発生しました: "
-                f"panel_id={panel.panel_id} channel_id={panel.channel_id}"
-            )
-            return False
+        async with self._publish_lock:
+            if self._offline:
+                logger.debug(f"オフライン化済みのため常駐パネルの初期化をスキップしました: panel_id={panel_id}")
+                return False
+            try:
+                content = await panel.render()
+                return await self._publish(panel, content, reconcile_latest=True)
+            except Exception:
+                logger.exception(
+                    f"常駐パネルの初期化中に予期しないエラーが発生しました: "
+                    f"panel_id={panel.panel_id} channel_id={panel.channel_id}"
+                )
+                return False
 
     async def refresh(self, panel_id: str) -> bool:
         panel = self._get_panel(panel_id)
-        try:
-            content = await panel.render()
-            return await self._publish(panel, content, reconcile_latest=panel.message is None)
-        except Exception:
-            logger.exception(
-                f"常駐パネルの更新中に予期しないエラーが発生しました: "
-                f"panel_id={panel.panel_id} channel_id={panel.channel_id}"
-            )
-            return False
-
-    async def set_all_offline(self, info: OfflineInfo) -> dict[str, bool]:
-        try:
-            contacts = await get_emergency_contact_mentions(self.bot)
-        except Exception:
-            logger.exception("緊急連絡先の取得に失敗したため、常駐パネルをオフライン化できませんでした。")
-            return dict.fromkeys(self._panels, False)
-
-        content = PersistentPanelContent(embeds=(build_offline_embed(info, contacts),))
-        results: dict[str, bool] = {}
-        for panel in self._panels.values():
+        async with self._publish_lock:
+            if self._offline:
+                logger.debug(f"オフライン化済みのため常駐パネルの更新をスキップしました: panel_id={panel_id}")
+                return False
             try:
-                results[panel.panel_id] = await self._publish(
-                    panel,
-                    content,
-                    reconcile_latest=panel.message is None,
-                )
+                content = await panel.render()
+                return await self._publish(panel, content, reconcile_latest=panel.message is None)
             except Exception:
                 logger.exception(
-                    f"常駐パネルのオフライン化中に予期しないエラーが発生しました: "
+                    f"常駐パネルの更新中に予期しないエラーが発生しました: "
                     f"panel_id={panel.panel_id} channel_id={panel.channel_id}"
                 )
-                results[panel.panel_id] = False
-        return results
+                return False
+
+    async def set_all_offline(self, info: OfflineInfo) -> dict[str, bool]:
+        async with self._publish_lock:
+            self._offline = True
+            try:
+                contacts = await get_emergency_contact_mentions(self.bot)
+            except Exception:
+                logger.exception("緊急連絡先の取得に失敗したため、常駐パネルをオフライン化できませんでした。")
+                return dict.fromkeys(self._panels, False)
+
+            content = PersistentPanelContent(embeds=(build_offline_embed(info, contacts),))
+            results: dict[str, bool] = {}
+            for panel in self._panels.values():
+                try:
+                    results[panel.panel_id] = await self._publish(
+                        panel,
+                        content,
+                        reconcile_latest=panel.message is None,
+                    )
+                except Exception:
+                    logger.exception(
+                        f"常駐パネルのオフライン化中に予期しないエラーが発生しました: "
+                        f"panel_id={panel.panel_id} channel_id={panel.channel_id}"
+                    )
+                    results[panel.panel_id] = False
+            return results
 
     def _get_panel(self, panel_id: str) -> PersistentPanel:
         try:
