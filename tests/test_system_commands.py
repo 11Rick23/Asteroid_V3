@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 
 import discord
 import pytest
@@ -60,16 +61,32 @@ class FakeInteraction:
         self.response = FakeResponse()
 
 
+def test_stop_command_requires_reason_and_planned_period() -> None:
+    parameters = {parameter.name: parameter for parameter in stop_bot.parameters}
+
+    assert parameters["reason"].display_name == "理由"
+    assert parameters["reason"].required is True
+    assert parameters["planned_period"].display_name == "予定期間"
+    assert parameters["planned_period"].required is True
+
+
 @pytest.mark.asyncio
-async def test_stop_command_sends_ack_and_schedules_shutdown() -> None:
+async def test_stop_command_sends_ack_logs_and_schedules_shutdown(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     bot = FakeBot()
     interaction = FakeInteraction(bot)
 
-    await stop_bot.callback(interaction, "メンテナンス", "1時間")  # type: ignore[arg-type]
+    with caplog.at_level(logging.INFO, logger="app.core.system_commands"):
+        await stop_bot.callback(interaction, "メンテナンス", "1時間")  # type: ignore[arg-type]
 
     assert interaction.response.messages == [("BOT の停止処理を開始します。", True)]
     assert bot.shutdown_requested is True
     assert bot.shutdown_task is not None
+    assert (
+        "BOT 停止コマンドを受け付けました: command=/stop "
+        "guild_id=456 channel_id=789 actor_id=123 reason=メンテナンス planned_period=1時間"
+    ) in caplog.text
 
     await bot.shutdown_task
 
@@ -79,13 +96,18 @@ async def test_stop_command_sends_ack_and_schedules_shutdown() -> None:
 
 
 @pytest.mark.asyncio
-async def test_stop_command_rejects_duplicate_shutdown() -> None:
+async def test_stop_command_rejects_duplicate_shutdown(caplog: pytest.LogCaptureFixture) -> None:
     bot = FakeBot()
     bot.shutdown_requested = True
     interaction = FakeInteraction(bot)
 
-    await stop_bot.callback(interaction, "メンテナンス", "1時間")  # type: ignore[arg-type]
+    with caplog.at_level(logging.INFO, logger="app.core.system_commands"):
+        await stop_bot.callback(interaction, "メンテナンス", "1時間")  # type: ignore[arg-type]
 
     assert interaction.response.messages == [("BOT は既に停止処理中です。", True)]
     assert bot.shutdown_task is None
     assert bot.close_count == 0
+    assert (
+        "BOT 停止コマンドを拒否しました: command=/stop reason=already_requested "
+        "guild_id=456 channel_id=789 actor_id=123"
+    ) in caplog.text

@@ -19,9 +19,13 @@ class FakeMessage:
         self.id = message_id
         self.author = SimpleNamespace(id=author_id)
         self.edits: list[dict[str, Any]] = []
+        self.delete_count = 0
 
     async def edit(self, **kwargs: Any) -> None:
         self.edits.append(kwargs)
+
+    async def delete(self) -> None:
+        self.delete_count += 1
 
 
 class FakeChannel:
@@ -133,6 +137,35 @@ async def test_set_all_offline_updates_every_panel_and_removes_views() -> None:
         assert embed.fields[1].value == "1時間"
         assert embed.fields[2].value == "<@10>"
         assert edit["view"] is None
+
+
+@pytest.mark.asyncio
+async def test_refresh_restores_normal_content_after_offline_display() -> None:
+    message = FakeMessage(50, author_id=10)
+    channel = FakeChannel(20, bot_user_id=10, history_messages=[message])
+    manager = PersistentPanelManager(cast(PersistentPanelBot, FakeBot({20: channel})))
+    manager.register("auth", 20, render_panel)
+
+    assert await manager.initialize("auth") is True
+    await manager.set_all_offline(OfflineInfo(reason="メンテナンス", planned_period="1時間"))
+    assert await manager.refresh("auth") is True
+
+    restored = message.edits[-1]
+    assert restored["embeds"][0].title == "通常表示"
+    assert restored["view"] is not None
+
+
+@pytest.mark.asyncio
+async def test_unregister_does_not_delete_panel_message() -> None:
+    message = FakeMessage(50, author_id=10)
+    channel = FakeChannel(20, bot_user_id=10, history_messages=[message])
+    manager = PersistentPanelManager(cast(PersistentPanelBot, FakeBot({20: channel})))
+    manager.register("free_category", 20, render_panel)
+
+    assert await manager.initialize("free_category") is True
+    manager.unregister("free_category")
+
+    assert message.delete_count == 0
 
 
 @pytest.mark.asyncio
