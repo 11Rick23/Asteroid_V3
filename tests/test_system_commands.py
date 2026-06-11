@@ -5,6 +5,7 @@ import asyncio
 import discord
 import pytest
 
+from app.common.offline import OfflineInfo
 from app.core.system_commands import stop_bot
 
 
@@ -36,17 +37,17 @@ class FakeBot:
         self.events.append("close")
         self.close_count += 1
 
-    async def shutdown_gracefully(self, reason: str) -> None:
-        self.events.append(reason)
+    async def shutdown_gracefully(self, info: OfflineInfo) -> None:
+        self.events.append(f"{info.reason}:{info.planned_period}")
         await self.change_presence(status=discord.Status.offline, activity=None)
         await self.close()
 
-    def schedule_graceful_shutdown(self, reason: str) -> bool:
+    def schedule_graceful_shutdown(self, info: OfflineInfo) -> bool:
         if self.shutdown_requested:
             return False
 
         self.shutdown_requested = True
-        self.shutdown_task = asyncio.create_task(self.shutdown_gracefully(reason))
+        self.shutdown_task = asyncio.create_task(self.shutdown_gracefully(info))
         return True
 
 
@@ -64,7 +65,7 @@ async def test_stop_command_sends_ack_and_schedules_shutdown() -> None:
     bot = FakeBot()
     interaction = FakeInteraction(bot)
 
-    await stop_bot.callback(interaction)  # type: ignore[arg-type]
+    await stop_bot.callback(interaction, "メンテナンス", "1時間")  # type: ignore[arg-type]
 
     assert interaction.response.messages == [("BOT の停止処理を開始します。", True)]
     assert bot.shutdown_requested is True
@@ -73,7 +74,7 @@ async def test_stop_command_sends_ack_and_schedules_shutdown() -> None:
     await bot.shutdown_task
 
     assert bot.close_count == 1
-    assert bot.events == ["command=/stop", "change_presence", "close"]
+    assert bot.events == ["メンテナンス:1時間", "change_presence", "close"]
     assert bot.presence_changes == [(discord.Status.offline, None)]
 
 
@@ -83,7 +84,7 @@ async def test_stop_command_rejects_duplicate_shutdown() -> None:
     bot.shutdown_requested = True
     interaction = FakeInteraction(bot)
 
-    await stop_bot.callback(interaction)  # type: ignore[arg-type]
+    await stop_bot.callback(interaction, "メンテナンス", "1時間")  # type: ignore[arg-type]
 
     assert interaction.response.messages == [("BOT は既に停止処理中です。", True)]
     assert bot.shutdown_task is None

@@ -8,6 +8,7 @@ from discord.ext.commands import Bot
 
 from app.common.constants import AsteroidColor
 from app.common.guild_scope import OperatingGuildCommandTree
+from app.common.offline import OfflineInfo
 from app.database.manager import DatabaseManager
 from app.database.session import create_engine, create_session_factory
 
@@ -115,13 +116,13 @@ class AsteroidBot(Bot):
     def get_message(self, message_id: int) -> discord.Message | None:
         return self.message_cache.get(message_id)
 
-    def schedule_graceful_shutdown(self, reason: str) -> bool:
+    def schedule_graceful_shutdown(self, info: OfflineInfo) -> bool:
         if self.shutdown_requested:
             return False
 
         self.shutdown_requested = True
         self.shutdown_task = asyncio.create_task(
-            self.shutdown_gracefully(reason),
+            self.shutdown_gracefully(info),
             name="asteroid-graceful-shutdown",
         )
         return True
@@ -134,7 +135,7 @@ class AsteroidBot(Bot):
             return
         logger.info("BOT ステータスをオフラインに変更しました。")
 
-    async def send_shutdown_start_message(self, reason: str) -> None:
+    async def send_shutdown_start_message(self, info: OfflineInfo) -> None:
         channel_id = self.config.log.main_log_channel_id
         if not channel_id:
             logger.debug("BOT 終了通知をスキップしました: main_log_channel_id=0")
@@ -159,22 +160,27 @@ class AsteroidBot(Bot):
             title="BOT の停止処理を開始します",
             color=AsteroidColor.WARNING,
         )
-        embed.add_field(name="理由", value=f"`{reason}`", inline=False)
+        embed.add_field(name="理由", value=info.reason, inline=False)
+        embed.add_field(name="予定期間", value=info.planned_period, inline=False)
 
         try:
             await channel.send(embed=embed)
         except discord.HTTPException:
             return
 
-    async def shutdown_gracefully(self, reason: str) -> None:
-        logger.info(f"BOT の停止処理を開始します: reason={reason}")
+    async def shutdown_gracefully(self, info: OfflineInfo) -> None:
+        logger.info(
+            f"BOT の停止処理を開始します: reason={info.reason} planned_period={info.planned_period}"
+        )
         try:
-            await self.send_shutdown_start_message(reason)
+            await self.send_shutdown_start_message(info)
             await self.set_offline_presence()
             await self.close()
         except Exception:
             self.shutdown_requested = False
-            logger.exception(f"BOT の停止に失敗しました: reason={reason}")
+            logger.exception(
+                f"BOT の停止に失敗しました: reason={info.reason} planned_period={info.planned_period}"
+            )
 
     async def close(self) -> None:
         async with self._close_lock:

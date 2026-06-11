@@ -6,6 +6,7 @@ from typing import cast
 
 from discord import app_commands
 
+from app.core.system_commands import stop_bot
 from app.features.birthday.cog import birthday_group
 from app.features.free_category.cog import free_category_group
 from app.features.leveling.commands.admin_command import leveling_admin_group
@@ -33,6 +34,7 @@ def test_public_command_argument_names_are_japanese() -> None:
         *concrete_commands(suggest_group),
         *concrete_commands(vc_group),
         rank,
+        stop_bot,
         transfer_mee6,
         cast(app_commands.Command, ReportCog.report),
     ]

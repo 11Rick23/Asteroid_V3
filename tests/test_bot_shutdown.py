@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import discord
 import pytest
 
+from app.common.offline import OfflineInfo
 from app.core.bot import AsteroidBot
 
 
@@ -48,34 +49,46 @@ async def test_send_shutdown_start_message_uses_cached_log_channel() -> None:
     channel = FakeLogChannel()
     bot = FakeBot(123, channel)
 
-    await AsteroidBot.send_shutdown_start_message(bot, "signal=SIGTERM")  # type: ignore[arg-type]
+    await AsteroidBot.send_shutdown_start_message(
+        cast(AsteroidBot, bot),
+        OfflineInfo(reason="SIGTERM シグナルによる強制停止", planned_period="未定"),
+    )
 
     assert len(channel.messages) == 1
     embed = channel.messages[0]["embed"]
     assert embed.title == "BOT の停止処理を開始します"
     assert embed.description is None
     assert embed.fields[0].name == "理由"
-    assert embed.fields[0].value == "`signal=SIGTERM`"
+    assert embed.fields[0].value == "SIGTERM シグナルによる強制停止"
+    assert embed.fields[1].name == "予定期間"
+    assert embed.fields[1].value == "未定"
 
 
 @pytest.mark.asyncio
 async def test_send_shutdown_start_message_fetches_missing_log_channel() -> None:
     bot = FakeBot(123)
 
-    await AsteroidBot.send_shutdown_start_message(bot, "command=/stop")  # type: ignore[arg-type]
+    await AsteroidBot.send_shutdown_start_message(
+        cast(AsteroidBot, bot),
+        OfflineInfo(reason="メンテナンス", planned_period="1時間"),
+    )
 
     assert bot.fetched_channel is not None
     assert len(bot.fetched_channel.messages) == 1
     embed = bot.fetched_channel.messages[0]["embed"]
     assert embed.title == "BOT の停止処理を開始します"
-    assert embed.fields[0].value == "`command=/stop`"
+    assert embed.fields[0].value == "メンテナンス"
+    assert embed.fields[1].value == "1時間"
 
 
 @pytest.mark.asyncio
 async def test_send_shutdown_start_message_skips_when_log_channel_is_not_configured() -> None:
     bot = FakeBot(0)
 
-    await AsteroidBot.send_shutdown_start_message(bot, "signal=SIGTERM")  # type: ignore[arg-type]
+    await AsteroidBot.send_shutdown_start_message(
+        cast(AsteroidBot, bot),
+        OfflineInfo(reason="SIGTERM シグナルによる強制停止", planned_period="未定"),
+    )
 
     assert bot.fetched_channel is None
 
@@ -85,6 +98,9 @@ async def test_send_shutdown_start_message_skips_channel_in_other_guild() -> Non
     channel = FakeLogChannel(guild_id=999)
     bot = FakeBot(123, channel)
 
-    await AsteroidBot.send_shutdown_start_message(bot, "signal=SIGTERM")  # type: ignore[arg-type]
+    await AsteroidBot.send_shutdown_start_message(
+        cast(AsteroidBot, bot),
+        OfflineInfo(reason="SIGTERM シグナルによる強制停止", planned_period="未定"),
+    )
 
     assert channel.messages == []

@@ -7,20 +7,21 @@ from typing import Any
 
 import pytest
 
+from app.common.offline import OfflineInfo
 from launch_app import request_signal_shutdown, run_bot
 
 
 class FakeBot:
     def __init__(self) -> None:
-        self.reasons: list[str] = []
+        self.offline_info: list[OfflineInfo] = []
         self.shutdown_requested = False
 
-    def schedule_graceful_shutdown(self, reason: str) -> bool:
+    def schedule_graceful_shutdown(self, info: OfflineInfo) -> bool:
         if self.shutdown_requested:
             return False
 
         self.shutdown_requested = True
-        self.reasons.append(reason)
+        self.offline_info.append(info)
         return True
 
 
@@ -30,7 +31,12 @@ def test_request_signal_shutdown_starts_graceful_shutdown() -> None:
     request_signal_shutdown(bot, signal.SIGTERM)  # type: ignore[arg-type]
 
     assert bot.shutdown_requested is True
-    assert bot.reasons == ["signal=SIGTERM"]
+    assert bot.offline_info == [
+        OfflineInfo(
+            reason="SIGTERM シグナルによる強制停止",
+            planned_period="未定",
+        )
+    ]
 
 
 def test_request_signal_shutdown_ignores_duplicate_signal() -> None:
@@ -39,7 +45,7 @@ def test_request_signal_shutdown_ignores_duplicate_signal() -> None:
 
     request_signal_shutdown(bot, signal.SIGTERM)  # type: ignore[arg-type]
 
-    assert bot.reasons == []
+    assert bot.offline_info == []
 
 
 class FakeLoop:
