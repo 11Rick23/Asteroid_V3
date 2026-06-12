@@ -102,14 +102,34 @@ def test_build_monthly_ranking_views_splits_top10_into_three_messages() -> None:
     views = build_monthly_ranking_views(cast(AsteroidBot, FakeBot()), monthly_powers)
 
     assert len(views) == 3
-    assert "# 月間ランキング発表" in text_contents(views[0])
+    intro = text_contents(views[0])
+    assert intro == (
+        "# ということで、今回のtop10は...\n\n"
+        "> ### 1位: <@1>\n"
+        "> ### 2位: <@2>\n"
+        "> ### 3位: <@3>\n"
+        "> ### 4位: <@4>\n"
+        "> ### 5位: <@5>\n"
+        "> ### 6位: <@6>\n"
+        "> ### 7位: <@7>\n"
+        "> ### 8位: <@8>\n"
+        "> ### 9位: <@9>\n"
+        "> ### 10位: <@10>\n"
+        "# このようになりました！おめでとうございます！"
+    )
     assert len(views[0].children) == 1
     assert cast(discord.ui.Container, views[0].children[0]).accent_colour == AsteroidColor.SUCCESS
 
-    assert "# 月間ランキング 1〜5位" in text_contents(views[1])
-    assert "### 5位: User 5" in text_contents(views[1])
-    assert "# 月間ランキング 6〜10位" in text_contents(views[2])
-    assert "### 10位: User 10" in text_contents(views[2])
+    first_half = text_contents(views[1])
+    second_half = text_contents(views[2])
+    assert "### 🥇: User 1" in first_half
+    assert "### 5位: User 5" in first_half
+    assert "### 6位: User 6" in second_half
+    assert "### 10位: User 10" in second_half
+    assert "月間ランキング" not in first_half
+    assert "月間ランキング" not in second_half
+    assert "テキストパワー:" not in first_half
+    assert "テキストパワー:" not in second_half
     assert sum(isinstance(child, discord.ui.Section) for child in views[1].walk_children()) == 5
     assert sum(isinstance(child, discord.ui.Section) for child in views[2].walk_children()) == 5
 

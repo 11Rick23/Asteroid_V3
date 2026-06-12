@@ -215,12 +215,15 @@ def build_power_ranking_pages(
     title: str,
     description: str,
     page_size: int = 10,
+    show_header: bool = True,
 ) -> list[discord.ui.Container]:
     pages: list[discord.ui.Container] = []
     chunks = [monthly_powers[index : index + page_size] for index in range(0, len(monthly_powers), page_size)] or [[]]
     for chunk in chunks:
-        children: list[discord.ui.Item[GuildScopedLayoutView]] = [discord.ui.TextDisplay(f"# {title}\n{description}")]
-        for monthly_power in chunk:
+        children: list[discord.ui.Item[GuildScopedLayoutView]] = []
+        if show_header:
+            children.append(discord.ui.TextDisplay(f"# {title}\n{description}"))
+        for index, monthly_power in enumerate(chunk):
             user = bot.get_user(monthly_power.user_id)
             display_name = user.display_name if user else f"不明なメンバー [{monthly_power.user_id}]"
             content = (
@@ -232,7 +235,7 @@ def build_power_ranking_pages(
                 f"{humanize_number(monthly_power.action_power)}\n"
                 f"合計: {humanize_number(total_monthly_power(monthly_power))}"
             )
-            if len(children) > 1:
+            if index > 0:
                 children.append(discord.ui.Separator())
             if user is None:
                 children.append(discord.ui.TextDisplay(content))

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from logging import getLogger
 
-from app.common.constants import AsteroidColor, AsteroidEmoji
+from app.common.constants import AsteroidColor
 from app.common.discord_types import as_messageable
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
@@ -19,30 +19,29 @@ def build_monthly_ranking_views(
     bot: AsteroidBot,
     monthly_powers: list[MonthlyPowerRankingData],
 ) -> tuple[LevelingLayoutView, LevelingLayoutView, LevelingLayoutView]:
-    description = (
-        f"{AsteroidEmoji.TEXT_POWER}: テキストパワー\n"
-        f"{AsteroidEmoji.VOICE_POWER}: ボイスパワー\n"
-        f"{AsteroidEmoji.ACTION_POWER}: アクションパワー\n"
-        f"{AsteroidEmoji.TRANSPARENT}"
-    )
+    ranking_text = "\n".join(f"> ### {power.ranking}位: <@{power.user_id}>" for power in monthly_powers)
     first_half = build_power_ranking_pages(
         bot,
         monthly_powers[:5],
-        title="月間ランキング 1〜5位",
-        description=description,
+        title="",
+        description="",
         page_size=5,
+        show_header=False,
     )[0]
     second_half = build_power_ranking_pages(
         bot,
         monthly_powers[5:10],
-        title="月間ランキング 6〜10位",
-        description=description,
+        title="",
+        description="",
         page_size=5,
+        show_header=False,
     )[0]
     return (
         LevelingLayoutView(
             build_text_container(
-                "# 月間ランキング発表\n先月のパワーランキングTOP10を発表します！",
+                "# ということで、今回のtop10は...\n\n"
+                f"{ranking_text or 'ランキングデータはありません。'}\n"
+                "# このようになりました！おめでとうございます！",
                 accent_color=AsteroidColor.SUCCESS,
             )
         ),
