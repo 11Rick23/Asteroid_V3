@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 import discord
 
 from app.common.constants import AsteroidColor
-from app.common.guild_scope import GuildScopedModal, GuildScopedView
-from app.common.utils import generate_timestamp
+from app.common.guild_scope import GuildScopedLayoutView, GuildScopedModal
 
 from .service import FreeCategoryService
 
@@ -25,33 +26,53 @@ class CreateChannelModal(GuildScopedModal, title="チャンネルを作成"):
             await interaction.followup.send(str(exc), ephemeral=True)
             return
 
-        embed = discord.Embed(
-            color=interaction.user.color,
-            title="新たなチャンネルが誕生しました…！",
-            description=(
-                f"{interaction.user.mention} が {new_channel.mention} を作成しました。"
-                f" \n作成日時 : {generate_timestamp()}"
-            ),
-        )
-        embed.set_footer(text="チャンネルを盛り上げよう！", icon_url=interaction.user.display_avatar.url)
         await new_channel.send(
-            content=f"{interaction.user.mention} のフリーチャンネルです。",
-            embed=embed,
+            view=CreatedChannelView(
+                interaction.user,
+                new_channel,
+                created_at=new_channel.created_at,
+            )
         )
         await interaction.followup.send(f"{new_channel.mention} を作成しました！", ephemeral=True)
 
 
-class CreateChannelButtonView(GuildScopedView):
-    def __init__(self, service: FreeCategoryService):
+class CreatedChannelView(GuildScopedLayoutView):
+    def __init__(
+        self,
+        creator: discord.User | discord.Member,
+        channel: discord.TextChannel,
+        *,
+        created_at: datetime,
+    ) -> None:
         super().__init__(timeout=None)
+        self.add_item(
+            discord.ui.Container(
+                discord.ui.Section(
+                    discord.ui.TextDisplay(
+                        "# 新たなチャンネルが誕生しました…！\n"
+                        f"{creator.mention} のフリーチャンネルです。\n"
+                        "チャンネルを盛り上げよう！\n"
+                        f"\n-# 作成日時 : {discord.utils.format_dt(created_at, style='F')}"
+                    ),
+                    accessory=discord.ui.Thumbnail(
+                        str(creator.display_avatar.url),
+                    ),
+                ),
+                accent_color=creator.color,
+            )
+        )
+
+
+class CreateChannelButton(discord.ui.Button["CreateChannelButtonView"]):
+    def __init__(self, service: FreeCategoryService):
+        super().__init__(
+            label="チャンネルを作成",
+            style=discord.ButtonStyle.success,
+            custom_id="fc_create_channel_button",
+        )
         self.service = service
 
-    @discord.ui.button(
-        label="チャンネルを作成",
-        style=discord.ButtonStyle.success,
-        custom_id="fc_create_channel_button",
-    )
-    async def callback(self, interaction: discord.Interaction, _: discord.ui.Button) -> None:
+    async def callback(self, interaction: discord.Interaction) -> None:
         if self.service.is_creation_on_cooldown(interaction.user.id):
             cooldown_hours = self.service.get_creation_cooldown_seconds() / 3600
             await interaction.response.send_message(
@@ -63,9 +84,13 @@ class CreateChannelButtonView(GuildScopedView):
         await interaction.response.send_modal(CreateChannelModal(self.service))
 
 
-def build_creation_embed() -> discord.Embed:
-    return discord.Embed(
-        title="フリーカテゴリー内に新しいフリーチャンネルの作成",
-        description="表示されるモーダルの指示に従って作成してください。",
-        color=AsteroidColor.INFO,
-    )
+class CreateChannelButtonView(GuildScopedLayoutView):
+    def __init__(self, service: FreeCategoryService):
+        super().__init__(timeout=None)
+        self.add_item(
+            discord.ui.Container(
+                discord.ui.TextDisplay("# 新しいフリーチャンネルの作成"),
+                discord.ui.ActionRow(CreateChannelButton(service)),
+                accent_color=AsteroidColor.INFO,
+            )
+        )

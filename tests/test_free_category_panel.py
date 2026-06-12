@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import cast
 
+import discord
 import pytest
 
 from app.core.bot import AsteroidBot
@@ -11,7 +13,10 @@ from app.features.free_category.panel import (
     FREE_CATEGORY_PANEL_ID,
     FreeCategoryPanel,
 )
-from app.features.free_category.views import CreateChannelButtonView
+from app.features.free_category.views import (
+    CreateChannelButtonView,
+    CreatedChannelView,
+)
 
 
 class FakePanelManager:
@@ -62,12 +67,56 @@ async def test_free_category_panel_registers_and_uses_common_manager() -> None:
 
 
 @pytest.mark.asyncio
-async def test_free_category_panel_renders_embed_and_persistent_view() -> None:
+async def test_free_category_panel_renders_components_v2_container_and_persistent_button() -> None:
     panel, _ = build_panel()
 
     content = await panel.render()
 
-    assert len(content.embeds) == 1
-    assert content.embeds[0].title == "フリーカテゴリー内に新しいフリーチャンネルの作成"
+    assert content.embeds == ()
     assert isinstance(content.view, CreateChannelButtonView)
     assert content.view.timeout is None
+    assert content.view.has_components_v2()
+
+    container = cast(discord.ui.Container, content.view.children[0])
+    text = cast(discord.ui.TextDisplay, container.children[0])
+    row = cast(discord.ui.ActionRow, container.children[1])
+    button = cast(discord.ui.Button, row.children[0])
+
+    assert container.accent_color is not None
+    assert text.content == "# 新しいフリーチャンネルの作成"
+    assert button.label == "チャンネルを作成"
+    assert button.custom_id == "fc_create_channel_button"
+
+
+def test_created_channel_view_renders_components_v2_container() -> None:
+    creator = cast(
+        discord.Member,
+        SimpleNamespace(
+            mention="<@100>",
+            display_name="テストユーザー",
+            display_avatar=SimpleNamespace(url="https://example.com/avatar.png"),
+            color=discord.Color.green(),
+        ),
+    )
+    channel = cast(discord.TextChannel, SimpleNamespace(mention="<#200>"))
+
+    view = CreatedChannelView(
+        creator,
+        channel,
+        created_at=datetime.fromtimestamp(1234567890, UTC),
+    )
+
+    assert view.timeout is None
+    assert view.has_components_v2()
+
+    container = cast(discord.ui.Container, view.children[0])
+    section = cast(discord.ui.Section, container.children[0])
+    text = cast(discord.ui.TextDisplay, section.children[0])
+    thumbnail = cast(discord.ui.Thumbnail, section.accessory)
+
+    assert container.accent_color == discord.Color.green()
+    assert "# 新たなチャンネルが誕生しました…！" in text.content
+    assert "作成日時 : <t:1234567890:F>" in text.content
+    assert thumbnail.media.url == "https://example.com/avatar.png"
+    assert "<@100> のフリーチャンネルです。" in text.content
+    assert "チャンネルを盛り上げよう！" in text.content

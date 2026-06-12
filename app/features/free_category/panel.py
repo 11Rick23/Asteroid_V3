@@ -4,7 +4,7 @@ from app.common.persistent_panels import PersistentPanelContent
 from app.core.bot import AsteroidBot
 
 from .service import get_free_category_service
-from .views import CreateChannelButtonView, build_creation_embed
+from .views import CreateChannelButtonView
 
 FREE_CATEGORY_PANEL_ID = "free_category"
 FREE_CATEGORY_OFFLINE_DESCRIPTION = (
@@ -32,6 +32,6 @@ class FreeCategoryPanel:
 
     async def render(self) -> PersistentPanelContent:
         return PersistentPanelContent(
-            embeds=(build_creation_embed(),),
+            embeds=(),
             view=CreateChannelButtonView(self.service),
         )
