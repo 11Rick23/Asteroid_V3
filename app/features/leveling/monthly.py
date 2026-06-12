@@ -51,17 +51,22 @@ def build_monthly_ranking_views(
     )
 
 
-async def run_monthly_ranking(bot: AsteroidBot) -> None:
+async def run_monthly_ranking(
+    bot: AsteroidBot,
+    *,
+    force: bool = False,
+    delete_data: bool = True,
+) -> int | None:
     if not bot.db.is_initialized():
-        return
+        return None
     now = datetime.now()
-    if now.day != 1 or now.hour != 0 or now.minute != 0:
-        return
+    if not force and (now.day != 1 or now.hour != 0 or now.minute != 0):
+        return None
     logger.info("月間ランキング集計を開始します。")
     guild = bot.get_guild(bot.config.discord.guild_id)
     if guild is None:
         logger.warning(f"月間ランキング集計先ギルドが見つかりませんでした: guild_id={bot.config.discord.guild_id}")
-        return
+        return None
     top1_role = guild.get_role(bot.config.leveling.top1_role_id)
     top10_role = guild.get_role(bot.config.leveling.top10_role_id)
     monthly_powers = await bot.db.monthly_powers.get_monthly_power_ranking(limit=10)
@@ -90,7 +95,12 @@ async def run_monthly_ranking(bot: AsteroidBot) -> None:
     if action_channel is not None and bot.is_operating_channel(action_channel):
         total = await bot.db.monthly_action_powers.sum_action_power()
         await action_channel.send(build_accumulated_action_power_message(total))
-    await bot.db.monthly_powers.truncate_table()
-    await bot.db.monthly_action_powers.truncate_table()
-    await bot.db.voice_xp_limits.reset_voice_power()
-    logger.info(f"月間ランキング集計が完了しました: guild_id={guild.id} ranked_count={len(monthly_powers)}")
+    if delete_data:
+        await bot.db.monthly_powers.truncate_table()
+        await bot.db.monthly_action_powers.truncate_table()
+        await bot.db.voice_xp_limits.reset_voice_power()
+    logger.info(
+        f"月間ランキング集計が完了しました: guild_id={guild.id} "
+        f"ranked_count={len(monthly_powers)} data_deleted={delete_data}"
+    )
+    return len(monthly_powers)
