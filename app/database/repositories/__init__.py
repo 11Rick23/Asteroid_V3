@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from .given_stars import GivenStars
 from .leveling import LevelingTransactions
+from .leveling_hotness import LevelingHotness
 from .monthly_action_powers import MonthlyActionPowers
 from .monthly_powers import MonthlyPowers
 from .role_panel import RolePanel
@@ -18,6 +19,7 @@ class DatabaseRepositories:
         self.user_roles = UserRoles(self)
         self.given_stars = GivenStars(self)
         self.leveling = LevelingTransactions(self)
+        self.leveling_hotness = LevelingHotness(self)
         self.starred_messages = StarredMessages(self)
         self.xp_boosts = XPBoosts(self)
         self.star_grades = StarGrades(self)

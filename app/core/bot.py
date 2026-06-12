@@ -72,6 +72,7 @@ class AsteroidBot(Bot):
             self.db.xp_boosts.create_table,
             self.db.star_grades.create_table,
             self.db.voice_xp_limits.create_table,
+            self.db.leveling_hotness.create_table,
             self.db.monthly_action_powers.create_table,
             self.db.monthly_powers.create_table,
             self.db.user_birthdays.create_table,
