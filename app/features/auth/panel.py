@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import discord
-
-from app.common.constants import AsteroidColor
 from app.common.persistent_panels import PersistentPanelContent
 from app.core.bot import AsteroidBot
 
@@ -31,12 +28,7 @@ class AuthPanel:
         self.bot.panels.unregister(AUTH_PANEL_ID)
 
     async def render(self) -> PersistentPanelContent:
-        embed = discord.Embed(
-            title="下のボタンを押して認証してください！",
-            description="下のボタンを押して認証を開始してください。",
-            color=AsteroidColor.DARK_GREEN,
-        )
         return PersistentPanelContent(
-            embeds=(embed,),
+            embeds=(),
             view=AuthButton(self.bot, timeout=None),
         )
