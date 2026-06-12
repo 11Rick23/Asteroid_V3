@@ -15,6 +15,7 @@ from app.features.leveling.build_send_message import build_power_ranking_pages
 logger = getLogger(__name__)
 
 power_group = app_commands.Group(name="power", description="月間ランキング系コマンド")
+RANKING_PAGE_SIZE = 5
 
 
 @power_group.command(name="top", description="現在のパワーランキングを表示します")
@@ -37,10 +38,11 @@ async def top(interaction: discord.Interaction) -> None:
             f"{AsteroidEmoji.ACTION_POWER}: アクションパワー\n"
             f"{AsteroidEmoji.TRANSPARENT}"
         ),
+        page_size=RANKING_PAGE_SIZE,
     )
-    paginator = LayoutPaginator(pages=pages, use_default_buttons=False, loop_pages=False, show_disabled=False)
+    paginator = LayoutPaginator(pages=pages, use_default_buttons=False, loop_pages=False, show_disabled=True)
     paginator.add_button(PaginatorButton("prev", label="<", style=discord.ButtonStyle.green))
-    paginator.add_button(PaginatorButton("page_indicator", style=discord.ButtonStyle.gray, disabled=True))
+    paginator.add_button(PaginatorButton("page_indicator", style=discord.ButtonStyle.gray))
     paginator.add_button(PaginatorButton("next", label=">", style=discord.ButtonStyle.green))
     await paginator.respond(interaction)
 

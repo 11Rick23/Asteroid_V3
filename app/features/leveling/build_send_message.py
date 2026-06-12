@@ -157,9 +157,10 @@ def build_shard_ranking_pages(
     *,
     title: str,
     description: str,
+    page_size: int = 10,
 ) -> list[discord.ui.Container]:
     pages: list[discord.ui.Container] = []
-    chunks = [star_grades[index : index + 10] for index in range(0, len(star_grades), 10)] or [[]]
+    chunks = [star_grades[index : index + page_size] for index in range(0, len(star_grades), page_size)] or [[]]
     for chunk in chunks:
         children: list[discord.ui.Item[GuildScopedLayoutView]] = [discord.ui.TextDisplay(f"# {title}\n{description}")]
         for star_grade in chunk:
@@ -213,9 +214,10 @@ def build_power_ranking_pages(
     *,
     title: str,
     description: str,
+    page_size: int = 10,
 ) -> list[discord.ui.Container]:
     pages: list[discord.ui.Container] = []
-    chunks = [monthly_powers[index : index + 10] for index in range(0, len(monthly_powers), 10)] or [[]]
+    chunks = [monthly_powers[index : index + page_size] for index in range(0, len(monthly_powers), page_size)] or [[]]
     for chunk in chunks:
         children: list[discord.ui.Item[GuildScopedLayoutView]] = [discord.ui.TextDisplay(f"# {title}\n{description}")]
         for monthly_power in chunk:
@@ -259,7 +261,7 @@ def build_hotness_ranking_container(
         user = bot.get_user(hotness.user_id)
         display_name = user.display_name if user else f"不明なメンバー [{hotness.user_id}]"
         content = (
-            f"### {format_ranking_position(ranking)}: {display_name}\n🔥 {humanize_number(hotness.hotness)}"
+            f"### {format_ranking_position(ranking)}: {display_name}\n🔥 合計: {humanize_number(hotness.hotness)}"
         )
         if len(children) > 1:
             children.append(discord.ui.Separator())

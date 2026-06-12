@@ -145,6 +145,27 @@ def test_build_power_ranking_page_separates_users_and_shows_each_avatar() -> Non
     assert page.accent_colour == AsteroidColor.PURPLE
 
 
+def test_build_power_ranking_pages_uses_requested_page_size() -> None:
+    now = datetime.now()
+    monthly_powers = [
+        MonthlyPowerRankingData(user_id, 100, 50, 25, now, now, ranking)
+        for ranking, user_id in enumerate(range(1, 7), start=1)
+    ]
+    bot = FakeBot({})
+
+    pages = build_power_ranking_pages(
+        cast(AsteroidBot, bot),
+        monthly_powers,
+        title="Power Ranking",
+        description="description",
+        page_size=5,
+    )
+
+    assert len(pages) == 2
+    assert "### 5位: 不明なメンバー [5]" in text_contents(pages[0])
+    assert "### 6位: 不明なメンバー [6]" in text_contents(pages[1])
+
+
 def test_build_shard_ranking_page_separates_users_and_shows_each_avatar() -> None:
     now = datetime.now()
     star_grades = [
@@ -178,6 +199,27 @@ def test_build_shard_ranking_page_separates_users_and_shows_each_avatar() -> Non
     ]
     assert "<:_:1128213560166723585> 3\n合計:" in content
     assert page.accent_colour == AsteroidColor.LIGHT_BLUE
+
+
+def test_build_shard_ranking_pages_uses_requested_page_size() -> None:
+    now = datetime.now()
+    star_grades = [
+        StarGradeRankingData(user_id, 1, 2, 3, 4, 5, 6, now, now, ranking)
+        for ranking, user_id in enumerate(range(1, 7), start=1)
+    ]
+    bot = FakeBot({})
+
+    pages = build_shard_ranking_pages(
+        cast(AsteroidBot, bot),
+        star_grades,
+        title="Shard Ranking",
+        description="description",
+        page_size=5,
+    )
+
+    assert len(pages) == 2
+    assert "### 5位: 不明なメンバー [5]" in text_contents(pages[0])
+    assert "### 6位: 不明なメンバー [6]" in text_contents(pages[1])
 
 
 def test_build_hotness_ranking_container_shows_top3_with_avatars() -> None:

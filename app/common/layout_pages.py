@@ -4,8 +4,42 @@ from collections.abc import Sequence
 
 import discord
 
-from app.common.guild_scope import GuildScopedLayoutView
+from app.common.guild_scope import GuildScopedLayoutView, GuildScopedModal
 from app.common.pages import PaginatorButton
+
+
+class _PageJumpModal(GuildScopedModal, title="ページ移動"):
+    def __init__(self, paginator_view: _LayoutPaginatorView) -> None:
+        super().__init__()
+        self.paginator_view = paginator_view
+        self.page_number = discord.ui.TextInput(
+            label="ページ番号",
+            placeholder=f"1〜{len(paginator_view.pages)}",
+            min_length=1,
+            max_length=len(str(len(paginator_view.pages))),
+        )
+        self.add_item(self.page_number)
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        value = self.page_number.value.strip()
+        if not value.isdecimal():
+            await interaction.response.send_message(
+                content="ページ番号を数字で入力してください。",
+                ephemeral=True,
+            )
+            return
+
+        page_number = int(value)
+        if not 1 <= page_number <= len(self.paginator_view.pages):
+            await interaction.response.send_message(
+                content=f"1〜{len(self.paginator_view.pages)}のページ番号を入力してください。",
+                ephemeral=True,
+            )
+            return
+
+        self.paginator_view.page_index = page_number - 1
+        self.paginator_view._build()
+        await interaction.response.edit_message(view=self.paginator_view)
 
 
 class _LayoutPaginatorView(GuildScopedLayoutView):
@@ -34,13 +68,18 @@ class _LayoutPaginatorView(GuildScopedLayoutView):
         controls: list[discord.ui.Button[_LayoutPaginatorView]] = []
         for button in self.buttons:
             if button.kind == "page_indicator":
-                controls.append(
-                    discord.ui.Button(
-                        label=self._indicator_label(),
-                        style=button.style,
-                        disabled=True,
-                    )
+                control = discord.ui.Button[_LayoutPaginatorView](
+                    label=self._indicator_label(),
+                    style=button.style,
+                    disabled=button.disabled,
                 )
+                if not button.disabled:
+
+                    async def indicator_callback(interaction: discord.Interaction) -> None:
+                        await interaction.response.send_modal(_PageJumpModal(self))
+
+                    control.callback = indicator_callback
+                controls.append(control)
                 continue
 
             label = button.label or button.kind
