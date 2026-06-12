@@ -38,21 +38,26 @@ async def category_autocomplete(interaction: discord.Interaction, current: str) 
 
 
 @category_group.command(name="add", description="ロールパネルカテゴリを追加します")
-@app_commands.rename(name="カテゴリ名", order="表示順")
-@app_commands.describe(name="追加するカテゴリ名", order="カテゴリの表示順。小さい値ほど先に表示されます")
+@app_commands.rename(name="カテゴリ名", description="説明文", order="表示順")
+@app_commands.describe(
+    name="追加するカテゴリ名",
+    description="パネルに表示するカテゴリの説明文",
+    order="カテゴリの表示順。小さい値ほど先に表示されます",
+)
 @admin_only
 async def category_add(
     interaction: discord.Interaction,
     name: app_commands.Range[str, 1, 100],
+    description: app_commands.Range[str, 1, 1000],
     order: app_commands.Range[int, 0] = 0,
 ) -> None:
     bot = get_bot(interaction)
-    category = await bot.db.role_panel.create_category(name, None, order)
+    category = await bot.db.role_panel.create_category(name, description, order)
     await refresh_panel_if_loaded(bot)
     logger.info(
         "ロールパネルカテゴリを追加しました: command=/rolepanel category add "
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "
-        f"category_id={category.category_id} name={name} order={order}"
+        f"category_id={category.category_id} name={name} description_length={len(description)} order={order}"
     )
     await interaction.response.send_message(
         embed=response_embed("カテゴリを追加しました", f"カテゴリ `{category.name}` を追加しました。")
@@ -60,10 +65,11 @@ async def category_add(
 
 
 @category_group.command(name="edit", description="ロールパネルカテゴリを編集します")
-@app_commands.rename(category="カテゴリ", name="カテゴリ名", order="表示順")
+@app_commands.rename(category="カテゴリ", name="カテゴリ名", description="説明文", order="表示順")
 @app_commands.describe(
     category="編集するカテゴリ",
     name="変更後のカテゴリ名",
+    description="パネルに表示する変更後の説明文",
     order="変更後の表示順。小さい値ほど先に表示されます",
 )
 @app_commands.autocomplete(category=category_autocomplete)
@@ -72,16 +78,22 @@ async def category_edit(
     interaction: discord.Interaction,
     category: int,
     name: app_commands.Range[str, 1, 100] | None = None,
+    description: app_commands.Range[str, 1, 1000] | None = None,
     order: app_commands.Range[int, 0] | None = None,
 ) -> None:
-    if name is None and order is None:
+    if name is None and description is None and order is None:
         await interaction.response.send_message(
             embed=response_embed("変更内容がありません", "変更内容を1つ以上指定してください。"),
             ephemeral=True,
         )
         return
     bot = get_bot(interaction)
-    updated = await bot.db.role_panel.update_category(category, name=name, display_order=order)
+    updated = await bot.db.role_panel.update_category(
+        category,
+        name=name,
+        description=description,
+        display_order=order,
+    )
     if updated is None:
         await interaction.response.send_message(
             embed=response_embed("カテゴリが見つかりません", "指定されたカテゴリが見つかりません。"),
@@ -92,7 +104,7 @@ async def category_edit(
     logger.info(
         "ロールパネルカテゴリを編集しました: command=/rolepanel category edit "
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "
-        f"category_id={category} name={name} order={order}"
+        f"category_id={category} name={name} description_updated={description is not None} order={order}"
     )
     await interaction.response.send_message(
         embed=response_embed("カテゴリを更新しました", f"カテゴリ `{updated.name}` を更新しました。")

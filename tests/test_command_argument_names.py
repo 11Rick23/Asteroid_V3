@@ -47,3 +47,15 @@ def test_public_command_argument_names_are_japanese() -> None:
     ]
 
     assert english_arguments == []
+
+
+def test_rolepanel_category_description_arguments() -> None:
+    commands = {command.qualified_name: command for command in concrete_commands(rolepanel_group)}
+
+    add_parameters = {parameter.name: parameter for parameter in commands["rolepanel category add"].parameters}
+    edit_parameters = {parameter.name: parameter for parameter in commands["rolepanel category edit"].parameters}
+
+    assert add_parameters["description"].display_name == "説明文"
+    assert add_parameters["description"].required is True
+    assert edit_parameters["description"].display_name == "説明文"
+    assert edit_parameters["description"].required is False

@@ -241,7 +241,7 @@ def test_build_role_sync_plan_uses_visible_sorted_role_limit() -> None:
     assert 10 not in {role.role_id for role in get_visible_category_roles(category, cast(discord.Guild, guild))}
 
 
-def test_build_panel_embed_shows_only_category_name_and_roles() -> None:
+def test_build_panel_embed_shows_category_description_instead_of_role_mentions() -> None:
     category = build_category(roles=[10, 20], requires_boost=True)
     category.description = "説明"
     service = RolePanelService(bot=cast(AsteroidBot, object()))
@@ -252,11 +252,18 @@ def test_build_panel_embed_shows_only_category_name_and_roles() -> None:
     assert field.name == "通知"
     assert "[ID:" not in field.name
     field_value = field.value or ""
-    assert "説明" not in field_value
-    assert "必要ロール" not in field_value
-    assert "<@&10>" in field_value
-    assert "<@&20>" in field_value
-    assert "<@&30>" not in field_value
+    assert field_value == "説明"
+    assert "<@&10>" not in field_value
+    assert "<@&20>" not in field_value
+
+
+def test_build_panel_embed_shows_fallback_when_description_is_missing() -> None:
+    category = build_category(roles=[10])
+    service = RolePanelService(bot=cast(AsteroidBot, object()))
+
+    embed = service.build_panel_embed([category])
+
+    assert embed.fields[0].value == "説明未設定"
 
 
 def test_build_panel_embed_limits_categories_to_discord_field_limit() -> None:
