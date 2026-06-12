@@ -91,6 +91,12 @@ async def render_components_v2_panel() -> PersistentPanelContent:
     return PersistentPanelContent(embeds=(), view=view)
 
 
+def get_layout_view_text(payload: dict[str, Any]) -> str:
+    view = cast(discord.ui.LayoutView, payload["view"])
+    container = cast(discord.ui.Container, view.children[0])
+    return cast(discord.ui.TextDisplay, container.children[0]).content
+
+
 @pytest.mark.asyncio
 async def test_initialize_reuses_latest_message_when_authored_by_bot() -> None:
     latest_message = FakeMessage(50, author_id=10)
@@ -147,7 +153,7 @@ async def test_initialize_clears_legacy_content_when_switching_to_components_v2(
 
 
 @pytest.mark.asyncio
-async def test_set_all_offline_updates_every_panel_and_removes_views() -> None:
+async def test_set_all_offline_updates_every_panel_with_components_v2() -> None:
     first_message = FakeMessage(50, author_id=10)
     second_message = FakeMessage(60, author_id=10)
     channels = {
@@ -166,15 +172,15 @@ async def test_set_all_offline_updates_every_panel_and_removes_views() -> None:
     expected_descriptions = ("ランキングは現在確認できません。", "ロールパネルは現在利用できません。")
     for message, expected_description in zip((first_message, second_message), expected_descriptions, strict=True):
         edit = message.edits[0]
-        embed = edit["embeds"][0]
-        assert embed.title == "BOT は現在オフラインです"
-        assert embed.description == expected_description
-        assert embed.fields[0].value == "メンテナンス"
-        assert embed.fields[1].value == "1時間"
-        assert embed.fields[2].value == "<@10>"
-        assert embed.fields[3].name == "最終更新日時"
-        assert all(field.inline for field in embed.fields)
-        assert edit["view"] is None
+        text = get_layout_view_text(edit)
+        assert edit["embeds"] == []
+        assert edit["attachments"] == []
+        assert "# BOT は現在オフラインです" in text
+        assert expected_description in text
+        assert "**理由**\nメンテナンス" in text
+        assert "**予定期間**\n1時間" in text
+        assert "**緊急連絡先**\n<@10>" in text
+        assert "**最終更新日時**" in text
 
 
 @pytest.mark.asyncio
@@ -189,8 +195,7 @@ async def test_refresh_does_not_overwrite_offline_display() -> None:
     assert await manager.refresh("auth") is False
 
     assert len(message.edits) == 2
-    assert message.edits[-1]["embeds"][0].title == "BOT は現在オフラインです"
-    assert message.edits[-1]["view"] is None
+    assert "# BOT は現在オフラインです" in get_layout_view_text(message.edits[-1])
 
 
 @pytest.mark.asyncio
@@ -204,7 +209,7 @@ async def test_initialize_does_not_overwrite_offline_display() -> None:
 
     assert await manager.initialize("auth") is False
     assert len(message.edits) == 1
-    assert message.edits[0]["embeds"][0].title == "BOT は現在オフラインです"
+    assert "# BOT は現在オフラインです" in get_layout_view_text(message.edits[0])
 
 
 @pytest.mark.asyncio
@@ -240,4 +245,4 @@ async def test_set_all_offline_continues_after_panel_failure() -> None:
     )
 
     assert results == {"missing": False, "rolepanel": True}
-    assert good_message.edits[0]["embeds"][0].title == "BOT は現在オフラインです"
+    assert "# BOT は現在オフラインです" in get_layout_view_text(good_message.edits[0])

@@ -10,7 +10,7 @@ from typing import Protocol
 import discord
 
 from app.common.discord_types import as_text_channel
-from app.common.offline import OfflineInfo, build_offline_embed, get_emergency_contact_mentions
+from app.common.offline import OfflineInfo, build_offline_view, get_emergency_contact_mentions
 
 logger = getLogger(__name__)
 
@@ -127,14 +127,13 @@ class PersistentPanelManager:
             for panel in self._panels.values():
                 try:
                     content = PersistentPanelContent(
-                        embeds=(
-                            build_offline_embed(
-                                info,
-                                panel.offline_description,
-                                contacts,
-                                updated_at=updated_at,
-                            ),
-                        )
+                        embeds=(),
+                        view=build_offline_view(
+                            info,
+                            panel.offline_description,
+                            contacts,
+                            updated_at=updated_at,
+                        ),
                     )
                     results[panel.panel_id] = await self._publish(
                         panel,

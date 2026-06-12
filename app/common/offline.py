@@ -53,3 +53,29 @@ def build_offline_embed(
     embed.add_field(name="緊急連絡先", value=contacts, inline=True)
     embed.add_field(name="最終更新日時", value=discord.utils.format_dt(updated_at, style="F"), inline=True)
     return embed
+
+
+def build_offline_view(
+    info: OfflineInfo,
+    description: str,
+    emergency_contact_mentions: Sequence[str],
+    *,
+    updated_at: datetime | None = None,
+) -> discord.ui.LayoutView:
+    contacts = "\n".join(emergency_contact_mentions)
+    updated_at = updated_at or datetime.now(UTC)
+    view = discord.ui.LayoutView(timeout=None)
+    view.add_item(
+        discord.ui.Container(
+            discord.ui.TextDisplay(
+                "# BOT は現在オフラインです\n"
+                f"{description}\n\n"
+                f"**理由**\n{info.reason}\n\n"
+                f"**予定期間**\n{info.planned_period}\n\n"
+                f"**緊急連絡先**\n{contacts}\n\n"
+                f"**最終更新日時**\n{discord.utils.format_dt(updated_at, style='F')}"
+            ),
+            accent_color=AsteroidColor.WARNING,
+        )
+    )
+    return view
