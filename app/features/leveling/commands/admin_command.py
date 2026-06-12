@@ -176,13 +176,10 @@ async def add_power(
         if power is None:
             power = await bot.db.monthly_powers.create_monthly_power(user.id)
     else:
-        power = await bot.db.monthly_powers.get_monthly_power(user.id)
-        if power is None:
-            power = await bot.db.monthly_powers.create_monthly_power(user.id)
         power = await (
-            bot.db.monthly_powers.add_text_power(power, amount)
+            bot.db.leveling.add_text_power(user.id, amount)
             if target_value == "text"
-            else bot.db.monthly_powers.add_voice_power(power, amount)
+            else bot.db.leveling.add_voice_power(user.id, amount)
         )
     logger.info(
         "パワーを加算しました: command=/leveling power add "

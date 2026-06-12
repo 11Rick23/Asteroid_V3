@@ -78,6 +78,27 @@ async def test_record_gain_adds_timestamped_event_and_commits() -> None:
 
 
 @pytest.mark.asyncio
+async def test_record_gain_lock_uses_existing_session_without_committing() -> None:
+    session = FakeSession()
+    repository = build_repository(session)
+
+    await repository.record_gain_lock(
+        cast(Any, session),
+        123,
+        45,
+        earned_at=datetime(2026, 6, 12, 3, 0, tzinfo=UTC),
+    )
+
+    assert session.commit_count == 0
+    assert len(session.added) == 1
+    event = session.added[0]
+    assert isinstance(event, LevelingHotnessEventModel)
+    assert event.user_id == 123
+    assert event.amount == 45
+    assert event.earned_at == datetime(2026, 6, 12, 3, 0)
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(("user_id", "amount"), [(0, 1), (1, 0), (-1, 1), (1, -1)])
 async def test_record_gain_rejects_non_positive_values(user_id: int, amount: int) -> None:
     session = FakeSession()

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.database.repositories.monthly_action_powers import MonthlyActionPowerData
+from app.database.repositories.monthly_powers import MonthlyPowerData
 from app.database.repositories.star_grades import StarGradeData
 from app.database.repositories.voice_xp_limits import VoiceXPLimitData
 
@@ -39,6 +40,30 @@ class LevelingTransactions:
                 session, user_id
             ) or await self.db.monthly_action_powers.create_monthly_action_power_lock(session, user_id)
             updated = await self.db.monthly_action_powers.add_action_power_lock(session, action_power, amount)
+            if amount > 0:
+                await self.db.leveling_hotness.record_gain_lock(session, user_id, amount)
+            await session.commit()
+            return updated
+
+    async def add_text_power(self, user_id: int, amount: int) -> MonthlyPowerData:
+        async with self.db.session() as session:
+            monthly_power = await self.db.monthly_powers.get_monthly_power_lock(
+                session, user_id
+            ) or await self.db.monthly_powers.create_monthly_power_lock(session, user_id)
+            updated = await self.db.monthly_powers.add_text_power_lock(session, monthly_power, amount)
+            if amount > 0:
+                await self.db.leveling_hotness.record_gain_lock(session, user_id, amount)
+            await session.commit()
+            return updated
+
+    async def add_voice_power(self, user_id: int, amount: int) -> MonthlyPowerData:
+        async with self.db.session() as session:
+            monthly_power = await self.db.monthly_powers.get_monthly_power_lock(
+                session, user_id
+            ) or await self.db.monthly_powers.create_monthly_power_lock(session, user_id)
+            updated = await self.db.monthly_powers.add_voice_power_lock(session, monthly_power, amount)
+            if amount > 0:
+                await self.db.leveling_hotness.record_gain_lock(session, user_id, amount)
             await session.commit()
             return updated
 
@@ -62,6 +87,12 @@ class LevelingTransactions:
                 session, user_id
             ) or await self.db.monthly_powers.create_monthly_power_lock(session, user_id)
             await self.db.monthly_powers.add_text_power_lock(session, monthly_power, power_amount)
+            if power_amount > 0:
+                await self.db.leveling_hotness.record_gain_lock(
+                    session,
+                    user_id,
+                    power_amount,
+                )
 
             star_grade = await self.db.star_grades.get_star_grade_lock(
                 session, user_id
@@ -152,6 +183,11 @@ class LevelingTransactions:
                 await self.db.monthly_powers.add_voice_power_lock(
                     session,
                     monthly_power,
+                    voice_xp_limit.voice_power,
+                )
+                await self.db.leveling_hotness.record_gain_lock(
+                    session,
+                    user_id,
                     voice_xp_limit.voice_power,
                 )
 

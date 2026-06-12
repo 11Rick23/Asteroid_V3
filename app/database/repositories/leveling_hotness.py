@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import delete, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models.leveling_hotness import LevelingHotnessEventModel
 from app.database.table_utils import model_table
@@ -58,28 +59,41 @@ class LevelingHotness:
         *,
         earned_at: datetime | None = None,
     ) -> None:
+        async with self.db.session() as session:
+            await self.record_gain_lock(
+                session,
+                user_id,
+                amount,
+                earned_at=earned_at,
+            )
+            await session.commit()
+
+    async def record_gain_lock(
+        self,
+        session: AsyncSession,
+        user_id: int,
+        amount: int,
+        *,
+        earned_at: datetime | None = None,
+    ) -> None:
         if user_id <= 0:
             raise ValueError("user_id must be positive")
         if amount <= 0:
             raise ValueError("amount must be positive")
 
-        async with self.db.session() as session:
-            session.add(
-                LevelingHotnessEventModel(
-                    user_id=user_id,
-                    amount=amount,
-                    earned_at=as_utc_naive(earned_at) if earned_at else utc_now_naive(),
-                )
+        session.add(
+            LevelingHotnessEventModel(
+                user_id=user_id,
+                amount=amount,
+                earned_at=as_utc_naive(earned_at) if earned_at else utc_now_naive(),
             )
-            await session.commit()
+        )
 
     async def delete_expired(self, *, now: datetime | None = None) -> int:
         cutoff = (as_utc_naive(now) if now else utc_now_naive()) - HOTNESS_WINDOW
         async with self.db.session() as session:
             result = await session.execute(
-                delete(LevelingHotnessEventModel).where(
-                    LevelingHotnessEventModel.earned_at < cutoff
-                )
+                delete(LevelingHotnessEventModel).where(LevelingHotnessEventModel.earned_at < cutoff)
             )
             await session.commit()
             return int(result.rowcount or 0)

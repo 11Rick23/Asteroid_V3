@@ -30,13 +30,13 @@ class LevelingSystemCore(commands.Cog):
         self.message_handler = LevelingMessageHandler(bot)
         self.ranking_board = RankingBoardPanel(bot)
         self.voice_xp_claim.start()
-        self.delete_expired_xp_boosts.start()
+        self.delete_expired_leveling_data.start()
         self.update_ranking_board.start()
         self.monthly_ranking.start()
 
     async def cog_unload(self) -> None:
         self.voice_xp_claim.cancel()
-        self.delete_expired_xp_boosts.cancel()
+        self.delete_expired_leveling_data.cancel()
         self.update_ranking_board.cancel()
         self.monthly_ranking.cancel()
         self.ranking_board.unregister()
@@ -134,9 +134,10 @@ class LevelingSystemCore(commands.Cog):
         return
 
     @tasks.loop(minutes=1)
-    async def delete_expired_xp_boosts(self) -> None:
+    async def delete_expired_leveling_data(self) -> None:
         if self.bot.db.is_initialized():
             await self.bot.db.xp_boosts.delete_expired_xp_boosts()
+            await self.bot.db.leveling_hotness.delete_expired()
 
     @tasks.loop(minutes=1)
     async def update_ranking_board(self) -> None:
@@ -149,7 +150,7 @@ class LevelingSystemCore(commands.Cog):
         await self.bot.wait_until_ready()
         await self.ranking_board.initialize()
 
-    @delete_expired_xp_boosts.before_loop
+    @delete_expired_leveling_data.before_loop
     @monthly_ranking.before_loop
     async def before_task(self) -> None:
         await self.bot.wait_until_ready()
