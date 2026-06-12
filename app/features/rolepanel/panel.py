@@ -34,8 +34,7 @@ class RolePanel:
 
     async def render(self) -> PersistentPanelContent:
         categories = await self.service.get_categories()
-        guild = self.bot.get_guild(self.bot.config.discord.guild_id)
         return PersistentPanelContent(
-            embeds=(self.service.build_panel_embed(categories, guild),),
+            embeds=(),
             view=RolePanelView(self.service, categories),
         )

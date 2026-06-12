@@ -46,6 +46,14 @@ class GuildScopedView(discord.ui.View):
         return False
 
 
+class GuildScopedLayoutView(discord.ui.LayoutView):
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if is_operating_guild_id(interaction.client, interaction.guild_id):
+            return True
+        await send_outside_operating_guild_message(interaction)
+        return False
+
+
 class GuildScopedModal(discord.ui.Modal):
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if is_operating_guild_id(interaction.client, interaction.guild_id):

@@ -71,13 +71,12 @@ async def test_role_panel_registers_and_uses_common_manager() -> None:
 
 
 @pytest.mark.asyncio
-async def test_role_panel_renders_embed_and_persistent_view() -> None:
+async def test_role_panel_renders_components_v2_persistent_view() -> None:
     panel, _ = build_panel()
 
     content = await panel.render()
 
-    assert len(content.embeds) == 1
-    assert content.embeds[0].title == "ロールパネル"
-    assert content.embeds[0].fields[0].name == "カテゴリ未設定"
+    assert content.embeds == ()
     assert isinstance(content.view, RolePanelView)
+    assert content.view.has_components_v2()
     assert content.view.timeout is None

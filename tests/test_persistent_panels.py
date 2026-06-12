@@ -85,6 +85,12 @@ async def render_panel() -> PersistentPanelContent:
     )
 
 
+async def render_components_v2_panel() -> PersistentPanelContent:
+    view = discord.ui.LayoutView(timeout=None)
+    view.add_item(discord.ui.TextDisplay("# Components V2"))
+    return PersistentPanelContent(embeds=(), view=view)
+
+
 @pytest.mark.asyncio
 async def test_initialize_reuses_latest_message_when_authored_by_bot() -> None:
     latest_message = FakeMessage(50, author_id=10)
@@ -110,6 +116,34 @@ async def test_initialize_sends_new_message_when_latest_message_is_not_authored_
 
     assert manager.get_message("rolepanel") is channel.sent_messages[0]
     assert channel.sent_payloads[0]["embeds"][0].title == "通常表示"
+
+
+@pytest.mark.asyncio
+async def test_initialize_sends_components_v2_panel_without_embeds() -> None:
+    channel = FakeChannel(20, bot_user_id=10, history_messages=[])
+    manager = PersistentPanelManager(cast(PersistentPanelBot, FakeBot({20: channel})))
+    manager.register("rolepanel", 20, render_components_v2_panel, offline_description="利用できません。")
+
+    assert await manager.initialize("rolepanel") is True
+
+    assert len(channel.sent_payloads) == 1
+    assert "embeds" not in channel.sent_payloads[0]
+    assert isinstance(channel.sent_payloads[0]["view"], discord.ui.LayoutView)
+
+
+@pytest.mark.asyncio
+async def test_initialize_clears_legacy_content_when_switching_to_components_v2() -> None:
+    latest_message = FakeMessage(50, author_id=10)
+    channel = FakeChannel(20, bot_user_id=10, history_messages=[latest_message])
+    manager = PersistentPanelManager(cast(PersistentPanelBot, FakeBot({20: channel})))
+    manager.register("rolepanel", 20, render_components_v2_panel, offline_description="利用できません。")
+
+    assert await manager.initialize("rolepanel") is True
+
+    assert latest_message.edits[0]["content"] is None
+    assert latest_message.edits[0]["embeds"] == []
+    assert latest_message.edits[0]["attachments"] == []
+    assert isinstance(latest_message.edits[0]["view"], discord.ui.LayoutView)
 
 
 @pytest.mark.asyncio

@@ -18,7 +18,7 @@ logger = getLogger(__name__)
 @dataclass(frozen=True, slots=True)
 class PersistentPanelContent:
     embeds: tuple[discord.Embed, ...]
-    view: discord.ui.View | None = None
+    view: discord.ui.View | discord.ui.LayoutView | None = None
 
 
 PanelRenderer = Callable[[], Awaitable[PersistentPanelContent]]
@@ -171,7 +171,9 @@ class PersistentPanelManager:
 
         if panel.message is None:
             try:
-                if content.view is None:
+                if isinstance(content.view, discord.ui.LayoutView):
+                    message = await channel.send(view=content.view)
+                elif content.view is None:
                     message = await channel.send(embeds=list(content.embeds))
                 else:
                     message = await channel.send(embeds=list(content.embeds), view=content.view)
@@ -189,7 +191,10 @@ class PersistentPanelManager:
             return True
 
         try:
-            await panel.message.edit(content=None, embeds=list(content.embeds), view=content.view)
+            if isinstance(content.view, discord.ui.LayoutView):
+                await panel.message.edit(content=None, embeds=[], attachments=[], view=content.view)
+            else:
+                await panel.message.edit(content=None, embeds=list(content.embeds), view=content.view)
         except discord.NotFound:
             logger.warning(
                 f"常駐パネルメッセージが見つからなかったため再作成します: "
@@ -235,8 +240,7 @@ class PersistentPanelManager:
             return None
         if not self.bot.is_operating_channel(channel):
             logger.warning(
-                f"常駐パネルの送信先が稼働ギルド外です: "
-                f"panel_id={panel.panel_id} channel_id={panel.channel_id}"
+                f"常駐パネルの送信先が稼働ギルド外です: panel_id={panel.panel_id} channel_id={panel.channel_id}"
             )
             return None
         return channel
