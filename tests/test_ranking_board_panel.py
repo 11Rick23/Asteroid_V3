@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any, cast
 
+import discord
 import pytest
 
 from app.core.bot import AsteroidBot
@@ -86,7 +87,16 @@ async def test_ranking_board_panel_renders_empty_rankings() -> None:
 
     content = await panel.render()
 
-    assert [embed.title for embed in content.embeds] == ["恒常ランキング", "月間ランキング"]
-    assert content.view is None
+    assert content.embeds == ()
+    assert isinstance(content.view, discord.ui.LayoutView)
+    assert content.view.has_components_v2()
+    assert len(content.view.children) == 2
+    texts = [
+        child.content
+        for child in content.view.walk_children()
+        if isinstance(child, discord.ui.TextDisplay)
+    ]
+    assert any("# 恒常ランキング" in text for text in texts)
+    assert any("# 月間ランキング" in text for text in texts)
     assert monthly_powers.limits == [10]
     assert star_grades.limits == [10]

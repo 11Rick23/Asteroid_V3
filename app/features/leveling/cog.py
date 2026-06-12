@@ -9,7 +9,6 @@ import discord
 from discord.ext import commands, tasks
 
 from app.common.command_groups import register_setup_command
-from app.common.constants import AsteroidColor
 from app.core.bot import AsteroidBot
 from app.features.leveling.commands.admin_command import register_leveling_admin_commands
 from app.features.leveling.commands.command import register_leveling_commands
@@ -117,18 +116,15 @@ class LevelingSystemCore(commands.Cog):
 
     async def voice_limit_reached_send(self, channel: discord.VoiceChannel, member: discord.Member) -> None:
         await channel.send(
-            embeds=[
-                discord.Embed(
-                    title="VC経験値獲得上限到達！",
-                    description=(
-                        f"**{member.mention}さんはVC経験値獲得上限に到達しました！\n"
-                        "VC経験値を更に獲得するには`経験値を獲得する`ボタンを押すか、"
-                        "`/claim_voice_xp` コマンドを実行してください！**"
-                    ),
-                    color=AsteroidColor.INFO,
-                )
-            ],
-            view=ClaimVoiceXP(self.bot),
+            view=ClaimVoiceXP(
+                self.bot,
+                title="VC経験値獲得上限到達！",
+                description=(
+                    f"**{member.mention}さんはVC経験値獲得上限に到達しました！\n"
+                    "VC経験値を更に獲得するには`経験値を獲得する`ボタンを押すか、"
+                    "`/claim_voice_xp` コマンドを実行してください！**"
+                ),
+            ),
         )
         logger.debug(
             f"VC経験値上限通知を送信しました: guild_id={channel.guild.id} channel_id={channel.id} user_id={member.id}"

@@ -10,7 +10,7 @@ from app.common.permissions import ADMINISTRATOR_PERMISSIONS, admin_only
 from app.common.utils import humanize_number
 from app.core.bot import AsteroidBot
 from app.features.leveling.action_power import build_accumulated_action_power_message
-from app.features.leveling.build_send_message import build_power_embed, build_star_grade_embed
+from app.features.leveling.build_send_message import build_power_view, build_star_grade_view
 from app.features.leveling.manage_reward_role import sync_grade_prestige_role
 
 logger = getLogger(__name__)
@@ -102,8 +102,15 @@ async def add_shard(
     else:
         star_grade, grade_up_amount, prestige_up_amount = await bot.db.star_grades.add_bonus_shard(star_grade, amount)
     await interaction.response.send_message(
-        content=f"{user.mention}に`{humanize_number(amount)}`{shard_type_value}シャードを付与しました\n{grade_up_amount}回グレードアップしました、{prestige_up_amount}回プレステージしました",
-        embed=build_star_grade_embed(user, star_grade),
+        view=build_star_grade_view(
+            user,
+            star_grade,
+            notice=(
+                f"{user.mention}に`{humanize_number(amount)}`{shard_type_value}シャードを付与しました\n"
+                f"{grade_up_amount}回グレードアップしました、"
+                f"{prestige_up_amount}回プレステージしました"
+            ),
+        )
     )
     await sync_grade_prestige_role(bot, user, star_grade)
     logger.info(
@@ -136,8 +143,11 @@ async def remove_shard(
     else:
         star_grade, _, _ = await bot.db.star_grades.remove_bonus_shard(star_grade, amount)
     await interaction.response.send_message(
-        content=f"{user.mention}から`{humanize_number(amount)}`{shard_type_value}シャードを減らしました",
-        embed=build_star_grade_embed(user, star_grade),
+        view=build_star_grade_view(
+            user,
+            star_grade,
+            notice=f"{user.mention}から`{humanize_number(amount)}`{shard_type_value}シャードを減らしました",
+        )
     )
     await sync_grade_prestige_role(bot, user, star_grade)
     logger.info(
@@ -179,7 +189,7 @@ async def add_power(
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "
         f"target_id={user.id} power_type={target_value} amount={amount}"
     )
-    await interaction.response.send_message(embed=build_power_embed(user, power))
+    await interaction.response.send_message(view=build_power_view(user, power))
 
 
 @admin_power_group.command(name="remove", description="ユーザーからパワーを減らします")
@@ -213,7 +223,7 @@ async def remove_power(
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "
         f"target_id={user.id} power_type={target_value} amount={amount}"
     )
-    await interaction.response.send_message(embed=build_power_embed(user, power))
+    await interaction.response.send_message(view=build_power_view(user, power))
 
 
 @admin_power_group.command(name="reset_ranking", description="パワーランキングを更新してリセットします")

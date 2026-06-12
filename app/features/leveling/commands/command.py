@@ -12,7 +12,7 @@ from app.common.command_groups import get_bot, register_command, register_setup_
 from app.common.discord_types import as_messageable
 from app.common.permissions import admin_only
 from app.core.bot import AsteroidBot
-from app.features.leveling.build_send_message import build_rank_embed, send_prestige_announce
+from app.features.leveling.build_send_message import build_rank_view, send_prestige_announce
 from app.features.leveling.manage_reward_role import sync_grade_prestige_role
 from app.features.leveling.service import (
     apply_voice_xp_claim_side_effects,
@@ -77,7 +77,7 @@ async def rank(interaction: discord.Interaction, user: discord.User | None = Non
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
         f"user_id={interaction.user.id} target_id={target_user.id}"
     )
-    await interaction.response.send_message(embed=build_rank_embed(target_user, monthly_power, star_grade))
+    await interaction.response.send_message(view=build_rank_view(target_user, monthly_power, star_grade))
 
 
 @app_commands.command(name="transfer_mee6", description="MEE6から移行する")
