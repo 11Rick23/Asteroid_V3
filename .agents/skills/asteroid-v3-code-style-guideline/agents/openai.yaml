@@ -1,0 +1,4 @@
+interface:
+  display_name: "Asteroid V3 Code Style"
+  short_description: "Asteroid V3 Python typing and Ruff rules"
+  default_prompt: "Use $asteroid-v3-code-style-guideline to fix Asteroid_V3 Ruff, Pyright, or typing issues."
