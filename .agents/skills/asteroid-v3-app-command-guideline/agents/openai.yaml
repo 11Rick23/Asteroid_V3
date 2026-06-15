@@ -1,0 +1,4 @@
+interface:
+  display_name: "Asteroid V3 App Commands"
+  short_description: "Asteroid V3 command and UI rules"
+  default_prompt: "Use $asteroid-v3-app-command-guideline when changing Asteroid_V3 slash commands or Discord UI."
