@@ -44,6 +44,7 @@ skill instead.
 - Prefer updating an existing focused skill over adding an overlapping one.
 - Update `asteroid-v3-skill-maintenance` whenever the maintenance workflow changes.
 - Update this README whenever a skill is added, renamed, removed, or materially changes responsibility.
+- Update the project `README.md` whenever shared AI docs or skills change the team-facing setup, directory structure, or documented workflow.
 - Preserve compatibility skills when practical instead of deleting old names immediately.
 - Keep each `SKILL.md` concise enough to load directly. Move large examples or reference tables into one-level `references/` files only when needed.
 - Make each `description` trigger on its own; do not rely on another skill being loaded first.

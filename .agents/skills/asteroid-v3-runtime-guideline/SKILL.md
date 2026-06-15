@@ -12,6 +12,7 @@ Use this skill for local commands and tooling changes. Prefer the repo task runn
 - Use `uv` for dependency management and Python command execution.
 - Use `mise` as the task runner when available.
 - Keep task definitions in `mise.toml` aligned with `pyproject.toml` tooling.
+- Keep `README.md` aligned when setup, startup, dependency, Docker, migration, or verification commands change.
 
 ## Common Commands
 

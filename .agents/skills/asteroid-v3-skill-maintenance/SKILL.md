@@ -12,17 +12,19 @@ Use this skill for Asteroid_V3 AI documentation and repository-scoped skill main
 - Shared skills live in `.agents/skills`.
 - `AGENTS.md` is the always-loaded project instruction entry point.
 - `.agents/README.md` is the team-facing maintenance and skill map document.
+- `README.md` is the user-facing project overview; keep it current when AI docs change documented setup, structure, or workflow.
 - Specialist skills own implementation guidance for code, commands, DB, logs, tests, structure, and runtime.
 - Compatibility skills may exist, but they should point to the current owner instead of duplicating rules.
 
 ## Workflow
 
 1. Inspect the current files before editing.
-   - Read `AGENTS.md`, `.agents/README.md`, and affected `SKILL.md` files.
+   - Read `AGENTS.md`, `.agents/README.md`, `README.md`, and affected `SKILL.md` files.
    - Use `rg` to find old skill names, duplicated responsibilities, and stale prompts.
 2. Decide ownership.
    - Put always-on project rules in `AGENTS.md`.
    - Put team maintenance rules and the skill map in `.agents/README.md`.
+   - Put user-facing setup, structure, feature, and workflow documentation in `README.md`.
    - Put task execution procedures in the specialist skill that owns the topic.
    - Keep compatibility entries thin.
 3. Edit narrowly.
@@ -43,5 +45,6 @@ Use this skill for Asteroid_V3 AI documentation and repository-scoped skill main
 - Run `quick_validate.py` against every changed skill directory when available.
 - If `quick_validate.py` fails with `ModuleNotFoundError: No module named 'yaml'`, use a temporary `yaml.py` shim backed by `ruamel.yaml` and run it through `uv run python`.
 - Check each changed `agents/openai.yaml` still contains the corresponding `$skill-name`.
+- Confirm whether `README.md` needed an update; if not, report that it was checked and left unchanged.
 - Use `git status --short` to confirm only intended repository files changed.
 - If using `plugin-eval`, compare before and after only for the changed skill and keep fixes narrow.

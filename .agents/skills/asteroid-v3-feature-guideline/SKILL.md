@@ -15,9 +15,10 @@ When adding a feature:
 2. Add a `FeatureFlags` boolean for enable/disable behavior.
 3. Add the extension to alphabetized `FEATURE_EXTENSION_MAP` in `app/core/extensions.py`.
 4. Add `async setup(bot: AsteroidBot) -> None` in the extension.
-5. Test flag loading, extension selection, command registration, and core behavior.
+5. Update `README.md` when the feature list, setup notes, or user-facing capability summary changes.
+6. Test flag loading, extension selection, command registration, and core behavior.
 
-Keep `config.example.yaml` aligned when new user-facing config is required.
+Keep `config.example.yaml` and `README.md` aligned when new user-facing config is required.
 
 ## Operating Guild Scope
 
