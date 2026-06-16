@@ -149,3 +149,4 @@ uv run alembic upgrade head
 ```
 
 Bot 起動時の既存のテーブル作成処理と Alembic は導入直後は併存できますが、スキーマ変更は Alembic に寄せて管理してください。
+Bot 起動時には DB の Alembic revision を確認します。未適用または古い revision の DB では起動を停止するため、起動前に `stamp head` または `upgrade head` を実行してください。
