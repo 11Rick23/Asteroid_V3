@@ -150,3 +150,21 @@ uv run alembic upgrade head
 
 Bot 起動時の既存のテーブル作成処理と Alembic は導入直後は併存できますが、スキーマ変更は Alembic に寄せて管理してください。
 Bot 起動時には DB の Alembic revision を確認します。未適用または古い revision の DB では起動を停止するため、起動前に `stamp head` または `upgrade head` を実行してください。
+
+Docker で運用する場合も、Bot 起動とは別にマイグレーションを明示的に実行します。Docker image には `alembic.ini` と `app/database/migrations/` が含まれている必要があります。
+
+```bash
+docker run --rm \
+  -v /path/to/config.yaml:/app/config.yaml:ro \
+  asteroid-v3 \
+  alembic upgrade head
+```
+
+マイグレーション成功後に Bot を起動します。
+
+```bash
+docker run -d \
+  -v /path/to/config.yaml:/app/config.yaml:ro \
+  --name asteroid-v3 \
+  asteroid-v3
+```
