@@ -1,8 +1,8 @@
 """init
 
-Revision ID: 3bc608c927a8
+Revision ID: 273b6467e5ff
 Revises:
-Create Date: 2026-06-16 17:14:02.595379
+Create Date: 2026-06-16 20:35:13.360428
 
 """
 
@@ -13,7 +13,7 @@ from alembic import op
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
-revision: str = "3bc608c927a8"
+revision: str = "273b6467e5ff"
 down_revision: str | Sequence[str] | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -26,16 +26,16 @@ def upgrade() -> None:
         "given_stars",
         sa.Column("user_id", mysql.BIGINT(unsigned=True), nullable=False),
         sa.Column("given_star_amount", mysql.INTEGER(unsigned=True), nullable=False),
-        sa.Column("created_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
+        sa.Column("created_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
         sa.PrimaryKeyConstraint("user_id"),
     )
     op.create_table(
         "monthly_action_powers",
         sa.Column("user_id", mysql.BIGINT(unsigned=True), nullable=False),
         sa.Column("action_power", mysql.INTEGER(unsigned=True), nullable=False),
-        sa.Column("created_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
+        sa.Column("created_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
         sa.PrimaryKeyConstraint("user_id"),
     )
     op.create_table(
@@ -43,8 +43,8 @@ def upgrade() -> None:
         sa.Column("user_id", mysql.BIGINT(unsigned=True), nullable=False),
         sa.Column("text_power", mysql.INTEGER(unsigned=True), nullable=False),
         sa.Column("voice_power", mysql.INTEGER(unsigned=True), nullable=False),
-        sa.Column("created_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
+        sa.Column("created_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
         sa.PrimaryKeyConstraint("user_id"),
     )
     op.create_table(
@@ -54,8 +54,8 @@ def upgrade() -> None:
         sa.Column("description", sa.String(length=1000), nullable=True),
         sa.Column("display_order", mysql.INTEGER(unsigned=True), nullable=False),
         sa.Column("requires_boost", sa.Boolean(), nullable=False),
-        sa.Column("created_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
+        sa.Column("created_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
         sa.PrimaryKeyConstraint("category_id"),
     )
     op.create_table(
@@ -67,8 +67,8 @@ def upgrade() -> None:
         sa.Column("text_shard", mysql.INTEGER(unsigned=True), nullable=False),
         sa.Column("voice_shard", mysql.INTEGER(unsigned=True), nullable=False),
         sa.Column("bonus_shard", mysql.INTEGER(unsigned=True), nullable=False),
-        sa.Column("created_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
+        sa.Column("created_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
         sa.PrimaryKeyConstraint("user_id"),
     )
     op.create_table(
@@ -78,24 +78,24 @@ def upgrade() -> None:
         sa.Column("star_amount", mysql.INTEGER(unsigned=True), nullable=False),
         sa.Column("user_id", mysql.BIGINT(unsigned=True), nullable=False),
         sa.Column("starred_message_channel_id", mysql.BIGINT(unsigned=True), nullable=False),
-        sa.Column("created_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
+        sa.Column("created_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
         sa.PrimaryKeyConstraint("starred_message_id"),
     )
     op.create_table(
         "user_birthdays",
         sa.Column("user_id", mysql.BIGINT(unsigned=True), nullable=False),
         sa.Column("date", sa.Date(), nullable=False),
-        sa.Column("created_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
+        sa.Column("created_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
         sa.PrimaryKeyConstraint("user_id"),
     )
     op.create_table(
         "user_roles",
         sa.Column("user_id", mysql.BIGINT(unsigned=True), nullable=False),
         sa.Column("role_id", mysql.BIGINT(unsigned=True), nullable=False),
-        sa.Column("created_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
+        sa.Column("created_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
         sa.PrimaryKeyConstraint("user_id", "role_id"),
     )
     op.create_table(
@@ -106,8 +106,8 @@ def upgrade() -> None:
         sa.Column("voice_power", mysql.INTEGER(unsigned=True), nullable=False),
         sa.Column("half_notify", sa.Boolean(), nullable=False),
         sa.Column("full_notify", sa.Boolean(), nullable=False),
-        sa.Column("created_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
+        sa.Column("created_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
         sa.PrimaryKeyConstraint("user_id"),
     )
     op.create_table(
@@ -116,8 +116,8 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=100), nullable=False),
         sa.Column("boost_amount", mysql.INTEGER(unsigned=True), nullable=False),
         sa.Column("boost_end_time", sa.DateTime(), nullable=True),
-        sa.Column("created_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
+        sa.Column("created_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
         sa.PrimaryKeyConstraint("role_id"),
     )
     op.create_table(
@@ -125,8 +125,8 @@ def upgrade() -> None:
         sa.Column("category_id", mysql.INTEGER(unsigned=True), nullable=False),
         sa.Column("role_id", mysql.BIGINT(unsigned=True), nullable=False),
         sa.Column("display_order", mysql.INTEGER(unsigned=True), nullable=False),
-        sa.Column("created_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
+        sa.Column("created_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
         sa.ForeignKeyConstraint(["category_id"], ["role_panel_categories.category_id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("category_id", "role_id"),
     )

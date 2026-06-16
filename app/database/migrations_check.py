@@ -16,6 +16,12 @@ def get_alembic_heads(config_path: str | Path = "alembic.ini") -> tuple[str, ...
 
 
 def validate_database_revision(current_heads: tuple[str, ...], expected_heads: tuple[str, ...]) -> None:
+    if not expected_heads:
+        raise RuntimeError(
+            "Alembic の migration head が見つかりません。"
+            "`alembic.ini` と `app/database/migrations/versions/` の配置を確認してください。"
+        )
+
     if set(current_heads) == set(expected_heads):
         return
 

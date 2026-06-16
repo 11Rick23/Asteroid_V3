@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import asyncio
 from logging.config import fileConfig
+from typing import Literal
 
 from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
+from sqlalchemy.sql.functions import Function
+from sqlalchemy.sql.schema import DefaultClause
 
 import app.database.models  # noqa: F401
 from app.core.config import AsteroidConfig
@@ -38,6 +41,13 @@ target_metadata = Base.metadata
 # ... etc.
 
 
+def render_item(type_: str, obj: object, autogen_context: object) -> str | Literal[False]:
+    if type_ == "server_default" and isinstance(obj, DefaultClause):
+        if isinstance(obj.arg, Function) and obj.arg.name.lower() == "now":
+            return "sa.func.now()"
+    return False
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -56,6 +66,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        render_item=render_item,
     )
 
     with context.begin_transaction():
@@ -63,7 +74,7 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(connection=connection, target_metadata=target_metadata, render_item=render_item)
 
     with context.begin_transaction():
         context.run_migrations()
