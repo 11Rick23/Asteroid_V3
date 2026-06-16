@@ -34,6 +34,7 @@ RUN addgroup --system asteroid \
 COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/app /app/app
 COPY --from=builder /app/launch_app.py /app/launch_app.py
+COPY alembic.ini /app/alembic.ini
 
 RUN chown -R asteroid:asteroid /app
 
