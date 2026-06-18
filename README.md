@@ -113,6 +113,17 @@ mise run check
 
 `mise run lint` は `ruff check . --fix` を実行するため、ファイルを書き換える可能性があります。
 
+### Alembic
+
+```bash
+mise run db:revision "変更内容"
+mise run db:upgrade
+mise run db:stamp
+mise run db:test-migrations
+```
+
+`db:revision` は `alembic revision --autogenerate -m` を実行します。生成されたマイグレーションは必ず確認し、意図しない差分が混ざっていないか確認してください。
+
 ## 移行スクリプト
 
 V2 から V3 への DB 移行補助スクリプトを用意しています。
@@ -132,20 +143,20 @@ uv run python scripts/v2_to_v3_migration.py \
 初期マイグレーションを作成する場合は、空の開発用 DB を `config.yaml` の `database.url` に指定してから実行します。
 
 ```bash
-uv run alembic revision --autogenerate -m "init"
+mise run db:revision "init"
 ```
 
 生成されたマイグレーションに現在の全テーブル作成処理が含まれていることを確認してください。既にテーブルが存在する本番・既存 DB では、この初期マイグレーションを実行せず、現在の revision を適用済みとして記録します。
 
 ```bash
-uv run alembic stamp head
+mise run db:stamp
 ```
 
 以後のテーブル構成変更では、通常通りマイグレーションを生成して適用します。
 
 ```bash
-uv run alembic revision --autogenerate -m "変更内容"
-uv run alembic upgrade head
+mise run db:revision "変更内容"
+mise run db:upgrade
 ```
 
 Bot 起動時のテーブル作成処理は削除したため、スキーマ管理は Alembic に寄せて管理してください。
