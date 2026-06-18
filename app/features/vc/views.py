@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import discord
 
-from app.common.guild_scope import GuildScopedModal, GuildScopedView
+from app.common.constants import AsteroidColor
+from app.common.guild_scope import GuildScopedLayoutView, GuildScopedModal
 
 from .service import VoiceCreateService, build_select_default_values
 
@@ -39,10 +40,9 @@ class NameChangeModal(GuildScopedModal, title="VC名変更"):
 class ChangeNameButton(discord.ui.Button["VoiceControlView"]):
     def __init__(self, service: VoiceCreateService, channel_id: int | None = None):
         super().__init__(
-            label="VC名変更",
+            label="VC名を変更",
             style=discord.ButtonStyle.blurple,
             custom_id="vc_change_name_button",
-            row=0,
         )
         self.service = service
         self.channel_id = channel_id
@@ -54,13 +54,12 @@ class ChangeNameButton(discord.ui.Button["VoiceControlView"]):
 class TogglePrivacyButton(discord.ui.Button["VoiceControlView"]):
     def __init__(self, service: VoiceCreateService, channel: discord.VoiceChannel | None = None):
         is_private = bool(channel and service.is_private_channel(channel))
-        label = "パブリック化" if is_private else "プライベート化"
+        label = "公開にする" if is_private else "非公開にする"
         style = discord.ButtonStyle.red if is_private else discord.ButtonStyle.green
         super().__init__(
             label=label,
             style=style,
             custom_id="vc_toggle_private_button",
-            row=0,
         )
         self.service = service
         self.channel_id = channel.id if channel else None
@@ -103,7 +102,6 @@ class UserLimitSelect(discord.ui.Select["VoiceControlView"]):
             custom_id="vc_user_limit_select",
             min_values=1,
             max_values=1,
-            row=1,
         )
         self.service = service
         self.channel_id = channel.id if channel else None
@@ -135,7 +133,6 @@ class BlockedUserSelect(discord.ui.UserSelect["VoiceControlView"]):
             min_values=0,
             max_values=25,
             default_values=build_select_default_values(blocked_members),
-            row=2,
         )
         self.service = service
         self.channel_id = channel.id if channel else None
@@ -176,7 +173,6 @@ class OperatorUserSelect(discord.ui.UserSelect["VoiceControlView"]):
             min_values=0,
             max_values=25,
             default_values=build_select_default_values(owner_members),
-            row=3,
         )
         self.service = service
         self.channel_id = channel.id if channel else None
@@ -208,11 +204,33 @@ class OperatorUserSelect(discord.ui.UserSelect["VoiceControlView"]):
         await interaction.followup.send(embed=embed)
 
 
-class VoiceControlView(GuildScopedView):
-    def __init__(self, service: VoiceCreateService, channel: discord.VoiceChannel | None = None):
+class VoiceControlView(GuildScopedLayoutView):
+    def __init__(
+        self,
+        service: VoiceCreateService,
+        channel: discord.VoiceChannel | None = None,
+        *,
+        color: discord.Color | int | None = None,
+    ) -> None:
         super().__init__(timeout=None)
-        self.add_item(ChangeNameButton(service, channel.id if channel else None))
-        self.add_item(TogglePrivacyButton(service, channel))
-        self.add_item(UserLimitSelect(service, channel))
-        self.add_item(BlockedUserSelect(service, channel))
-        self.add_item(OperatorUserSelect(service, channel))
+        channel_name = channel.name if channel else "VCコントロール"
+
+        self.add_item(
+            discord.ui.Container(
+                discord.ui.TextDisplay(f"# {channel_name}"),
+                discord.ui.ActionRow(
+                    ChangeNameButton(service, channel.id if channel else None),
+                    TogglePrivacyButton(service, channel),
+                ),
+                discord.ui.Separator(),
+                discord.ui.TextDisplay("### 人数制限"),
+                discord.ui.ActionRow(UserLimitSelect(service, channel)),
+                discord.ui.Separator(),
+                discord.ui.TextDisplay("### ブロックしたユーザー"),
+                discord.ui.ActionRow(BlockedUserSelect(service, channel)),
+                discord.ui.Separator(),
+                discord.ui.TextDisplay("### 管理権限を与えたユーザー"),
+                discord.ui.ActionRow(OperatorUserSelect(service, channel)),
+                accent_color=color or AsteroidColor.INFO,
+            )
+        )

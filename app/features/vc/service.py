@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import datetime
 from logging import getLogger
 
 import discord
@@ -157,30 +156,15 @@ class VoiceCreateService:
         overwrite = channel.overwrites_for(channel.guild.default_role)
         return overwrite.view_channel is False and overwrite.connect is False
 
-    def build_control_embed(self, channel: discord.VoiceChannel, color: discord.Color | int) -> discord.Embed:
-        owner_list, blocked_list, owner_mentions, blocked_mentions = self.get_owner_and_blocked_lists(channel)
-        embed = discord.Embed(
-            title=channel.name,
-            description="`/vc ui`でこのヘルプを再表示できます。",
-            color=color or AsteroidColor.INFO,
-            timestamp=datetime.datetime.now(),
-        )
-        embed.add_field(name="ブロックしたユーザー", value=blocked_mentions, inline=False)
-        embed.add_field(name="管理権限を与えたユーザー", value=owner_mentions, inline=False)
-        embed.set_footer(
-            text=(
-                f"人数制限: {channel.user_limit or '無制限'}"
-                f" | 非公開: {'はい' if self.is_private_channel(channel) else 'いいえ'}"
-                f" | ブロック: {len(blocked_list)}人"
-                f" | 管理権限: {len(owner_list)}人"
-            )
-        )
-        return embed
-
-    def build_control_view(self, channel: discord.VoiceChannel | None = None) -> discord.ui.View:
+    def build_control_view(
+        self,
+        channel: discord.VoiceChannel | None = None,
+        *,
+        color: discord.Color | int | None = None,
+    ) -> discord.ui.LayoutView:
         from .views import VoiceControlView
 
-        return VoiceControlView(self, channel)
+        return VoiceControlView(self, channel, color=color)
 
     async def refresh_control_message(
         self,
@@ -211,8 +195,10 @@ class VoiceCreateService:
 
         try:
             await message.edit(
-                embed=self.build_control_embed(channel, color),
-                view=self.build_control_view(channel),
+                content=None,
+                embeds=[],
+                attachments=[],
+                view=self.build_control_view(channel, color=color),
             )
         except discord.NotFound, discord.Forbidden:
             logger.debug(f"VCコントロールパネルの追跡を解除しました: channel_id={channel.id} message_id={message_id}")
@@ -225,10 +211,10 @@ class VoiceCreateService:
         *,
         mention_member: bool = False,
     ) -> discord.Message:
+        if mention_member:
+            await channel.send(content=member.mention)
         message = await channel.send(
-            content=member.mention if mention_member else None,
-            embed=self.build_control_embed(channel, member.color),
-            view=self.build_control_view(channel),
+            view=self.build_control_view(channel, color=member.color),
         )
         self.track_control_message(channel, message, color=member.color)
         return message
