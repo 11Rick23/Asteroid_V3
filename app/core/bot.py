@@ -13,6 +13,7 @@ from app.common.guild_scope import OperatingGuildCommandTree
 from app.common.offline import OfflineInfo
 from app.common.persistent_panels import PersistentPanelManager
 from app.database.manager import DatabaseManager
+from app.database.migrations_check import ensure_database_revision_is_current
 from app.database.session import create_engine, create_session_factory
 
 from .config import AsteroidConfig
@@ -94,23 +95,9 @@ class AsteroidBot(Bot):
 
     async def _initialize_database(self) -> None:
         logger.info("データベース初期化を開始します。")
-        table_initializers = (
-            self.db.user_roles.create_table,
-            self.db.given_stars.create_table,
-            self.db.starred_messages.create_table,
-            self.db.xp_boosts.create_table,
-            self.db.star_grades.create_table,
-            self.db.voice_xp_limits.create_table,
-            self.db.leveling_hotness.create_table,
-            self.db.monthly_action_powers.create_table,
-            self.db.monthly_powers.create_table,
-            self.db.user_birthdays.create_table,
-            self.db.role_panel.create_table,
-        )
-        for create_table in table_initializers:
-            await create_table()
+        await ensure_database_revision_is_current(self.engine)
         self.db.initialized = True
-        logger.info(f"データベース初期化が完了しました: table_count={len(table_initializers)}")
+        logger.info("データベース初期化が完了しました。")
 
     async def _load_extensions(self) -> None:
         extensions = list(iter_enabled_extensions(self.config))

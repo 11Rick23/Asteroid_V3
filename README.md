@@ -124,3 +124,47 @@ uv run python scripts/v2_to_v3_migration.py \
 ```
 
 引数を省略した場合は対話的に接続情報を入力できます。
+
+## Alembic によるスキーマ管理
+
+既に作成済みの DB を Alembic 管理下に置く場合、既存 DB に初期マイグレーションをそのまま適用しないでください。初期マイグレーションは新規環境を作れるように残し、既存 DB には現在のスキーマが適用済みであることを記録します。
+
+初期マイグレーションを作成する場合は、空の開発用 DB を `config.yaml` の `database.url` に指定してから実行します。
+
+```bash
+uv run alembic revision --autogenerate -m "init"
+```
+
+生成されたマイグレーションに現在の全テーブル作成処理が含まれていることを確認してください。既にテーブルが存在する本番・既存 DB では、この初期マイグレーションを実行せず、現在の revision を適用済みとして記録します。
+
+```bash
+uv run alembic stamp head
+```
+
+以後のテーブル構成変更では、通常通りマイグレーションを生成して適用します。
+
+```bash
+uv run alembic revision --autogenerate -m "変更内容"
+uv run alembic upgrade head
+```
+
+Bot 起動時のテーブル作成処理は削除したため、スキーマ管理は Alembic に寄せて管理してください。
+Bot 起動時には DB の Alembic revision を確認します。未適用または古い revision の DB では起動を停止するため、起動前に `stamp head` または `upgrade head` を実行してください。
+
+Docker で運用する場合も、Bot 起動とは別にマイグレーションを明示的に実行します。Docker image には `alembic.ini` と `app/database/migrations/` が含まれている必要があります。
+
+```bash
+docker run --rm \
+  -v /path/to/config.yaml:/app/config.yaml:ro \
+  asteroid-v3 \
+  alembic upgrade head
+```
+
+マイグレーション成功後に Bot を起動します。
+
+```bash
+docker run -d \
+  -v /path/to/config.yaml:/app/config.yaml:ro \
+  --name asteroid-v3 \
+  asteroid-v3
+```

@@ -37,7 +37,7 @@ Keep repositories under `app/database/repositories/` and models under `app/datab
 
 - Feature enablement: `app/core/config.py` `FeatureFlags`.
 - Extension mapping: `app/core/extensions.py` `FEATURE_EXTENSION_MAP`.
-- Bot initialization and database table creation: `app/core/bot.py`.
+- Bot initialization and database revision checks: `app/core/bot.py`.
 - Command helpers: `app/common/command_groups.py`.
 - Permission helpers: `app/common/permissions.py`.
 - Discord type helpers: `app/common/discord_types.py`.
