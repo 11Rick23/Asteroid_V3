@@ -75,10 +75,10 @@ async def send_grade_up_message(
     if isinstance(channel, discord.StageChannel):
         return
     await channel.send(
-        view=build_text_view(
-            "# レベルアップ！\n"
-            f"**{author.mention}さんがGrade. {grade - grade_up_amount}からGrade. {grade}へグレードアップ！**",
-            accent_color=discord.Color.random(),
+        embed=discord.Embed(
+            title="レベルアップ！",
+            description=f"{author.mention}さんがGrade. {grade - grade_up_amount}からGrade. {grade}へグレードアップ！",
+            color=discord.Color.random(),
         )
     )
 
@@ -92,11 +92,13 @@ async def send_prestige_up_message(
     if isinstance(channel, discord.StageChannel):
         return
     await channel.send(
-        view=build_text_view(
-            "# プレステージ！\n"
-            f"**{author.mention}さんがPrestige. {prestige - prestige_amount}から"
-            f"Prestige. {prestige}へプレステージ！**",
-            accent_color=discord.Color.random(),
+        embed=discord.Embed(
+            title="プレステージ！",
+            description=(
+                f"{author.mention}さんがPrestige. {prestige - prestige_amount}から"
+                f"Prestige. {prestige}へプレステージ！"
+            ),
+            color=discord.Color.random(),
         )
     )
 
@@ -120,10 +122,10 @@ async def send_prestige_announce(bot: AsteroidBot, member: discord.Member, prest
         return
     achievement = prestige_role.mention if prestige_role else f"プレステージ{prestige}"
     await channel.send(
-        view=build_user_view(
-            member,
-            f"# プレステージ達成！\n{member.mention}さんが{achievement}を達成しました！\nおめでとうございます！",
-            accent_color=AsteroidColor.SUCCESS,
+        embed=discord.Embed(
+            title="プレステージ達成！",
+            description=f"{member.mention}さんが{achievement}を達成しました！\nおめでとうございます！",
+            color=AsteroidColor.SUCCESS,
         )
     )
 
