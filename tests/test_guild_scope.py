@@ -14,7 +14,7 @@ from app.common.guild_scope import (
     OutsideOperatingGuild,
 )
 from app.core.bot import AsteroidBot
-from app.core.config import AsteroidConfig
+from app.core.config import AsteroidConfig, DatabaseConfig, DiscordConfig
 from app.features.log.error import Error
 from app.features.starboard.cog import Starboard
 from app.features.vc.cog import VoiceCreateCog
@@ -82,6 +82,17 @@ async def test_error_handler_treats_outside_guild_as_expected_denial(
 def test_bot_rejects_missing_operating_guild_id() -> None:
     with pytest.raises(RuntimeError, match="guild_id"):
         AsteroidBot(AsteroidConfig())
+
+
+def test_bot_sets_short_http_rate_limit_timeout() -> None:
+    bot = AsteroidBot(
+        AsteroidConfig(
+            discord=DiscordConfig(guild_id=100),
+            database=DatabaseConfig(url="mysql+aiomysql://user:password@127.0.0.1/test_db"),
+        )
+    )
+
+    assert bot.http.max_ratelimit_timeout == 3.0
 
 
 @pytest.mark.asyncio

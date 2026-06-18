@@ -18,6 +18,8 @@ from .extensions import iter_enabled_extensions
 
 logger = getLogger(__name__)
 
+RATE_LIMIT_ERROR_THRESHOLD_SECONDS = 3.0
+
 
 class AsteroidBot(Bot):
     def __init__(self, config: AsteroidConfig):
@@ -45,6 +47,8 @@ class AsteroidBot(Bot):
             activity=discord.Activity(type=discord.ActivityType.watching, name=config.discord.activity_name),
             status=getattr(discord.Status, config.discord.status, discord.Status.dnd),
         )
+        # discord.py's public max_ratelimit_timeout option is clamped to at least 30s.
+        self.http.max_ratelimit_timeout = RATE_LIMIT_ERROR_THRESHOLD_SECONDS
 
     def is_operating_guild_id(self, guild_id: int | None) -> bool:
         return guild_id is not None and guild_id == self.config.discord.guild_id

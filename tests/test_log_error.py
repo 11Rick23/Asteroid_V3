@@ -8,7 +8,7 @@ import pytest
 from discord import app_commands
 
 from app.core.bot import AsteroidBot
-from app.features.log.error import DEFAULT_ERROR_MESSAGE, Error
+from app.features.log.error import DEFAULT_ERROR_MESSAGE, RATE_LIMITED_ERROR_MESSAGE, Error
 
 
 class FakeResponse:
@@ -95,6 +95,28 @@ async def test_expected_error_sends_only_error_embed() -> None:
     assert len(embeds) == 1
     assert embeds[0].title == "エラー"
     assert embeds[0].description == "このコマンドを実行する権限がありません。"
+
+
+@pytest.mark.asyncio
+async def test_rate_limited_error_sends_only_retry_message(caplog: pytest.LogCaptureFixture) -> None:
+    interaction, response, _ = make_interaction()
+    cog = Error(cast(AsteroidBot, FakeBot()))
+    exception = app_commands.CommandInvokeError(
+        cast(app_commands.Command[Any, ..., Any], SimpleNamespace(name="test")),
+        discord.RateLimited(3.8),
+    )
+
+    await cog.on_app_command_error(interaction, exception)
+
+    assert len(response.messages) == 1
+    assert response.messages[0]["ephemeral"] is True
+    embeds = cast(list[discord.Embed], response.messages[0]["embeds"])
+    assert len(embeds) == 1
+    assert embeds[0].title == "エラー"
+    assert embeds[0].description == RATE_LIMITED_ERROR_MESSAGE.format(retry_after=3.8)
+    assert "App command rate limited" in caplog.text
+    assert "retry_after=3.8" in caplog.text
+    assert "App command failed" not in caplog.text
 
 
 @pytest.mark.asyncio
