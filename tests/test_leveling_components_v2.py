@@ -20,9 +20,7 @@ class FakeChannel:
 
 
 def text_contents(view: discord.ui.LayoutView) -> str:
-    return "\n".join(
-        child.content for child in view.walk_children() if isinstance(child, discord.ui.TextDisplay)
-    )
+    return "\n".join(child.content for child in view.walk_children() if isinstance(child, discord.ui.TextDisplay))
 
 
 def test_claim_voice_xp_uses_container_and_persistent_button() -> None:

@@ -172,9 +172,7 @@ class AsteroidBot(Bot):
             return
 
     async def shutdown_gracefully(self, info: OfflineInfo) -> None:
-        logger.info(
-            f"BOT の停止処理を開始します: reason={info.reason} planned_period={info.planned_period}"
-        )
+        logger.info(f"BOT の停止処理を開始します: reason={info.reason} planned_period={info.planned_period}")
         try:
             await self.panels.set_all_offline(info)
             await self.send_shutdown_start_message(info)
@@ -182,9 +180,7 @@ class AsteroidBot(Bot):
             await self.close()
         except Exception:
             self.shutdown_requested = False
-            logger.exception(
-                f"BOT の停止に失敗しました: reason={info.reason} planned_period={info.planned_period}"
-            )
+            logger.exception(f"BOT の停止に失敗しました: reason={info.reason} planned_period={info.planned_period}")
 
     async def close(self) -> None:
         async with self._close_lock:

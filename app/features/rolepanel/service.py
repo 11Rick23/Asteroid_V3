@@ -110,10 +110,7 @@ def build_boost_role_removal_plan(
     categories: list[RolePanelCategoryDetail],
 ) -> BoostRoleRemovalPlan:
     boost_role_ids = {
-        role_data.role_id
-        for category in categories
-        if category.requires_boost
-        for role_data in category.roles
+        role_data.role_id for category in categories if category.requires_boost for role_data in category.roles
     }
     remove_roles: list[discord.Role] = []
     unmanageable_role_ids: set[int] = set()

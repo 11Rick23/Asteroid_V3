@@ -157,9 +157,7 @@ class RolePanel:
             role_models = (await session.scalars(role_stmt)).all()
 
         category = RolePanelCategoryDetail(**category_data.__dict__)
-        category.roles = [
-            role_data for model in role_models if (role_data := self._to_role_data(model)) is not None
-        ]
+        category.roles = [role_data for model in role_models if (role_data := self._to_role_data(model)) is not None]
         return category
 
     async def get_categories(self) -> list[RolePanelCategoryDetail]:

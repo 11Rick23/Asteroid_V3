@@ -8,8 +8,7 @@ from .views import CreateChannelButtonView
 
 FREE_CATEGORY_PANEL_ID = "free_category"
 FREE_CATEGORY_OFFLINE_DESCRIPTION = (
-    "ご迷惑をおかけいたしますが、フリーチャンネル作成機能は現在利用できません。"
-    "時間を空けてもう一度ご確認ください。"
+    "ご迷惑をおかけいたしますが、フリーチャンネル作成機能は現在利用できません。時間を空けてもう一度ご確認ください。"
 )
 
 

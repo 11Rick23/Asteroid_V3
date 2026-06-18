@@ -11,9 +11,7 @@ from app.database.base import Base
 
 class LevelingHotnessEventModel(Base):
     __tablename__ = "leveling_hotness_events"
-    __table_args__ = (
-        Index("ix_leveling_hotness_events_earned_at_user_id", "earned_at", "user_id"),
-    )
+    __table_args__ = (Index("ix_leveling_hotness_events_earned_at_user_id", "earned_at", "user_id"),)
 
     id: Mapped[int] = mapped_column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(BIGINT(unsigned=True), nullable=False)

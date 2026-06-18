@@ -27,11 +27,7 @@ class LogIn(commands.Cog):
             return
 
         log_channel = as_messageable(self.bot.get_channel(log_channel_id))
-        if (
-            log_channel is None
-            or not self.bot.is_operating_channel(log_channel)
-            or self.bot.user is None
-        ):
+        if log_channel is None or not self.bot.is_operating_channel(log_channel) or self.bot.user is None:
             logger.warning(
                 f"ログイン通知の送信先を解決できませんでした: "
                 f"log_channel_id={log_channel_id} bot_user_ready={self.bot.user is not None}"

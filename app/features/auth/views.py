@@ -45,9 +45,7 @@ async def complete_authentication(bot: AsteroidBot, interaction: discord.Interac
         )
 
     await send_first_welcome(interaction.user)
-    logger.debug(
-        f"初回ウェルカムを送信しました: guild_id={interaction.guild.id} user_id={interaction.user.id}"
-    )
+    logger.debug(f"初回ウェルカムを送信しました: guild_id={interaction.guild.id} user_id={interaction.user.id}")
     return True
 
 
@@ -131,9 +129,7 @@ class AuthSubmitButton(discord.ui.Button["AuthChallengeView"]):
             await view.refresh(interaction)
             return
 
-        logger.debug(
-            f"認証に成功しました: guild_id={interaction.guild_id} user_id={interaction.user.id}"
-        )
+        logger.debug(f"認証に成功しました: guild_id={interaction.guild_id} user_id={interaction.user.id}")
         if interaction.guild is None or not isinstance(interaction.user, discord.Member):
             await interaction.response.send_message("サーバー内で認証してください。", ephemeral=True)
             return
@@ -185,9 +181,7 @@ class AuthChallengeView(GuildScopedLayoutView):
                     f"## **入力:** `{entered_number}`"
                     f"{error_text}"
                 ),
-                discord.ui.MediaGallery(
-                    discord.MediaGalleryItem("attachment://captcha.png")
-                ),
+                discord.ui.MediaGallery(discord.MediaGalleryItem("attachment://captcha.png")),
                 discord.ui.ActionRow(*(AuthDigitButton(str(digit)) for digit in range(1, 6))),
                 discord.ui.ActionRow(*(AuthDigitButton(str(digit)) for digit in (6, 7, 8, 9, 0))),
                 discord.ui.ActionRow(AuthDeleteButton(), AuthClearButton(), AuthSubmitButton()),

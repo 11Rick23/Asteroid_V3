@@ -61,9 +61,7 @@ async def test_report_resolve_rejects_non_administrator() -> None:
 
     await cast(Any, view.children[0]).callback(cast(discord.Interaction, interaction))
 
-    assert response.messages == [
-        {"content": "この操作を実行する権限がありません。", "embed": None, "ephemeral": True}
-    ]
+    assert response.messages == [{"content": "この操作を実行する権限がありません。", "embed": None, "ephemeral": True}]
     assert response.edit_calls == []
 
 

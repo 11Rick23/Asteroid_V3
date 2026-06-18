@@ -46,9 +46,7 @@ async def setup_ping_command(_: Any) -> None:
 
 def module_command_names(module: object) -> set[str]:
     return {
-        value.name
-        for value in vars(module).values()
-        if isinstance(value, (app_commands.Command, app_commands.Group))
+        value.name for value in vars(module).values() if isinstance(value, (app_commands.Command, app_commands.Group))
     }
 
 
