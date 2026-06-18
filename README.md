@@ -113,17 +113,6 @@ mise run check
 
 `mise run lint` は `ruff check . --fix` を実行するため、ファイルを書き換える可能性があります。
 
-### Alembic
-
-```bash
-mise run db:revision "変更内容"
-mise run db:upgrade
-mise run db:stamp
-mise run db:test-migrations
-```
-
-`db:revision` は `alembic revision --autogenerate -m` を実行します。生成されたマイグレーションは必ず確認し、意図しない差分が混ざっていないか確認してください。
-
 ## 移行スクリプト
 
 V2 から V3 への DB 移行補助スクリプトを用意しています。
@@ -138,29 +127,33 @@ uv run python scripts/v2_to_v3_migration.py \
 
 ## Alembic によるスキーマ管理
 
-既に作成済みの DB を Alembic 管理下に置く場合、既存 DB に初期マイグレーションをそのまま適用しないでください。初期マイグレーションは新規環境を作れるように残し、既存 DB には現在のスキーマが適用済みであることを記録します。
+データベースは Alembic を使用して管理しています。Bot 起動時に DB の Alembic revision を確認し、未適用または古い revision の DB では起動を停止します。
 
-初期マイグレーションを作成する場合は、空の開発用 DB を `config.yaml` の `database.url` に指定してから実行します。
+### 既存の DB を Alembic の管理下に置く方法
+
+既にテーブルが存在する DB に初期マイグレーションをそのまま適用しないでください。`stamp` は DB のスキーマを変更せず revision だけを記録する操作です。対象 DB のスキーマと記録する revision が一致していることを確認したうえで、実行するようにしてください。
+
+例えば、現在の既存 DB が初期 baseline と一致している場合は次のように記録します。
 
 ```bash
-mise run db:revision "init"
+uv run alembic stamp 273b6467e5ff
 ```
 
-生成されたマイグレーションに現在の全テーブル作成処理が含まれていることを確認してください。既にテーブルが存在する本番・既存 DB では、この初期マイグレーションを実行せず、現在の revision を適用済みとして記録します。
+これは一例です。既存 DB の実スキーマが別の revision に対応する場合は、その revision を指定してください。`head` を安易に stamp すると、未適用のテーブル追加やカラム変更まで適用済み扱いになるため避けてください。
+
+`stamp` 後は、必要な後続マイグレーションを適用します。
 
 ```bash
-mise run db:stamp
-```
-
-以後のテーブル構成変更では、通常通りマイグレーションを生成して適用します。
-
-```bash
-mise run db:revision "変更内容"
 mise run db:upgrade
 ```
 
-Bot 起動時のテーブル作成処理は削除したため、スキーマ管理は Alembic に寄せて管理してください。
-Bot 起動時には DB の Alembic revision を確認します。未適用または古い revision の DB では起動を停止するため、起動前に `stamp head` または `upgrade head` を実行してください。
+### DB の更新を適用する方法
+
+新規 DB または Alembic 管理下の既存 DB では、起動前に最新 revision までマイグレーションを適用します。
+
+```bash
+mise run db:upgrade
+```
 
 Docker で運用する場合も、Bot 起動とは別にマイグレーションを明示的に実行します。Docker image には `alembic.ini` と `app/database/migrations/` が含まれている必要があります。
 
@@ -179,3 +172,13 @@ docker run -d \
   --name asteroid-v3 \
   asteroid-v3
 ```
+
+### DB の更新を Alembic へ登録する方法
+
+テーブルやカラムを追加・変更・削除した場合は、マイグレーションを作成します。`config.yaml` の `database.url` に指定した DB の構造との差異を生成します。
+
+```bash
+mise run db:revision "変更内容"
+```
+
+生成されたマイグレーションは必ず確認し、意図したテーブル、カラム、制約、index、default だけが含まれていることを確認してください。
