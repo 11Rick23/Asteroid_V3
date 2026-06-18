@@ -53,6 +53,30 @@ class FakeFollowup:
         self.messages.append(kwargs)
 
 
+class FakeLogChannel(discord.abc.Messageable):
+    def __init__(self) -> None:
+        self.messages: list[dict[str, object]] = []
+
+    async def send(self, content: str | None = None, **kwargs: Any) -> discord.Message:
+        self.messages.append({"content": content, **kwargs})
+        return cast(discord.Message, None)
+
+
+class FakeErrorBot:
+    def __init__(self, log_channel: FakeLogChannel | None = None) -> None:
+        self.log_channel = log_channel
+        self.config = SimpleNamespace(
+            discord=SimpleNamespace(guild_id=100),
+            log=SimpleNamespace(main_log_channel_id=123 if log_channel else 0),
+        )
+
+    def get_channel(self, channel_id: int) -> FakeLogChannel | None:
+        return self.log_channel
+
+    def is_operating_channel(self, channel: object) -> bool:
+        return channel is self.log_channel
+
+
 def build_interaction(guild_id: int | None) -> Any:
     return SimpleNamespace(
         client=SimpleNamespace(config=SimpleNamespace(discord=SimpleNamespace(guild_id=100))),
@@ -66,11 +90,12 @@ def build_interaction(guild_id: int | None) -> Any:
 def build_error_interaction(
     *,
     response_done: bool = False,
+    log_channel: FakeLogChannel | None = None,
 ) -> tuple[discord.Interaction, FakeErrorResponse, FakeFollowup]:
     response = FakeErrorResponse(done=response_done)
     followup = FakeFollowup()
     interaction = SimpleNamespace(
-        client=SimpleNamespace(config=SimpleNamespace(discord=SimpleNamespace(guild_id=100))),
+        client=FakeErrorBot(log_channel),
         guild_id=100,
         channel_id=200,
         user=SimpleNamespace(id=300),
@@ -106,7 +131,8 @@ async def test_ui_rejects_outside_operating_guild(component: GuildScopedView | G
 async def test_layout_view_rate_limited_error_sends_ephemeral_retry_message(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    interaction, response, _ = build_error_interaction()
+    log_channel = FakeLogChannel()
+    interaction, response, _ = build_error_interaction(log_channel=log_channel)
     view = GuildScopedLayoutView()
 
     await view.on_error(
@@ -123,6 +149,7 @@ async def test_layout_view_rate_limited_error_sends_ephemeral_retry_message(
     assert embeds[0].description == RATE_LIMITED_ERROR_MESSAGE.format(retry_after=3.8)
     assert "UI interaction rate limited" in caplog.text
     assert "retry_after=3.8" in caplog.text
+    assert log_channel.messages == []
 
 
 @pytest.mark.asyncio
@@ -141,7 +168,8 @@ async def test_modal_rate_limited_error_sends_ephemeral_retry_message() -> None:
 async def test_ui_unexpected_error_sends_only_common_error_embed(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    interaction, response, _ = build_error_interaction()
+    log_channel = FakeLogChannel()
+    interaction, response, _ = build_error_interaction(log_channel=log_channel)
     view = GuildScopedLayoutView()
 
     await view.on_error(
@@ -158,6 +186,10 @@ async def test_ui_unexpected_error_sends_only_common_error_embed(
     assert embeds[0].description == UI_ERROR_MESSAGE
     assert "トレースバック" not in (embeds[0].description or "")
     assert "UI interaction failed" in caplog.text
+    assert len(log_channel.messages) == 1
+    log_embeds = cast(list[discord.Embed], log_channel.messages[0]["embeds"])
+    assert log_embeds[0].title == "UI操作エラー"
+    assert log_embeds[1].title == "トレースバック"
 
 
 @pytest.mark.asyncio

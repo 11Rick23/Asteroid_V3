@@ -9,6 +9,7 @@ import discord
 from discord.ext import commands, tasks
 
 from app.common.command_groups import register_setup_command
+from app.common.error_reporting import report_background_task_error
 from app.core.bot import AsteroidBot
 from app.features.leveling.commands.admin_command import register_leveling_admin_commands
 from app.features.leveling.commands.command import register_leveling_commands
@@ -154,6 +155,22 @@ class LevelingSystemCore(commands.Cog):
     @monthly_ranking.before_loop
     async def before_task(self) -> None:
         await self.bot.wait_until_ready()
+
+    @monthly_ranking.error
+    async def monthly_ranking_error(self, error: BaseException) -> None:
+        await report_background_task_error(self.bot, "leveling.monthly_ranking", error)
+
+    @voice_xp_claim.error
+    async def voice_xp_claim_error(self, error: BaseException) -> None:
+        await report_background_task_error(self.bot, "leveling.voice_xp_claim", error)
+
+    @delete_expired_leveling_data.error
+    async def delete_expired_leveling_data_error(self, error: BaseException) -> None:
+        await report_background_task_error(self.bot, "leveling.delete_expired_leveling_data", error)
+
+    @update_ranking_board.error
+    async def update_ranking_board_error(self, error: BaseException) -> None:
+        await report_background_task_error(self.bot, "leveling.update_ranking_board", error)
 
     @voice_xp_claim.after_loop
     async def before_voice_xp_claim(self) -> None:

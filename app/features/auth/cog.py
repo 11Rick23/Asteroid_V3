@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from discord.ext import commands, tasks
 
+from app.common.error_reporting import report_background_task_error
 from app.core.bot import AsteroidBot
 
 from .panel import AuthPanel
@@ -28,6 +29,10 @@ class Authenticator(commands.Cog):
     @initialize_panel.before_loop
     async def before_initialize_panel(self) -> None:
         await self.bot.wait_until_ready()
+
+    @initialize_panel.error
+    async def initialize_panel_error(self, error: BaseException) -> None:
+        await report_background_task_error(self.bot, "auth.initialize_panel", error)
 
 
 async def setup(bot: AsteroidBot) -> None:

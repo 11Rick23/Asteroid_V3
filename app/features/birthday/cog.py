@@ -12,6 +12,7 @@ from discord.ext import commands, tasks
 from app.common.command_groups import get_bot, register_group
 from app.common.constants import AsteroidColor
 from app.common.discord_types import as_messageable
+from app.common.error_reporting import report_background_task_error
 from app.common.permissions import admin_only
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
@@ -107,6 +108,10 @@ class Birthday(commands.Cog):
             f"誕生日アナウンスが完了しました: guild_id={guild.id} "
             f"birthday_count={announced_count} removed_count={removed_count}"
         )
+
+    @announce_birthday.error
+    async def announce_birthday_error(self, error: BaseException) -> None:
+        await report_background_task_error(self.bot, "birthday.announce_birthday", error)
 
 
 @birthday_group.command(name="set", description="誕生日を設定")

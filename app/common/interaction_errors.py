@@ -5,6 +5,7 @@ from logging import getLogger
 import discord
 
 from app.common.constants import AsteroidColor
+from app.common.error_reporting import send_exception_report
 
 logger = getLogger(__name__)
 
@@ -73,5 +74,14 @@ async def handle_ui_error(interaction: discord.Interaction, error: Exception) ->
         f"UI interaction failed: guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
         f"user_id={user_id}",
         exc_info=(type(error), error, error.__traceback__),
+    )
+    await send_exception_report(
+        interaction.client,
+        title="UI操作エラー",
+        exception=error,
+        fields=(
+            ("ユーザー", f"`{user_id}`"),
+            ("サーバー / チャンネル", f"`{interaction.guild_id or 'DM'}` / `{interaction.channel_id or 'unknown'}`"),
+        ),
     )
     await send_error_embed(interaction, UI_ERROR_MESSAGE)

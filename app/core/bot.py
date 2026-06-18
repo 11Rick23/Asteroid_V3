@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 from logging import getLogger
 
 import discord
 from discord.ext.commands import Bot
 
 from app.common.constants import AsteroidColor
+from app.common.error_reporting import send_exception_report
 from app.common.guild_scope import OperatingGuildCommandTree
 from app.common.offline import OfflineInfo
 from app.common.persistent_panels import PersistentPanelManager
@@ -58,6 +60,29 @@ class AsteroidBot(Bot):
 
     def is_operating_channel(self, channel: object) -> bool:
         return self.is_operating_guild(getattr(channel, "guild", None))
+
+    async def on_error(self, event_method: str, /, *args: object, **kwargs: object) -> None:
+        exception = sys.exc_info()[1]
+        if exception is None:
+            logger.error(
+                f"イベントリスナーでエラーが発生しましたが、例外情報を取得できませんでした: event={event_method}"
+            )
+            return
+
+        logger.exception(
+            f"イベントリスナーで予期しないエラーが発生しました: event={event_method}",
+            exc_info=(type(exception), exception, exception.__traceback__),
+        )
+        keyword_names = ", ".join(sorted(kwargs)) or "-"
+        await send_exception_report(
+            self,
+            title="イベントリスナーエラー",
+            exception=exception,
+            fields=(
+                ("イベント", f"`{event_method}`"),
+                ("引数", f"`args={len(args)} kwargs={keyword_names}`"),
+            ),
+        )
 
     async def setup_hook(self) -> None:
         logger.info("セットアップを開始します。")

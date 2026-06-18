@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -7,6 +8,7 @@ import discord
 import pytest
 from discord import app_commands
 
+from app.common.error_reporting import report_background_task_error
 from app.common.interaction_errors import DEFAULT_ERROR_MESSAGE, RATE_LIMITED_ERROR_MESSAGE
 from app.core.bot import AsteroidBot
 from app.features.log.error import Error
@@ -88,7 +90,8 @@ async def test_unexpected_error_sends_error_and_traceback_embeds() -> None:
 @pytest.mark.asyncio
 async def test_expected_error_sends_only_error_embed() -> None:
     interaction, response, _ = make_interaction()
-    cog = Error(cast(AsteroidBot, FakeBot()))
+    log_channel = FakeLogChannel()
+    cog = Error(cast(AsteroidBot, FakeBot(log_channel)))
 
     await cog.on_app_command_error(interaction, app_commands.CheckFailure())
 
@@ -96,12 +99,32 @@ async def test_expected_error_sends_only_error_embed() -> None:
     assert len(embeds) == 1
     assert embeds[0].title == "エラー"
     assert embeds[0].description == "このコマンドを実行する権限がありません。"
+    assert log_channel.messages == []
+
+
+@pytest.mark.asyncio
+async def test_wrapped_expected_error_does_not_send_log_channel_report() -> None:
+    interaction, response, _ = make_interaction()
+    log_channel = FakeLogChannel()
+    cog = Error(cast(AsteroidBot, FakeBot(log_channel)))
+    exception = app_commands.CommandInvokeError(
+        cast(app_commands.Command[Any, ..., Any], SimpleNamespace(name="test")),
+        app_commands.CheckFailure(),
+    )
+
+    await cog.on_app_command_error(interaction, exception)
+
+    embeds = cast(list[discord.Embed], response.messages[0]["embeds"])
+    assert len(embeds) == 1
+    assert embeds[0].description == "このコマンドを実行する権限がありません。"
+    assert log_channel.messages == []
 
 
 @pytest.mark.asyncio
 async def test_rate_limited_error_sends_only_retry_message(caplog: pytest.LogCaptureFixture) -> None:
     interaction, response, _ = make_interaction()
-    cog = Error(cast(AsteroidBot, FakeBot()))
+    log_channel = FakeLogChannel()
+    cog = Error(cast(AsteroidBot, FakeBot(log_channel)))
     exception = app_commands.CommandInvokeError(
         cast(app_commands.Command[Any, ..., Any], SimpleNamespace(name="test")),
         discord.RateLimited(3.8),
@@ -118,6 +141,7 @@ async def test_rate_limited_error_sends_only_retry_message(caplog: pytest.LogCap
     assert "App command rate limited" in caplog.text
     assert "retry_after=3.8" in caplog.text
     assert "App command failed" not in caplog.text
+    assert log_channel.messages == []
 
 
 @pytest.mark.asyncio
@@ -150,3 +174,48 @@ async def test_log_channel_receives_error_and_traceback_embeds() -> None:
         "サーバー / チャンネル",
     ]
     assert embeds[1].title == "トレースバック"
+
+
+@pytest.mark.asyncio
+async def test_bot_on_error_sends_event_error_to_log_channel() -> None:
+    log_channel = FakeLogChannel()
+    bot = cast(AsteroidBot, FakeBot(log_channel))
+
+    try:
+        raise RuntimeError("listener failed")
+    except RuntimeError:
+        await AsteroidBot.on_error(bot, "on_message", object(), shard_id=1)
+
+    assert len(log_channel.messages) == 1
+    embeds = cast(list[discord.Embed], log_channel.messages[0]["embeds"])
+    assert embeds[0].title == "イベントリスナーエラー"
+    assert embeds[0].fields[0].name == "イベント"
+    assert embeds[0].fields[0].value == "`on_message`"
+    assert embeds[1].title == "トレースバック"
+    assert "RuntimeError: listener failed" in (embeds[1].description or "")
+
+
+@pytest.mark.asyncio
+async def test_background_task_error_sends_loop_name_to_log_channel() -> None:
+    log_channel = FakeLogChannel()
+    bot = cast(AsteroidBot, FakeBot(log_channel))
+    exception = RuntimeError("loop failed")
+
+    await report_background_task_error(bot, "leveling.voice_xp_claim", exception)
+
+    assert len(log_channel.messages) == 1
+    embeds = cast(list[discord.Embed], log_channel.messages[0]["embeds"])
+    assert embeds[0].title == "バックグラウンドタスクエラー"
+    assert embeds[0].fields[0].name == "タスク"
+    assert embeds[0].fields[0].value == "`leveling.voice_xp_claim`"
+    assert embeds[1].title == "トレースバック"
+
+
+@pytest.mark.asyncio
+async def test_background_task_cancelled_error_is_not_reported() -> None:
+    log_channel = FakeLogChannel()
+    bot = cast(AsteroidBot, FakeBot(log_channel))
+
+    await report_background_task_error(bot, "leveling.voice_xp_claim", asyncio.CancelledError())
+
+    assert log_channel.messages == []

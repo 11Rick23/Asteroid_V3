@@ -5,6 +5,7 @@ from logging import getLogger
 import discord
 from discord.ext import commands, tasks
 
+from app.common.error_reporting import report_background_task_error
 from app.core.bot import AsteroidBot
 
 from .panel import RolePanel
@@ -46,6 +47,10 @@ class RolePanelCog(commands.Cog):
     @initialize_role_panel.before_loop
     async def before_initialize_role_panel(self) -> None:
         await self.bot.wait_until_ready()
+
+    @initialize_role_panel.error
+    async def initialize_role_panel_error(self, error: BaseException) -> None:
+        await report_background_task_error(self.bot, "rolepanel.initialize_role_panel", error)
 
     async def send_or_update_role_panel(self) -> bool:
         return await self.role_panel.refresh()

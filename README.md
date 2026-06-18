@@ -43,7 +43,7 @@ pyproject.toml   Python 依存関係・Ruff 設定・開発ツール定義
 `leveling` | テキスト / VC 活動に応じたレベルシステムを提供する
 `link_expander` | Discord メッセージリンクの内容を展開表示する
 `log_login` | Bot の起動通知を送信する
-`log_error` | App Command のエラー通知を送信する
+`log_error` | コマンドや UI などの未捕捉エラー通知を送信する
 `punish` | 管理者がより簡単に規約違反者へ処罰を行うためのシステムを提供する
 `report` | ユーザーが違反者を管理者へ通報するシステムを提供する
 `rolepanel` | ロールパネルの作成・管理と、ブースト条件付きロール付与を行う
