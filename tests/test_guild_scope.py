@@ -8,11 +8,13 @@ import pytest
 
 from app.common.guild_scope import (
     OUTSIDE_OPERATING_GUILD_MESSAGE,
+    GuildScopedLayoutView,
     GuildScopedModal,
     GuildScopedView,
     OperatingGuildCommandTree,
     OutsideOperatingGuild,
 )
+from app.common.interaction_errors import RATE_LIMITED_ERROR_MESSAGE, UI_ERROR_MESSAGE
 from app.core.bot import AsteroidBot
 from app.core.config import AsteroidConfig, DatabaseConfig, DiscordConfig
 from app.features.log.error import Error
@@ -31,6 +33,26 @@ class FakeResponse:
         self.messages.append((content, ephemeral))
 
 
+class FakeErrorResponse:
+    def __init__(self, *, done: bool = False) -> None:
+        self.done = done
+        self.messages: list[dict[str, object]] = []
+
+    def is_done(self) -> bool:
+        return self.done
+
+    async def send_message(self, **kwargs: object) -> None:
+        self.messages.append(kwargs)
+
+
+class FakeFollowup:
+    def __init__(self) -> None:
+        self.messages: list[dict[str, object]] = []
+
+    async def send(self, **kwargs: object) -> None:
+        self.messages.append(kwargs)
+
+
 def build_interaction(guild_id: int | None) -> Any:
     return SimpleNamespace(
         client=SimpleNamespace(config=SimpleNamespace(discord=SimpleNamespace(guild_id=100))),
@@ -39,6 +61,23 @@ def build_interaction(guild_id: int | None) -> Any:
         user=SimpleNamespace(id=300),
         response=FakeResponse(),
     )
+
+
+def build_error_interaction(
+    *,
+    response_done: bool = False,
+) -> tuple[discord.Interaction, FakeErrorResponse, FakeFollowup]:
+    response = FakeErrorResponse(done=response_done)
+    followup = FakeFollowup()
+    interaction = SimpleNamespace(
+        client=SimpleNamespace(config=SimpleNamespace(discord=SimpleNamespace(guild_id=100))),
+        guild_id=100,
+        channel_id=200,
+        user=SimpleNamespace(id=300),
+        response=response,
+        followup=followup,
+    )
+    return cast(discord.Interaction, interaction), response, followup
 
 
 @pytest.mark.asyncio
@@ -61,6 +100,82 @@ async def test_ui_rejects_outside_operating_guild(component: GuildScopedView | G
 
     assert await component.interaction_check(cast(discord.Interaction, interaction)) is False
     assert interaction.response.messages == [(OUTSIDE_OPERATING_GUILD_MESSAGE, True)]
+
+
+@pytest.mark.asyncio
+async def test_layout_view_rate_limited_error_sends_ephemeral_retry_message(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    interaction, response, _ = build_error_interaction()
+    view = GuildScopedLayoutView()
+
+    await view.on_error(
+        interaction,
+        discord.RateLimited(3.8),
+        cast(discord.ui.Item[Any], object()),
+    )
+
+    assert len(response.messages) == 1
+    assert response.messages[0]["ephemeral"] is True
+    embeds = cast(list[discord.Embed], response.messages[0]["embeds"])
+    assert len(embeds) == 1
+    assert embeds[0].title == "エラー"
+    assert embeds[0].description == RATE_LIMITED_ERROR_MESSAGE.format(retry_after=3.8)
+    assert "UI interaction rate limited" in caplog.text
+    assert "retry_after=3.8" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_modal_rate_limited_error_sends_ephemeral_retry_message() -> None:
+    interaction, response, _ = build_error_interaction()
+    modal = GuildScopedModal(title="test")
+
+    await modal.on_error(interaction, discord.RateLimited(2.4))
+
+    embeds = cast(list[discord.Embed], response.messages[0]["embeds"])
+    assert response.messages[0]["ephemeral"] is True
+    assert embeds[0].description == RATE_LIMITED_ERROR_MESSAGE.format(retry_after=2.4)
+
+
+@pytest.mark.asyncio
+async def test_ui_unexpected_error_sends_only_common_error_embed(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    interaction, response, _ = build_error_interaction()
+    view = GuildScopedLayoutView()
+
+    await view.on_error(
+        interaction,
+        RuntimeError("unexpected"),
+        cast(discord.ui.Item[Any], object()),
+    )
+
+    assert len(response.messages) == 1
+    assert response.messages[0]["ephemeral"] is True
+    embeds = cast(list[discord.Embed], response.messages[0]["embeds"])
+    assert len(embeds) == 1
+    assert embeds[0].title == "エラー"
+    assert embeds[0].description == UI_ERROR_MESSAGE
+    assert "トレースバック" not in (embeds[0].description or "")
+    assert "UI interaction failed" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_completed_ui_interaction_error_uses_followup() -> None:
+    interaction, response, followup = build_error_interaction(response_done=True)
+    view = GuildScopedLayoutView()
+
+    await view.on_error(
+        interaction,
+        RuntimeError("unexpected"),
+        cast(discord.ui.Item[Any], object()),
+    )
+
+    assert response.messages == []
+    assert len(followup.messages) == 1
+    embeds = cast(list[discord.Embed], followup.messages[0]["embeds"])
+    assert followup.messages[0]["ephemeral"] is True
+    assert embeds[0].description == UI_ERROR_MESSAGE
 
 
 @pytest.mark.asyncio

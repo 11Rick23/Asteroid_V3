@@ -5,6 +5,8 @@ from typing import Any
 import discord
 from discord import app_commands
 
+from app.common.interaction_errors import handle_ui_error
+
 OUTSIDE_OPERATING_GUILD_MESSAGE = "このBOTはこのサーバーでは利用できません。"
 
 
@@ -45,6 +47,14 @@ class GuildScopedView(discord.ui.View):
         await send_outside_operating_guild_message(interaction)
         return False
 
+    async def on_error(
+        self,
+        interaction: discord.Interaction,
+        error: Exception,
+        item: discord.ui.Item[Any],
+    ) -> None:
+        await handle_ui_error(interaction, error)
+
 
 class GuildScopedLayoutView(discord.ui.LayoutView):
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -53,6 +63,14 @@ class GuildScopedLayoutView(discord.ui.LayoutView):
         await send_outside_operating_guild_message(interaction)
         return False
 
+    async def on_error(
+        self,
+        interaction: discord.Interaction,
+        error: Exception,
+        item: discord.ui.Item[Any],
+    ) -> None:
+        await handle_ui_error(interaction, error)
+
 
 class GuildScopedModal(discord.ui.Modal):
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -60,3 +78,10 @@ class GuildScopedModal(discord.ui.Modal):
             return True
         await send_outside_operating_guild_message(interaction)
         return False
+
+    async def on_error(
+        self,
+        interaction: discord.Interaction,
+        error: Exception,
+    ) -> None:
+        await handle_ui_error(interaction, error)

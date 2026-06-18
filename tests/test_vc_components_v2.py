@@ -7,12 +7,12 @@ from typing import Any, cast
 import discord
 import pytest
 
+from app.common.interaction_errors import format_rate_limited_error
 from app.core.bot import AsteroidBot
 from app.features.vc import service as vc_service
 from app.features.vc import views as vc_views
 from app.features.vc.service import VoiceCreateService
 from app.features.vc.views import (
-    VC_NAME_RATE_LIMITED_MESSAGE,
     ChangeNameButton,
     NameChangeModal,
     TogglePrivacyButton,
@@ -256,7 +256,7 @@ async def test_name_change_modal_handles_rate_limited_error(
 
     assert response.messages == [
         {
-            "content": VC_NAME_RATE_LIMITED_MESSAGE.format(retry_after=0.0),
+            "content": format_rate_limited_error(0.0, action="VC名を変更できませんでした。"),
             "ephemeral": True,
         }
     ]

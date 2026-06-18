@@ -4,12 +4,9 @@ import discord
 
 from app.common.constants import AsteroidColor
 from app.common.guild_scope import GuildScopedLayoutView, GuildScopedModal
+from app.common.interaction_errors import format_rate_limited_error
 
 from .service import VoiceCreateService, build_select_default_values
-
-VC_NAME_RATE_LIMITED_MESSAGE = (
-    "Discordのレート制限によりVC名を変更できませんでした。`{retry_after}秒後`に再試行してください。"
-)
 
 
 def member_mentions(members: list[discord.Member]) -> str:
@@ -43,7 +40,7 @@ class NameChangeModal(GuildScopedModal, title="VC名変更"):
             )
             await self.service.send_interaction_message(
                 interaction,
-                VC_NAME_RATE_LIMITED_MESSAGE.format(retry_after=retry_after),
+                format_rate_limited_error(retry_after, action="VC名を変更できませんでした。"),
                 ephemeral=True,
             )
             return

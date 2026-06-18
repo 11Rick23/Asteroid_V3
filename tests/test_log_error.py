@@ -7,8 +7,9 @@ import discord
 import pytest
 from discord import app_commands
 
+from app.common.interaction_errors import DEFAULT_ERROR_MESSAGE, RATE_LIMITED_ERROR_MESSAGE
 from app.core.bot import AsteroidBot
-from app.features.log.error import DEFAULT_ERROR_MESSAGE, RATE_LIMITED_ERROR_MESSAGE, Error
+from app.features.log.error import Error
 
 
 class FakeResponse:

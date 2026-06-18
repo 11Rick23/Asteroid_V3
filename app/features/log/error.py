@@ -10,15 +10,12 @@ from discord.ext import commands
 from app.common.constants import AsteroidColor
 from app.common.discord_types import as_messageable
 from app.common.guild_scope import OutsideOperatingGuild, send_outside_operating_guild_message
+from app.common.interaction_errors import DEFAULT_ERROR_MESSAGE, build_error_embed, send_rate_limited_error
 from app.core.bot import AsteroidBot
 
 logger = getLogger(__name__)
 TRACEBACK_TAIL_LINES = 12
 TRACEBACK_MAX_LENGTH = 1800
-DEFAULT_ERROR_MESSAGE = "コマンドの実行中にエラーが発生しました。"
-RATE_LIMITED_ERROR_MESSAGE = (
-    "Discordのレート制限により処理を実行できませんでした。`{retry_after}秒後`に再試行してください。"
-)
 
 
 def unwrap_app_command_error(exception: app_commands.AppCommandError) -> Exception:
@@ -33,10 +30,6 @@ def build_traceback_tail(exception: BaseException) -> str:
     if len(tail) > TRACEBACK_MAX_LENGTH:
         tail = "...\n" + tail[-TRACEBACK_MAX_LENGTH:]
     return tail
-
-
-def build_error_embed(message: str) -> discord.Embed:
-    return discord.Embed(title="エラー", description=message, color=AsteroidColor.WARNING)
 
 
 def build_traceback_embed(traceback_tail: str) -> discord.Embed:
@@ -83,18 +76,7 @@ class Error(commands.Cog):
 
         original = unwrap_app_command_error(exception)
         if isinstance(original, discord.RateLimited):
-            retry_after = round(original.retry_after, 1)
-            logger.warning(
-                "App command rate limited: "
-                f"{interaction.command.qualified_name if interaction.command is not None else 'unknown'} "
-                f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
-                f"user_id={interaction.user.id} retry_after={retry_after}"
-            )
-            embeds = [build_error_embed(RATE_LIMITED_ERROR_MESSAGE.format(retry_after=retry_after))]
-            if interaction.response.is_done():
-                await interaction.followup.send(embeds=embeds, ephemeral=True)
-            else:
-                await interaction.response.send_message(embeds=embeds, ephemeral=True)
+            await send_rate_limited_error(interaction, original.retry_after, log_prefix="App command rate limited")
             return
 
         traceback_tail = build_traceback_tail(original)
