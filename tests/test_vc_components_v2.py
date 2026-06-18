@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -7,8 +8,16 @@ import discord
 import pytest
 
 from app.core.bot import AsteroidBot
+from app.features.vc import service as vc_service
+from app.features.vc import views as vc_views
 from app.features.vc.service import VoiceCreateService
-from app.features.vc.views import ChangeNameButton, TogglePrivacyButton, VoiceControlView
+from app.features.vc.views import (
+    VC_NAME_RATE_LIMITED_MESSAGE,
+    ChangeNameButton,
+    NameChangeModal,
+    TogglePrivacyButton,
+    VoiceControlView,
+)
 
 
 class FakeBot:
@@ -43,6 +52,9 @@ class FakeVoiceChannel:
     def overwrites_for(self, _: object) -> discord.PermissionOverwrite:
         return discord.PermissionOverwrite(view_channel=True, connect=True)
 
+    def permissions_for(self, _: object) -> SimpleNamespace:
+        return SimpleNamespace(manage_channels=True)
+
     async def send(self, **kwargs: Any) -> FakeMessage:
         self.sent_payloads.append(kwargs)
         return FakeMessage(500)
@@ -64,6 +76,17 @@ class FakeMessage:
         self.edit_calls.append(kwargs)
 
 
+class FakeResponse:
+    def __init__(self) -> None:
+        self.messages: list[dict[str, Any]] = []
+
+    def is_done(self) -> bool:
+        return False
+
+    async def send_message(self, content: str, *, ephemeral: bool = False) -> None:
+        self.messages.append({"content": content, "ephemeral": ephemeral})
+
+
 def text_contents(view: discord.ui.LayoutView) -> str:
     return "\n".join(child.content for child in view.walk_children() if isinstance(child, discord.ui.TextDisplay))
 
@@ -73,6 +96,14 @@ def find_text_index(container: discord.ui.Container, prefix: str) -> int:
         if isinstance(child, discord.ui.TextDisplay) and child.content.startswith(prefix):
             return index
     raise AssertionError(f"{prefix} が見つかりません")
+
+
+def get_change_name_button(view: discord.ui.LayoutView) -> ChangeNameButton:
+    container = cast(discord.ui.Container, view.children[0])
+    row = cast(discord.ui.ActionRow[VoiceControlView], container.children[1])
+    button = row.children[0]
+    assert isinstance(button, ChangeNameButton)
+    return button
 
 
 def test_voice_control_view_renders_components_v2_layout() -> None:
@@ -166,6 +197,74 @@ async def test_send_control_message_sends_creation_mention_once_before_component
 
 
 @pytest.mark.asyncio
+async def test_name_change_rate_limit_disables_button_until_retry_after() -> None:
+    bot = FakeBot()
+    message = FakeMessage(500)
+    bot.messages[500] = message
+    service = VoiceCreateService(cast(AsteroidBot, bot))
+    channel = cast(discord.VoiceChannel, FakeVoiceChannel())
+    member = cast(discord.Member, FakeMember())
+    service.control_panel_messages[100] = (500, 0x123456)
+
+    await service.disable_name_change_until_rate_limit_ends(channel, member, 0.01)
+
+    assert len(message.edit_calls) == 1
+    disabled_button = get_change_name_button(message.edit_calls[0]["view"])
+    assert disabled_button.disabled is True
+    assert disabled_button.label == "VC名変更待機中"
+
+    await asyncio.sleep(0.03)
+
+    assert len(message.edit_calls) == 2
+    enabled_button = get_change_name_button(message.edit_calls[1]["view"])
+    assert enabled_button.disabled is False
+    assert enabled_button.label == "VC名を変更"
+
+
+@pytest.mark.asyncio
+async def test_name_change_modal_handles_rate_limited_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(vc_service.discord, "Member", FakeMember)
+    monkeypatch.setattr(vc_service.discord, "VoiceChannel", FakeVoiceChannel)
+    monkeypatch.setattr(vc_views.discord, "Member", FakeMember)
+    monkeypatch.setattr(vc_views.discord, "VoiceChannel", FakeVoiceChannel)
+
+    bot = FakeBot()
+    message = FakeMessage(500)
+    bot.messages[500] = message
+    service = VoiceCreateService(cast(AsteroidBot, bot))
+    channel = FakeVoiceChannel()
+    service.control_panel_messages[100] = (500, 0x123456)
+
+    async def raise_rate_limited(*_: object) -> None:
+        raise discord.RateLimited(0.01)
+
+    monkeypatch.setattr(service, "rename_channel", raise_rate_limited)
+    response = FakeResponse()
+    interaction = SimpleNamespace(
+        guild=SimpleNamespace(get_channel=lambda _: channel),
+        channel=None,
+        channel_id=100,
+        user=FakeMember(),
+        response=response,
+    )
+    modal = NameChangeModal(service, channel_id=100)
+    modal.vc_name._value = "新しいVC"
+
+    await modal.on_submit(cast(discord.Interaction, interaction))
+
+    assert response.messages == [
+        {
+            "content": VC_NAME_RATE_LIMITED_MESSAGE.format(retry_after=0.0),
+            "ephemeral": True,
+        }
+    ]
+    disabled_button = get_change_name_button(message.edit_calls[0]["view"])
+    assert disabled_button.disabled is True
+
+
+@pytest.mark.asyncio
 async def test_refresh_control_panels_clears_legacy_payload_when_editing_to_v2() -> None:
     bot = FakeBot()
     message = FakeMessage(500)
@@ -184,4 +283,3 @@ async def test_refresh_control_panels_clears_legacy_payload_when_editing_to_v2()
     view = edit_call["view"]
     assert isinstance(view, discord.ui.LayoutView)
     assert view.has_components_v2()
-

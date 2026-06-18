@@ -7,6 +7,10 @@ from app.common.guild_scope import GuildScopedLayoutView, GuildScopedModal
 
 from .service import VoiceCreateService, build_select_default_values
 
+VC_NAME_RATE_LIMITED_MESSAGE = (
+    "Discordのレート制限によりVC名を変更できませんでした。`{retry_after}秒後`に再試行してください。"
+)
+
 
 def member_mentions(members: list[discord.Member]) -> str:
     return " ".join(member.mention for member in members) or "なし"
@@ -29,7 +33,21 @@ class NameChangeModal(GuildScopedModal, title="VC名変更"):
         if channel is None or not isinstance(interaction.user, discord.Member):
             return
 
-        await self.service.rename_channel(channel, interaction.user, self.vc_name.value)
+        try:
+            await self.service.rename_channel(channel, interaction.user, self.vc_name.value)
+        except discord.RateLimited as error:
+            retry_after = await self.service.disable_name_change_until_rate_limit_ends(
+                channel,
+                interaction.user,
+                error.retry_after,
+            )
+            await self.service.send_interaction_message(
+                interaction,
+                VC_NAME_RATE_LIMITED_MESSAGE.format(retry_after=retry_after),
+                ephemeral=True,
+            )
+            return
+
         await self.service.refresh_control_panels(channel)
         await self.service.send_interaction_message(
             interaction,
@@ -39,10 +57,12 @@ class NameChangeModal(GuildScopedModal, title="VC名変更"):
 
 class ChangeNameButton(discord.ui.Button["VoiceControlView"]):
     def __init__(self, service: VoiceCreateService, channel_id: int | None = None):
+        is_rate_limited = service.is_name_change_rate_limited(channel_id)
         super().__init__(
-            label="VC名を変更",
+            label="VC名変更待機中" if is_rate_limited else "VC名を変更",
             style=discord.ButtonStyle.blurple,
             custom_id="vc_change_name_button",
+            disabled=is_rate_limited,
         )
         self.service = service
         self.channel_id = channel_id
