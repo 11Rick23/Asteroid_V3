@@ -211,7 +211,7 @@ async def test_name_change_rate_limit_disables_button_until_retry_after() -> Non
     assert len(message.edit_calls) == 1
     disabled_button = get_change_name_button(message.edit_calls[0]["view"])
     assert disabled_button.disabled is True
-    assert disabled_button.label == "VC名変更待機中"
+    assert disabled_button.label == "VC名変更クールダウン中"
 
     await asyncio.sleep(0.03)
 

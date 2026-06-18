@@ -56,7 +56,7 @@ class ChangeNameButton(discord.ui.Button["VoiceControlView"]):
     def __init__(self, service: VoiceCreateService, channel_id: int | None = None):
         is_rate_limited = service.is_name_change_rate_limited(channel_id)
         super().__init__(
-            label="VC名変更待機中" if is_rate_limited else "VC名を変更",
+            label="VC名変更クールダウン中" if is_rate_limited else "VC名を変更",
             style=discord.ButtonStyle.blurple,
             custom_id="vc_change_name_button",
             disabled=is_rate_limited,
