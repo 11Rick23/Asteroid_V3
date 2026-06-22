@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -13,6 +14,8 @@ from app.common.discord_types import as_text_channel
 from app.common.offline import OfflineInfo, build_offline_view, get_emergency_contact_mentions
 
 logger = getLogger(__name__)
+
+PANEL_MARKER_ID_MASK = 0x7FFFFFFF
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +34,36 @@ class PersistentPanel:
     render: PanelRenderer
     offline_description: str
     message: discord.Message | None = None
+
+
+def get_panel_marker_id(panel_id: str) -> int:
+    digest = hashlib.blake2s(f"asteroid:persistent-panel:{panel_id}".encode(), digest_size=4).digest()
+    marker_id = int.from_bytes(digest, "big") & PANEL_MARKER_ID_MASK
+    return marker_id or 1
+
+
+def mark_layout_view(view: discord.ui.LayoutView, panel_id: str) -> None:
+    if not view.children:
+        return
+    view.children[0].id = get_panel_marker_id(panel_id)
+
+
+def component_has_marker(component: object, marker_id: int) -> bool:
+    if getattr(component, "id", None) == marker_id:
+        return True
+    for attribute_name in ("children", "components"):
+        children = getattr(component, attribute_name, None)
+        if children is None:
+            continue
+        if any(component_has_marker(child, marker_id) for child in children):
+            return True
+    return False
+
+
+def message_has_panel_marker(message: discord.Message, panel_id: str) -> bool:
+    marker_id = get_panel_marker_id(panel_id)
+    components = getattr(message, "components", ())
+    return any(component_has_marker(component, marker_id) for component in components)
 
 
 class PersistentPanelBot(Protocol):
@@ -166,7 +199,10 @@ class PersistentPanelManager:
             return False
 
         if reconcile_latest:
-            panel.message = await self._get_reusable_latest_message(channel)
+            panel.message = await self._get_reusable_latest_message(panel, channel)
+
+        if isinstance(content.view, discord.ui.LayoutView):
+            mark_layout_view(content.view, panel.panel_id)
 
         if panel.message is None:
             try:
@@ -244,7 +280,11 @@ class PersistentPanelManager:
             return None
         return channel
 
-    async def _get_reusable_latest_message(self, channel: discord.TextChannel) -> discord.Message | None:
+    async def _get_reusable_latest_message(
+        self,
+        panel: PersistentPanel,
+        channel: discord.TextChannel,
+    ) -> discord.Message | None:
         latest_message = None
         async for message in channel.history(limit=1):
             latest_message = message
@@ -252,5 +292,11 @@ class PersistentPanelManager:
 
         bot_user = self.bot.user
         if latest_message is None or bot_user is None or latest_message.author.id != bot_user.id:
+            return None
+        if not message_has_panel_marker(latest_message, panel.panel_id):
+            logger.debug(
+                f"最新のBOTメッセージが対象パネルではないため再利用しません: "
+                f"panel_id={panel.panel_id} channel_id={channel.id} message_id={latest_message.id}"
+            )
             return None
         return latest_message
