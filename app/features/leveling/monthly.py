@@ -95,8 +95,8 @@ async def run_monthly_ranking(
         total = await bot.db.monthly_action_powers.sum_action_power()
         await action_channel.send(build_accumulated_action_power_message(total))
     if delete_data:
-        await bot.db.monthly_powers.truncate_table()
-        await bot.db.monthly_action_powers.truncate_table()
+        await bot.db.monthly_powers.reset_monthly_powers()
+        await bot.db.monthly_action_powers.reset_monthly_action_powers()
         await bot.db.voice_xp_limits.reset_voice_power()
     logger.info(
         f"月間ランキング集計が完了しました: guild_id={guild.id} "

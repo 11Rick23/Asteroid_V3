@@ -53,7 +53,7 @@ class MonthlyActionPowers:
             updated_at=model.updated_at,
         )
 
-    async def truncate_table(self) -> None:
+    async def reset_monthly_action_powers(self) -> None:
         async with self.db.session() as session:
             await session.execute(delete(MonthlyActionPowerModel))
             await session.commit()

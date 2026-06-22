@@ -104,7 +104,7 @@ class MonthlyPowers:
             raise RuntimeError(f"monthly_powers[{user_id}] の取得に失敗しました。")
         return model
 
-    async def truncate_table(self) -> None:
+    async def reset_monthly_powers(self) -> None:
         async with self.db.session() as session:
             await session.execute(delete(MonthlyPowerModel))
             await session.commit()
