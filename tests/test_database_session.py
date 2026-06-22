@@ -28,5 +28,5 @@ def test_create_engine_logs_backend_and_driver(monkeypatch, caplog) -> None:
         engine = session_module.create_engine(config)
 
     assert engine is not None
-    assert str(created["database_url"]).startswith("mysql+aiomysql://user:")
+    assert created["database_url"] == "mysql+aiomysql://user:password@localhost/test_db"
     assert "DB engine を作成します: backend=mysql driver=aiomysql echo=True" in caplog.text

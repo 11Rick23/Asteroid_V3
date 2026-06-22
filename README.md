@@ -116,6 +116,8 @@ mise run check
 ## 移行スクリプト
 
 V2 から V3 への DB 移行補助スクリプトを用意しています。
+移行先 DB は空の DB を指定してください。スクリプトは Alembic の初期 revision `273b6467e5ff` まで
+スキーマを作成してから V2 のデータを投入し、最後に最新 revision までマイグレーションを適用します。
 
 ```bash
 uv run python scripts/v2_to_v3_migration.py \
@@ -124,6 +126,8 @@ uv run python scripts/v2_to_v3_migration.py \
 ```
 
 引数を省略した場合は対話的に接続情報を入力できます。
+このスクリプトを使用した場合、`alembic_version` はスクリプト内の Alembic 実行で更新されるため、
+手動で `uv run alembic stamp ...` を実行する必要はありません。
 
 ## Alembic によるスキーマ管理
 
