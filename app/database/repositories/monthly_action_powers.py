@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from sqlalchemy import delete, func, select
+from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models.monthly_action_powers import MonthlyActionPowerModel
@@ -21,6 +22,26 @@ class MonthlyActionPowerData:
 class MonthlyActionPowers:
     def __init__(self, db):
         self.db = db
+
+    async def _get_or_create_monthly_action_power_model_lock(
+        self, session: AsyncSession, user_id: int
+    ) -> MonthlyActionPowerModel:
+        stmt = select(MonthlyActionPowerModel).where(MonthlyActionPowerModel.user_id == user_id).with_for_update()
+        model = await session.scalar(stmt)
+        if model is not None:
+            return model
+
+        create_if_missing_stmt = mysql_insert(MonthlyActionPowerModel).values(user_id=user_id, action_power=0)
+        await session.execute(
+            create_if_missing_stmt.on_duplicate_key_update(
+                action_power=MonthlyActionPowerModel.action_power,
+            )
+        )
+
+        model = await session.scalar(stmt)
+        if model is None:
+            raise RuntimeError(f"monthly_action_powers[{user_id}] の取得に失敗しました。")
+        return model
 
     @staticmethod
     def _to_data(model: MonthlyActionPowerModel | None) -> MonthlyActionPowerData | None:
@@ -93,11 +114,9 @@ class MonthlyActionPowers:
         monthly_action_power_data: MonthlyActionPowerData,
         add_action_power: int,
     ) -> MonthlyActionPowerData:
-        model = await session.get(MonthlyActionPowerModel, monthly_action_power_data.user_id)
-        if model is None:
-            model = MonthlyActionPowerModel(user_id=monthly_action_power_data.user_id, action_power=0)
-            session.add(model)
-            await session.flush()
+        model = await self._get_or_create_monthly_action_power_model_lock(
+            session, monthly_action_power_data.user_id
+        )
         model.action_power += add_action_power
         return MonthlyActionPowerData(
             monthly_action_power_data.user_id,
