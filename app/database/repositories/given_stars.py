@@ -48,9 +48,7 @@ class GivenStars:
         async with self.db.session() as session:
             stmt = select(GivenStarModel).order_by(GivenStarModel.given_star_amount.desc()).limit(limit)
             given_stars = await session.scalars(stmt)
-            return [
-                data for given_star in given_stars if (data := self._to_data(given_star)) is not None
-            ]
+            return [data for given_star in given_stars if (data := self._to_data(given_star)) is not None]
 
     async def create_given_star(self, user_id: int, given_star_amount: int = 1) -> None:
         async with self.db.session() as session:

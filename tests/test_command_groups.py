@@ -12,6 +12,8 @@ from app.common.command_groups import (
 )
 from app.core.bot import AsteroidBot
 from app.core.system_commands import register_system_commands, stop_bot
+from app.features.auth import cog as auth_cog
+from app.features.free_category import cog as free_category_cog
 
 
 class FakeTree:
@@ -40,6 +42,12 @@ async def ping_command(_: Any) -> None:
 @app_commands.command(name="setup_ping", description="test")
 async def setup_ping_command(_: Any) -> None:
     return None
+
+
+def module_command_names(module: object) -> set[str]:
+    return {
+        value.name for value in vars(module).values() if isinstance(value, (app_commands.Command, app_commands.Group))
+    }
 
 
 def test_register_command_is_idempotent() -> None:
@@ -77,3 +85,8 @@ def test_register_system_commands_is_idempotent() -> None:
 
     assert fake_bot.tree.get_command("stop") is stop_bot
     assert fake_bot.tree.add_count == 1
+
+
+def test_legacy_auth_and_free_category_setup_commands_are_removed() -> None:
+    assert "auth" not in module_command_names(auth_cog)
+    assert "free_category_button" not in module_command_names(free_category_cog)

@@ -10,16 +10,31 @@ import tempfile
 from pathlib import Path
 from urllib.parse import quote
 
-from sqlalchemy.dialects import mysql
 from sqlalchemy.engine import URL, make_url
-from sqlalchemy.schema import CreateTable
-
-import app.database.models  # noqa: F401
-from app.database.base import Base
 
 logger = logging.getLogger(__name__)
 
-TARGET_ONLY_TABLES = {"monthly_action_powers"}
+BASELINE_REVISION = "273b6467e5ff"
+HEAD_REVISION = "head"
+ALEMBIC_DATABASE_URL_ENV = "ASTEROID_DATABASE_URL"
+ALEMBIC_VERSION_TABLE = "alembic_version"
+BASELINE_TABLE_NAMES = (
+    "given_stars",
+    "monthly_action_powers",
+    "monthly_powers",
+    "role_panel_categories",
+    "star_grades",
+    "starred_messages",
+    "user_birthdays",
+    "user_roles",
+    "voice_xp_limits",
+    "xp_boosts",
+    "role_panel_roles",
+)
+TARGET_ONLY_TABLES = frozenset({"monthly_action_powers"})
+MIGRATION_TABLE_NAMES = tuple(
+    table_name for table_name in BASELINE_TABLE_NAMES if table_name not in TARGET_ONLY_TABLES
+)
 UNSUPPORTED_MYSQL_QUERY_KEYS = {"advancedSafeModeLevel"}
 
 
@@ -151,22 +166,6 @@ def run_mysql_query(url: URL, query: str, *, label: str) -> list[str]:
     return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
 
-def run_mysql_script_with_input(url: URL, sql: str, *, label: str) -> None:
-    command = ["mysql", *_mysql_connection_args(url), f"--database={url.database}"]
-    try:
-        subprocess.run(
-            command,
-            env=_connection_env(url),
-            input=sql,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-    except subprocess.CalledProcessError as error:
-        stderr = (error.stderr or error.stdout or "").strip()
-        raise RuntimeError(f"{label} に失敗しました: {stderr}") from error
-
-
 def dump_source_data(source_url: URL, dump_path: Path, tables: list[str]) -> None:
     if source_url.database is None:
         raise ValueError("移行元DB名が指定されていません。")
@@ -226,41 +225,26 @@ def get_target_table_names(target_url: URL) -> set[str]:
     return set(lines)
 
 
-def ensure_target_tables_are_empty(target_url: URL, table_names: set[str]) -> None:
-    non_empty_tables: list[str] = []
-    for table_name in sorted(table_names):
-        count_result = run_mysql_query(
-            target_url,
-            f"SELECT COUNT(*) FROM `{table_name}`",
-            label=f"target DB のテーブル件数確認 ({table_name})",
-        )
-        row_count = int(count_result[0]) if count_result else 0
-        if row_count > 0:
-            non_empty_tables.append(f"{table_name} ({row_count} rows)")
-    if non_empty_tables:
-        raise RuntimeError("移行先DBに既存データがあります。空のDBを指定してください: " + ", ".join(non_empty_tables))
-
-
-def create_target_tables(target_url: URL) -> None:
-    dialect = mysql.dialect()
-    statements = [
-        str(CreateTable(table, if_not_exists=True).compile(dialect=dialect)) for table in Base.metadata.sorted_tables
-    ]
-    run_mysql_script_with_input(
-        target_url,
-        ";\n".join(statements) + ";\n",
-        label="target DB のテーブル作成",
-    )
+def ensure_target_database_is_empty(table_names: set[str]) -> None:
+    if table_names:
+        existing_tables = ", ".join(sorted(table_names))
+        raise RuntimeError(f"移行先DBに既存テーブルがあります。空のDBを指定してください: {existing_tables}")
 
 
 def get_migration_table_names() -> list[str]:
-    return [table.name for table in Base.metadata.sorted_tables if table.name not in TARGET_ONLY_TABLES]
+    return list(MIGRATION_TABLE_NAMES)
 
 
 def verify_mysql_cli() -> None:
-    for executable in ("mysql", "mysqldump"):
+    for executable in ("mysql", "mysqldump", "uv"):
         if shutil.which(executable) is None:
-            raise RuntimeError(f"`{executable}` コマンドが見つかりません。MySQL CLI をインストールしてください。")
+            raise RuntimeError(f"`{executable}` コマンドが見つかりません。必要な CLI をインストールしてください。")
+
+
+def run_alembic_upgrade(target_url: URL, revision: str) -> None:
+    env = dict(os.environ)
+    env[ALEMBIC_DATABASE_URL_ENV] = target_url.render_as_string(hide_password=False)
+    run_command(["uv", "run", "alembic", "upgrade", revision], env=env, label=f"Alembic upgrade ({revision})")
 
 
 def migrate(source_database_url: str, target_database_url: str, batch_size: int, echo: bool) -> None:
@@ -285,19 +269,21 @@ def migrate(source_database_url: str, target_database_url: str, batch_size: int,
 
     logger.info("移行先DBへ接続します: %s", _masked_url(target_url))
     existing_target_tables = get_target_table_names(target_url)
-    relevant_target_tables = existing_target_tables & {table.name for table in Base.metadata.sorted_tables}
-    ensure_target_tables_are_empty(target_url, relevant_target_tables)
-    create_target_tables(target_url)
+    ensure_target_database_is_empty(existing_target_tables)
+    run_alembic_upgrade(target_url, BASELINE_REVISION)
 
     with tempfile.NamedTemporaryFile(prefix="asteroid_v2_to_v3_", suffix=".sql", delete=True) as dump_file:
         dump_path = Path(dump_file.name)
         dump_source_data(source_url, dump_path, migration_table_names)
         import_dump(target_url, dump_path)
 
+    run_alembic_upgrade(target_url, HEAD_REVISION)
+
     logger.info(
-        "Migration completed: copied_tables=%s created_tables=%s",
+        "Migration completed: copied_tables=%s baseline_revision=%s final_revision=%s",
         len(migration_table_names),
-        len(Base.metadata.sorted_tables),
+        BASELINE_REVISION,
+        HEAD_REVISION,
     )
 
 

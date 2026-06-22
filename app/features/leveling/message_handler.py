@@ -26,11 +26,7 @@ class LevelingMessageHandler:
         self.bot.remember_message(message)
         if await self._try_action_power_command(message):
             return
-        if (
-            message.author.bot
-            or message.guild is None
-            or not isinstance(message.author, discord.Member)
-        ):
+        if message.author.bot or message.guild is None or not isinstance(message.author, discord.Member):
             return
         cooldown_time = self.bot.config.leveling.message_cooldown
         if message.author.id in self.cooldown and self.cooldown[message.author.id] + cooldown_time >= time():

@@ -1,6 +1,6 @@
 ---
 name: asteroid-v3-app-command-guideline
-description: Use when changing Asteroid_V3 slash commands, app_commands groups, context menus, setup commands, persistent views, buttons, selects, modals, permissions, guild scope checks, ephemeral responses, embeds, names, or command audit logs.
+description: Use when changing Asteroid_V3 slash commands, app_commands groups, context menus, setup commands, persistent views, buttons, selects, modals, permissions, guild scope checks, ephemeral responses, embeds, Layout / Components V2 responses, names, or command audit logs.
 ---
 
 # Asteroid V3 App Command Guideline
@@ -42,7 +42,9 @@ Classify each entry point:
 
 ## Response Style
 
-- Prefer Embeds unless nearby code or Discord constraints favor plain text.
+- Prefer Embed or Layout / Components V2 responses unless nearby code or Discord constraints favor plain text.
+- Use Layout / Components V2 actively when the response has high information density, repeated sections, mixed controls and content, persistent panels, or presentation that benefits from `Container`, `Section`, `TextDisplay`, `Separator`, media, or component grouping.
+- Use Embed for simple notifications, concise status messages, and ordinary structured command results where Components V2 would add only layout overhead.
 - Use ephemeral for setup feedback, validation errors, denials, self-service results, and private details.
 - Use public responses for naturally visible workflow results.
 - State-changing admin actions also need structured logs; ephemeral replies are not audit trails.

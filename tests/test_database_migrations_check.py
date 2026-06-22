@@ -10,8 +10,12 @@ def test_validate_database_revision_accepts_current_head() -> None:
 
 
 def test_validate_database_revision_rejects_missing_alembic_version() -> None:
-    with pytest.raises(RuntimeError, match="Alembic revision が記録されていません"):
+    with pytest.raises(RuntimeError, match="Alembic revision が記録されていません") as error_info:
         validate_database_revision((), ("abc123",))
+    message = str(error_info.value)
+    assert "stamp head" not in message
+    assert "uv run alembic stamp 273b6467e5ff" in message
+    assert "uv run alembic upgrade head" in message
 
 
 def test_validate_database_revision_rejects_old_revision() -> None:

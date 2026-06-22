@@ -41,6 +41,16 @@ description = "Pyright の型チェックを実行する。"
 depends = ["sync"]
 run = "uv run pyright"
 
+[tasks."db:revision"]
+description = "Alembic の自動生成でマイグレーションを作成する。例: mise run db:revision add_role_table"
+depends = ["sync"]
+run = "uv run alembic revision --autogenerate -m"
+
+[tasks."db:upgrade"]
+description = "Alembic マイグレーションを最新 revision まで適用する。"
+depends = ["sync"]
+run = "uv run alembic upgrade head"
+
 [tasks.check]
 description = "Lint・型チェック・テストをまとめて実行する。"
 depends = ["lint", "typecheck", "test"]

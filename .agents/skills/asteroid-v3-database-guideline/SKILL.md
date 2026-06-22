@@ -45,7 +45,7 @@ When adding a repository:
 - Treat Alembic as the source of truth for schema creation and changes.
 - Do not add startup-time `create_table` wiring; bot startup checks the current Alembic revision instead of creating tables.
 - Keep `alembic.ini`, `app/database/migrations/env.py`, and `app/database/migrations/versions/` aligned with model changes.
-- For existing databases adopting Alembic, record the already-applied schema with `uv run alembic stamp head`; do not run the initial migration against tables that already exist.
+- For existing databases adopting Alembic, manually stamp only the revision that matches the already-applied schema, then run `mise run db:upgrade`. For example, if the DB matches the initial baseline, use `uv run alembic stamp 273b6467e5ff`; do not stamp `head` when newer migrations add tables or columns.
 - For new databases, run `uv run alembic upgrade head` before starting the bot.
 - In Docker or deployment flows, run migrations explicitly before the bot process starts.
 

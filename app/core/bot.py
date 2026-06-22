@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 from logging import getLogger
 
 import discord
 from discord.ext.commands import Bot
 
 from app.common.constants import AsteroidColor
+from app.common.error_reporting import send_exception_report
 from app.common.guild_scope import OperatingGuildCommandTree
+from app.common.offline import OfflineInfo
+from app.common.persistent_panels import PersistentPanelManager
 from app.database.manager import DatabaseManager
 from app.database.migrations_check import ensure_database_revision_is_current
 from app.database.session import create_engine, create_session_factory
@@ -16,6 +20,8 @@ from .config import AsteroidConfig
 from .extensions import iter_enabled_extensions
 
 logger = getLogger(__name__)
+
+RATE_LIMIT_ERROR_THRESHOLD_SECONDS = 3.0
 
 
 class AsteroidBot(Bot):
@@ -29,6 +35,7 @@ class AsteroidBot(Bot):
         self.db = DatabaseManager(config, self.engine, self.session_factory)
         self.repositories = self.db
         self.services: dict[str, object] = {}
+        self.panels = PersistentPanelManager(self)
         self.message_cache: dict[int, discord.Message] = {}
         self.shutdown_requested = False
         self.shutdown_task: asyncio.Task[None] | None = None
@@ -43,6 +50,8 @@ class AsteroidBot(Bot):
             activity=discord.Activity(type=discord.ActivityType.watching, name=config.discord.activity_name),
             status=getattr(discord.Status, config.discord.status, discord.Status.dnd),
         )
+        # discord.py's public max_ratelimit_timeout option is clamped to at least 30s.
+        self.http.max_ratelimit_timeout = RATE_LIMIT_ERROR_THRESHOLD_SECONDS
 
     def is_operating_guild_id(self, guild_id: int | None) -> bool:
         return guild_id is not None and guild_id == self.config.discord.guild_id
@@ -52,6 +61,29 @@ class AsteroidBot(Bot):
 
     def is_operating_channel(self, channel: object) -> bool:
         return self.is_operating_guild(getattr(channel, "guild", None))
+
+    async def on_error(self, event_method: str, /, *args: object, **kwargs: object) -> None:
+        exception = sys.exc_info()[1]
+        if exception is None:
+            logger.error(
+                f"イベントリスナーでエラーが発生しましたが、例外情報を取得できませんでした: event={event_method}"
+            )
+            return
+
+        logger.exception(
+            f"イベントリスナーで予期しないエラーが発生しました: event={event_method}",
+            exc_info=(type(exception), exception, exception.__traceback__),
+        )
+        keyword_names = ", ".join(sorted(kwargs)) or "-"
+        await send_exception_report(
+            self,
+            title="イベントリスナーエラー",
+            exception=exception,
+            fields=(
+                ("イベント", f"`{event_method}`"),
+                ("引数", f"`args={len(args)} kwargs={keyword_names}`"),
+            ),
+        )
 
     async def setup_hook(self) -> None:
         logger.info("セットアップを開始します。")
@@ -103,13 +135,13 @@ class AsteroidBot(Bot):
     def get_message(self, message_id: int) -> discord.Message | None:
         return self.message_cache.get(message_id)
 
-    def schedule_graceful_shutdown(self, reason: str) -> bool:
+    def schedule_graceful_shutdown(self, info: OfflineInfo) -> bool:
         if self.shutdown_requested:
             return False
 
         self.shutdown_requested = True
         self.shutdown_task = asyncio.create_task(
-            self.shutdown_gracefully(reason),
+            self.shutdown_gracefully(info),
             name="asteroid-graceful-shutdown",
         )
         return True
@@ -122,7 +154,7 @@ class AsteroidBot(Bot):
             return
         logger.info("BOT ステータスをオフラインに変更しました。")
 
-    async def send_shutdown_start_message(self, reason: str) -> None:
+    async def send_shutdown_start_message(self, info: OfflineInfo) -> None:
         channel_id = self.config.log.main_log_channel_id
         if not channel_id:
             logger.debug("BOT 終了通知をスキップしました: main_log_channel_id=0")
@@ -147,22 +179,24 @@ class AsteroidBot(Bot):
             title="BOT の停止処理を開始します",
             color=AsteroidColor.WARNING,
         )
-        embed.add_field(name="理由", value=f"`{reason}`", inline=False)
+        embed.add_field(name="理由", value=info.reason, inline=False)
+        embed.add_field(name="予定期間", value=info.planned_period, inline=False)
 
         try:
             await channel.send(embed=embed)
         except discord.HTTPException:
             return
 
-    async def shutdown_gracefully(self, reason: str) -> None:
-        logger.info(f"BOT の停止処理を開始します: reason={reason}")
+    async def shutdown_gracefully(self, info: OfflineInfo) -> None:
+        logger.info(f"BOT の停止処理を開始します: reason={info.reason} planned_period={info.planned_period}")
         try:
-            await self.send_shutdown_start_message(reason)
+            await self.panels.set_all_offline(info)
+            await self.send_shutdown_start_message(info)
             await self.set_offline_presence()
             await self.close()
         except Exception:
             self.shutdown_requested = False
-            logger.exception(f"BOT の停止に失敗しました: reason={reason}")
+            logger.exception(f"BOT の停止に失敗しました: reason={info.reason} planned_period={info.planned_period}")
 
     async def close(self) -> None:
         async with self._close_lock:
@@ -174,8 +208,16 @@ class AsteroidBot(Bot):
             for cog in self.cogs.values():
                 cleanup = getattr(cog, "cleanup_on_shutdown", None)
                 if cleanup is not None:
-                    await cleanup()
-            await self.engine.dispose()
+                    try:
+                        await cleanup()
+                    except Exception:
+                        logger.exception(
+                            f"Cog の停止処理に失敗しました。終了処理は続行します: cog={cog.qualified_name}"
+                        )
+            try:
+                await self.engine.dispose()
+            except Exception:
+                logger.exception("データベース接続の終了に失敗しました。Discord 接続の終了処理は続行します。")
             await super().close()
             self._shutdown_cleanup_complete = True
             logger.info("BOT の停止処理が完了しました。")

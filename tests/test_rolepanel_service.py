@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from types import SimpleNamespace
 from typing import cast
 
 import discord
@@ -22,9 +23,12 @@ from app.features.rolepanel.service import (
 )
 from app.features.rolepanel.views import (
     CATEGORY_BUTTON_LABEL_LIMIT,
-    RolePanelSelectView,
+    CHECKBOX_GROUP_OPTION_LIMIT,
+    ROLE_PANEL_ACCENT_COLORS,
+    RolePanelBoostRequiredModal,
+    RolePanelRoleModal,
     RolePanelView,
-    build_role_select_options,
+    build_role_checkbox_options,
 )
 
 
@@ -117,44 +121,108 @@ def test_member_needs_boost_checks_member_premium_since() -> None:
     assert member_needs_boost(cast(discord.Member, member), category) is False
 
 
-def test_build_role_select_options_only_includes_category_roles() -> None:
+def test_build_role_checkbox_options_only_includes_category_roles() -> None:
     roles = [FakeRole(1, 1), FakeRole(10, 10), FakeRole(20, 20), FakeRole(30, 30)]
     guild = FakeGuild(roles, FakeRole(999, 999))
     member = FakeMember(guild, [roles[0], roles[1], roles[3]])
     category = build_category(roles=[10, 20])
 
-    options = build_role_select_options(category, cast(discord.Member, member))
+    options = build_role_checkbox_options(category, cast(discord.Member, member))
 
     assert [option.value for option in options] == ["20", "10"]
     assert [option.default for option in options] == [False, True]
 
 
-def test_role_panel_select_view_uses_prebuilt_options() -> None:
+def test_role_panel_role_modal_splits_checkbox_options_into_supported_groups() -> None:
     roles = [FakeRole(1, 1), FakeRole(10, 10), FakeRole(20, 20)]
     guild = FakeGuild(roles, FakeRole(999, 999))
     member = FakeMember(guild, [roles[0]])
     category = build_category(roles=[10, 20])
-    options = build_role_select_options(category, cast(discord.Member, member))
+    category = build_category(roles=list(range(10, 32)))
+    roles = [FakeRole(1, 1), *[FakeRole(role_id, role_id) for role_id in range(10, 32)]]
+    guild = FakeGuild(roles, FakeRole(999, 999))
+    member = FakeMember(guild, [roles[0]])
+    options = build_role_checkbox_options(category, cast(discord.Member, member))
     get_role_call_count = len(guild.get_role_calls)
 
-    view = RolePanelSelectView(
+    modal = RolePanelRoleModal(
         RolePanelService(bot=cast(AsteroidBot, object())),
         category,
         cast(discord.Member, member),
         options,
     )
 
-    assert len(view.children) == 1
+    assert len(modal.checkbox_groups) == 3
+    assert [len(group.options) for group in modal.checkbox_groups] == [
+        CHECKBOX_GROUP_OPTION_LIMIT,
+        CHECKBOX_GROUP_OPTION_LIMIT,
+        2,
+    ]
+    components = modal.to_dict()["components"]
+    assert [component["type"] for component in components] == [18, 18, 18]
+    assert [component["label"] for component in components] == ["\u200b", "\u200b", "\u200b"]
+    assert [component["component"]["type"] for component in components] == [22, 22, 22]
     assert len(guild.get_role_calls) == get_role_call_count
 
 
-def test_role_panel_view_truncates_category_button_labels() -> None:
-    category = build_category(roles=[10], name="あ" * (CATEGORY_BUTTON_LABEL_LIMIT + 1))
+def test_role_panel_view_groups_category_content_in_container() -> None:
+    category = build_category(roles=[10], name="通知")
+    category.description = "通知ロールを選択できます。"
 
     view = RolePanelView(RolePanelService(bot=cast(AsteroidBot, object())), [category])
 
-    button = cast(discord.ui.Button, view.children[0])
-    assert button.label == "あ" * CATEGORY_BUTTON_LABEL_LIMIT
+    assert view.has_components_v2()
+    container = cast(discord.ui.Container, view.children[1])
+    text = cast(discord.ui.TextDisplay, container.children[0])
+    row = cast(discord.ui.ActionRow, container.children[1])
+    button = cast(discord.ui.Button, row.children[0])
+    assert "### 通知" in text.content
+    assert "通知ロールを選択できます。" in text.content
+    assert button.label == "ロールを選択"[:CATEGORY_BUTTON_LABEL_LIMIT]
+
+
+def test_role_panel_view_cycles_category_accent_colors() -> None:
+    categories = [
+        build_category(roles=[10], category_id=index + 1, name=f"カテゴリ{index + 1}")
+        for index in range(len(ROLE_PANEL_ACCENT_COLORS) + 1)
+    ]
+
+    view = RolePanelView(RolePanelService(bot=cast(AsteroidBot, object())), categories)
+
+    containers = [cast(discord.ui.Container, item) for item in view.children[1:]]
+    assert [container.accent_color for container in containers] == [
+        *ROLE_PANEL_ACCENT_COLORS,
+        ROLE_PANEL_ACCENT_COLORS[0],
+    ]
+
+
+def test_boost_required_modal_shows_requirement_message() -> None:
+    modal = RolePanelBoostRequiredModal()
+
+    components = modal.to_dict()["components"]
+    assert components == [
+        {
+            "type": 10,
+            "content": "このカテゴリのロールを入手するにはサーバーをブーストする必要があります。",
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_boost_required_modal_acknowledges_submission_without_message() -> None:
+    defer_calls: list[dict[str, object]] = []
+
+    async def defer(*, ephemeral: bool = False) -> None:
+        defer_calls.append({"ephemeral": ephemeral})
+
+    interaction = cast(
+        discord.Interaction,
+        SimpleNamespace(response=SimpleNamespace(defer=defer)),
+    )
+
+    await RolePanelBoostRequiredModal().on_submit(interaction)
+
+    assert defer_calls == [{"ephemeral": True}]
 
 
 def test_build_role_sync_plan_syncs_only_category_manageable_roles() -> None:
@@ -241,7 +309,7 @@ def test_build_role_sync_plan_uses_visible_sorted_role_limit() -> None:
     assert 10 not in {role.role_id for role in get_visible_category_roles(category, cast(discord.Guild, guild))}
 
 
-def test_build_panel_embed_shows_only_category_name_and_roles() -> None:
+def test_build_panel_embed_shows_category_description_instead_of_role_mentions() -> None:
     category = build_category(roles=[10, 20], requires_boost=True)
     category.description = "説明"
     service = RolePanelService(bot=cast(AsteroidBot, object()))
@@ -252,11 +320,18 @@ def test_build_panel_embed_shows_only_category_name_and_roles() -> None:
     assert field.name == "通知"
     assert "[ID:" not in field.name
     field_value = field.value or ""
-    assert "説明" not in field_value
-    assert "必要ロール" not in field_value
-    assert "<@&10>" in field_value
-    assert "<@&20>" in field_value
-    assert "<@&30>" not in field_value
+    assert field_value == "説明"
+    assert "<@&10>" not in field_value
+    assert "<@&20>" not in field_value
+
+
+def test_build_panel_embed_shows_fallback_when_description_is_missing() -> None:
+    category = build_category(roles=[10])
+    service = RolePanelService(bot=cast(AsteroidBot, object()))
+
+    embed = service.build_panel_embed([category])
+
+    assert embed.fields[0].value == "説明未設定"
 
 
 def test_build_panel_embed_limits_categories_to_discord_field_limit() -> None:

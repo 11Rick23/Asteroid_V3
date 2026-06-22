@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from logging.config import fileConfig
 from typing import Literal
 
@@ -20,8 +21,11 @@ from app.database.session import _normalize_database_url
 # access to the values within the .ini file in use.
 config = context.config
 
-asteroid_config = AsteroidConfig.load()
-config.set_main_option("sqlalchemy.url", _normalize_database_url(asteroid_config.database.url))
+database_url = os.environ.get("ASTEROID_DATABASE_URL")
+if database_url is None:
+    asteroid_config = AsteroidConfig.load()
+    database_url = asteroid_config.database.url
+config.set_main_option("sqlalchemy.url", _normalize_database_url(database_url))
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

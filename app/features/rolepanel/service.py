@@ -110,10 +110,7 @@ def build_boost_role_removal_plan(
     categories: list[RolePanelCategoryDetail],
 ) -> BoostRoleRemovalPlan:
     boost_role_ids = {
-        role_data.role_id
-        for category in categories
-        if category.requires_boost
-        for role_data in category.roles
+        role_data.role_id for category in categories if category.requires_boost for role_data in category.roles
     }
     remove_roles: list[discord.Role] = []
     unmanageable_role_ids: set[int] = set()
@@ -185,16 +182,9 @@ class RolePanelService:
             embed.description = (embed.description or "") + f"\n表示対象は先頭{PANEL_CATEGORY_LIMIT}カテゴリです。"
 
         for category in categories[:PANEL_CATEGORY_LIMIT]:
-            category_roles = sort_roles_by_hierarchy(category.roles, guild)
-            role_mentions = (
-                "\n".join(f"<@&{role.role_id}>" for role in category_roles[:ROLE_SELECT_LIMIT]) or "ロール未設定"
-            )
-            description = ""
-            if len(category.roles) > ROLE_SELECT_LIMIT:
-                description += f"表示対象は先頭{ROLE_SELECT_LIMIT}件です。\n"
             embed.add_field(
                 name=category.name,
-                value=f"{description}{role_mentions}",
+                value=category.description or "説明未設定",
                 inline=True,
             )
         return embed

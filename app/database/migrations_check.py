@@ -30,8 +30,11 @@ def validate_database_revision(current_heads: tuple[str, ...], expected_heads: t
     if not current_heads:
         raise RuntimeError(
             "DB の Alembic revision が記録されていません。"
-            f" 既存 DB の場合は `uv run alembic stamp head`、新規 DB の場合は"
-            f" `uv run alembic upgrade head` を実行してください。 expected={expected} current={current}"
+            " 既存 DB の場合は実スキーマに一致する revision を `uv run alembic stamp ...` で記録してください。"
+            " 例えば初期 baseline と一致する場合は `uv run alembic stamp 273b6467e5ff` を実行し、"
+            f" その後 `uv run alembic upgrade head` を実行してください。"
+            f" 新規 DB の場合は `uv run alembic upgrade head` を実行してください。"
+            f" expected={expected} current={current}"
         )
 
     raise RuntimeError(

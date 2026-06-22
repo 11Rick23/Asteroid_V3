@@ -8,27 +8,33 @@ import pytest
 from sqlalchemy.dialects import mysql
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.common.constants import AsteroidColor
 from app.core.bot import AsteroidBot
 from app.database.models.monthly_powers import MonthlyPowerModel
+from app.database.repositories.leveling_hotness import LevelingHotnessRankingData
 from app.database.repositories.monthly_powers import MonthlyPowerRankingData, MonthlyPowers
 from app.database.repositories.star_grades import StarGradeRankingData
 from app.features.leveling.build_send_message import (
-    build_power_embed,
-    build_power_ranking_embed,
-    build_rank_embed,
+    build_hotness_ranking_container,
+    build_power_ranking_pages,
+    build_power_view,
+    build_rank_view,
+    build_shard_ranking_pages,
+    format_ranking_position,
     total_monthly_power,
 )
 
 
 class FakeAvatar:
-    url = "https://example.com/avatar.png"
+    def __init__(self, user_id: int) -> None:
+        self.url = f"https://example.com/avatar-{user_id}.png"
 
 
 class FakeUser:
     def __init__(self, user_id: int, display_name: str) -> None:
         self.id = user_id
         self.display_name = display_name
-        self.display_avatar = FakeAvatar()
+        self.display_avatar = FakeAvatar(user_id)
 
 
 class FakeBot:
@@ -58,43 +64,213 @@ def test_total_monthly_power_includes_action_power() -> None:
     assert total_monthly_power(monthly_power) == 175
 
 
-def test_build_power_embed_shows_action_power() -> None:
+@pytest.mark.parametrize(
+    ("ranking", "expected"),
+    [(1, "🥇"), (2, "🥈"), (3, "🥉"), (4, "4位")],
+)
+def test_format_ranking_position_uses_medals_for_top3(ranking: int, expected: str) -> None:
+    assert format_ranking_position(ranking) == expected
+
+
+def text_contents(item: Any) -> str:
+    return "\n".join(child.content for child in item.walk_children() if isinstance(child, discord.ui.TextDisplay))
+
+
+def test_build_power_view_shows_action_power() -> None:
     now = datetime.now()
     user = FakeUser(123, "Alice")
     monthly_power = MonthlyPowerRankingData(123, 100, 50, 25, now, now, 1)
 
-    embed = build_power_embed(cast(discord.abc.User, user), monthly_power)
+    view = build_power_view(cast(discord.abc.User, user), monthly_power)
+    content = text_contents(view)
 
-    assert len(embed.fields) == 3
-    assert embed.fields[2].name == "アクションパワー数"
-    assert embed.fields[2].value == "<:_:1488099100518776993> 25"
+    assert view.has_components_v2()
+    assert "### アクションパワー数" in content
+    assert "<:_:1488099100518776993> 25" in content
 
 
-def test_build_power_ranking_embed_shows_action_power_and_total() -> None:
+def test_build_power_ranking_page_shows_action_power_and_total() -> None:
     now = datetime.now()
     monthly_power = MonthlyPowerRankingData(123, 100, 50, 25, now, now, 1)
     bot = FakeBot({123: FakeUser(123, "Alice")})
-    base_embed = discord.Embed(title="Power Ranking")
+    pages = build_power_ranking_pages(
+        cast(AsteroidBot, bot),
+        [monthly_power],
+        title="Power Ranking",
+        description="description",
+    )
+    content = text_contents(pages[0])
 
-    embeds = build_power_ranking_embed(cast(AsteroidBot, bot), [monthly_power], base_embed=base_embed)
+    assert len(pages) == 1
+    assert "### 🥇: Alice" in content
+    assert "<:_:1488099100518776993> 25" in content
+    assert "<:_:1488099100518776993> 25\n合計: 175" in content
+    assert pages[0].accent_colour == AsteroidColor.PURPLE
+    sections = [child for child in pages[0].children if isinstance(child, discord.ui.Section)]
+    assert len(sections) == 1
+    thumbnail = cast(discord.ui.Thumbnail, sections[0].accessory)
+    assert thumbnail.media.url == "https://example.com/avatar-123.png"
 
-    assert len(embeds) == 1
-    field = embeds[0].fields[-1]
-    assert field.name == "1位: Alice"
-    assert "<:_:1488099100518776993> 25" in (field.value or "")
-    assert "計: 175" in (field.value or "")
+
+def test_build_power_ranking_page_separates_users_and_shows_each_avatar() -> None:
+    now = datetime.now()
+    monthly_powers = [
+        MonthlyPowerRankingData(123, 100, 50, 25, now, now, 1),
+        MonthlyPowerRankingData(456, 90, 40, 20, now, now, 2),
+    ]
+    bot = FakeBot(
+        {
+            123: FakeUser(123, "Alice"),
+            456: FakeUser(456, "Bob"),
+        }
+    )
+
+    page = build_power_ranking_pages(
+        cast(AsteroidBot, bot),
+        monthly_powers,
+        title="Power Ranking",
+        description="description",
+    )[0]
+
+    sections = [child for child in page.children if isinstance(child, discord.ui.Section)]
+    separators = [child for child in page.children if isinstance(child, discord.ui.Separator)]
+    thumbnails = [cast(discord.ui.Thumbnail, section.accessory).media.url for section in sections]
+
+    assert len(sections) == 2
+    assert len(separators) == 1
+    assert thumbnails == [
+        "https://example.com/avatar-123.png",
+        "https://example.com/avatar-456.png",
+    ]
+    assert page.accent_colour == AsteroidColor.PURPLE
 
 
-def test_build_rank_embed_shows_action_power() -> None:
+def test_build_power_ranking_pages_uses_requested_page_size() -> None:
+    now = datetime.now()
+    monthly_powers = [
+        MonthlyPowerRankingData(user_id, 100, 50, 25, now, now, ranking)
+        for ranking, user_id in enumerate(range(1, 7), start=1)
+    ]
+    bot = FakeBot({})
+
+    pages = build_power_ranking_pages(
+        cast(AsteroidBot, bot),
+        monthly_powers,
+        title="Power Ranking",
+        description="description",
+        page_size=5,
+    )
+
+    assert len(pages) == 2
+    assert "### 5位: 不明なメンバー [5]" in text_contents(pages[0])
+    assert "### 6位: 不明なメンバー [6]" in text_contents(pages[1])
+
+
+def test_build_shard_ranking_page_separates_users_and_shows_each_avatar() -> None:
+    now = datetime.now()
+    star_grades = [
+        StarGradeRankingData(123, 1, 2, 3, 4, 5, 6, now, now, 1),
+        StarGradeRankingData(456, 2, 3, 4, 5, 6, 7, now, now, 2),
+    ]
+    bot = FakeBot(
+        {
+            123: FakeUser(123, "Alice"),
+            456: FakeUser(456, "Bob"),
+        }
+    )
+
+    page = build_shard_ranking_pages(
+        cast(AsteroidBot, bot),
+        star_grades,
+        title="Shard Ranking",
+        description="description",
+    )[0]
+    content = text_contents(page)
+
+    sections = [child for child in page.children if isinstance(child, discord.ui.Section)]
+    separators = [child for child in page.children if isinstance(child, discord.ui.Separator)]
+    thumbnails = [cast(discord.ui.Thumbnail, section.accessory).media.url for section in sections]
+
+    assert len(sections) == 2
+    assert len(separators) == 1
+    assert thumbnails == [
+        "https://example.com/avatar-123.png",
+        "https://example.com/avatar-456.png",
+    ]
+    assert "<:_:1128213560166723585> 3\n合計:" in content
+    assert page.accent_colour == AsteroidColor.LIGHT_BLUE
+
+
+def test_build_shard_ranking_pages_uses_requested_page_size() -> None:
+    now = datetime.now()
+    star_grades = [
+        StarGradeRankingData(user_id, 1, 2, 3, 4, 5, 6, now, now, ranking)
+        for ranking, user_id in enumerate(range(1, 7), start=1)
+    ]
+    bot = FakeBot({})
+
+    pages = build_shard_ranking_pages(
+        cast(AsteroidBot, bot),
+        star_grades,
+        title="Shard Ranking",
+        description="description",
+        page_size=5,
+    )
+
+    assert len(pages) == 2
+    assert "### 5位: 不明なメンバー [5]" in text_contents(pages[0])
+    assert "### 6位: 不明なメンバー [6]" in text_contents(pages[1])
+
+
+def test_build_hotness_ranking_container_shows_top3_with_avatars() -> None:
+    rankings = [
+        LevelingHotnessRankingData(123, 300),
+        LevelingHotnessRankingData(456, 200),
+        LevelingHotnessRankingData(789, 100),
+    ]
+    bot = FakeBot(
+        {
+            123: FakeUser(123, "Alice"),
+            456: FakeUser(456, "Bob"),
+            789: FakeUser(789, "Carol"),
+        }
+    )
+
+    container = build_hotness_ranking_container(
+        cast(AsteroidBot, bot),
+        rankings,
+        title="Hotness Ranking",
+        description="description",
+    )
+    content = text_contents(container)
+    sections = [child for child in container.children if isinstance(child, discord.ui.Section)]
+    separators = [child for child in container.children if isinstance(child, discord.ui.Separator)]
+    thumbnails = [cast(discord.ui.Thumbnail, section.accessory).media.url for section in sections]
+
+    assert "### 🥇: Alice" in content
+    assert "🔥 合計: 300" in content
+    assert "### 🥉: Carol" in content
+    assert len(sections) == 3
+    assert len(separators) == 2
+    assert thumbnails == [
+        "https://example.com/avatar-123.png",
+        "https://example.com/avatar-456.png",
+        "https://example.com/avatar-789.png",
+    ]
+
+
+def test_build_rank_view_shows_action_power() -> None:
     now = datetime.now()
     user = FakeUser(123, "Alice")
     monthly_power = MonthlyPowerRankingData(123, 100, 50, 25, now, now, 1)
     star_grade = StarGradeRankingData(123, 1, 2, 3, 4, 5, 6, now, now, 2)
 
-    embed = build_rank_embed(cast(discord.abc.User, user), monthly_power, star_grade)
+    view = build_rank_view(cast(discord.abc.User, user), monthly_power, star_grade)
+    content = text_contents(view)
 
-    assert "<:_:1488099100518776993> 25" in (embed.fields[1].value or "")
-    assert "175パワー" in (embed.fields[1].name or "")
+    assert view.has_components_v2()
+    assert "<:_:1488099100518776993> 25" in content
+    assert "175パワー" in content
 
 
 def test_monthly_power_aggregated_subquery_references_action_power_table() -> None:

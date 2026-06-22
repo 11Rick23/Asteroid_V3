@@ -1,4 +1,5 @@
 from .given_stars import GivenStarModel
+from .leveling_hotness import LevelingHotnessEventModel
 from .monthly_action_powers import MonthlyActionPowerModel
 from .monthly_powers import MonthlyPowerModel
 from .role_panel import RolePanelCategoryModel, RolePanelRoleModel
@@ -11,6 +12,7 @@ from .xp_boosts import XPBoostModel
 
 __all__ = [
     "GivenStarModel",
+    "LevelingHotnessEventModel",
     "MonthlyActionPowerModel",
     "MonthlyPowerModel",
     "RolePanelCategoryModel",

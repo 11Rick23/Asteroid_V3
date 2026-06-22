@@ -23,6 +23,13 @@ report:
   report_ping_role_id: 123
 leveling:
   message_cooldown: 30
+  ranking_board_channel_id: 333
+auth:
+  panel_channel_id: 111
+free_category:
+  text_create_channel_id: 222
+rolepanel:
+  panel_channel_id: 444
 """,
         encoding="utf-8",
     )
@@ -36,8 +43,11 @@ leveling:
     assert config.report.report_receive_channel_id == 999
     assert config.report.report_ping_role_id == 123
     assert config.leveling.message_cooldown == 30
+    assert config.leveling.ranking_board_channel_id == 333
     assert config.leveling.action_power_channel_id == 0
-    assert config.rolepanel.panel_channel_id == 0
+    assert config.auth.panel_channel_id == 111
+    assert config.free_category.text_create_channel_id == 222
+    assert config.rolepanel.panel_channel_id == 444
 
 
 def test_config_provides_defaults(tmp_path: Path) -> None:
@@ -60,6 +70,7 @@ vc:
     assert config.permission_roles_id_list.admin == 0
     assert config.report.report_ping_role_id == 0
     assert config.leveling.action_power_channel_id == 0
+    assert config.auth.panel_channel_id == 0
     assert config.rolepanel.panel_channel_id == 0
 
 
