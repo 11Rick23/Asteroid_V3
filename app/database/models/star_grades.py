@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, func
+from sqlalchemy import DateTime, Index, func
 from sqlalchemy.dialects.mysql import BIGINT, INTEGER, TINYINT
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -11,6 +11,7 @@ from app.database.base import Base
 
 class StarGradeModel(Base):
     __tablename__ = "star_grades"
+    __table_args__ = (Index("idx_star_grades_ranking", "prestige", "grade", "shard"),)
 
     user_id: Mapped[int] = mapped_column(BIGINT(unsigned=True), primary_key=True)
     prestige: Mapped[int] = mapped_column(TINYINT(unsigned=True), default=0)

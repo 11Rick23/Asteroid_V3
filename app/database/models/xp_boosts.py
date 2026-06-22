@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, func
+from sqlalchemy import DateTime, Index, String, func
 from sqlalchemy.dialects.mysql import BIGINT, INTEGER
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -11,6 +11,7 @@ from app.database.base import Base
 
 class XPBoostModel(Base):
     __tablename__ = "xp_boosts"
+    __table_args__ = (Index("idx_xp_boosts_boost_end_time", "boost_end_time"),)
 
     role_id: Mapped[int] = mapped_column(BIGINT(unsigned=True), primary_key=True)
     name: Mapped[str] = mapped_column(String(100))
