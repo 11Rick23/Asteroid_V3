@@ -22,10 +22,10 @@ class MonthlyActionPowers:
     def __init__(self, db):
         self.db = db
 
-    async def _get_or_create_monthly_action_power_model_lock(
+    async def _get_or_create_monthly_action_power_model_in_session(
         self, session: AsyncSession, user_id: int
     ) -> MonthlyActionPowerModel:
-        stmt = select(MonthlyActionPowerModel).where(MonthlyActionPowerModel.user_id == user_id).with_for_update()
+        stmt = select(MonthlyActionPowerModel).where(MonthlyActionPowerModel.user_id == user_id)
         model = await session.scalar(stmt)
         if model is not None:
             return model
@@ -67,19 +67,19 @@ class MonthlyActionPowers:
         async with self.db.session() as session:
             return self._to_data(await session.get(MonthlyActionPowerModel, user_id))
 
-    async def get_monthly_action_power_lock(
+    async def get_monthly_action_power_in_session(
         self, session: AsyncSession, user_id: int
     ) -> MonthlyActionPowerData | None:
-        stmt = select(MonthlyActionPowerModel).where(MonthlyActionPowerModel.user_id == user_id).with_for_update()
+        stmt = select(MonthlyActionPowerModel).where(MonthlyActionPowerModel.user_id == user_id)
         return self._to_data(await session.scalar(stmt))
 
     async def create_monthly_action_power(self, user_id: int, action_power: int = 0) -> MonthlyActionPowerData:
         async with self.db.session() as session:
-            data = await self.create_monthly_action_power_lock(session, user_id, action_power)
+            data = await self.create_monthly_action_power_in_session(session, user_id, action_power)
             await session.commit()
             return data
 
-    async def create_monthly_action_power_lock(
+    async def create_monthly_action_power_in_session(
         self, session: AsyncSession, user_id: int, action_power: int = 0
     ) -> MonthlyActionPowerData:
         now = datetime.now()
@@ -91,17 +91,17 @@ class MonthlyActionPowers:
         self, monthly_action_power_data: MonthlyActionPowerData, add_action_power: int
     ) -> MonthlyActionPowerData:
         async with self.db.session() as session:
-            updated = await self.add_action_power_lock(session, monthly_action_power_data, add_action_power)
+            updated = await self.add_action_power_in_session(session, monthly_action_power_data, add_action_power)
             await session.commit()
             return updated
 
-    async def add_action_power_lock(
+    async def add_action_power_in_session(
         self,
         session: AsyncSession,
         monthly_action_power_data: MonthlyActionPowerData,
         add_action_power: int,
     ) -> MonthlyActionPowerData:
-        model = await self._get_or_create_monthly_action_power_model_lock(
+        model = await self._get_or_create_monthly_action_power_model_in_session(
             session, monthly_action_power_data.user_id
         )
         model.action_power += add_action_power
@@ -112,7 +112,7 @@ class MonthlyActionPowers:
             datetime.now(),
         )
 
-    async def remove_action_power_lock(
+    async def remove_action_power_in_session(
         self,
         session: AsyncSession,
         monthly_action_power_data: MonthlyActionPowerData,
@@ -134,7 +134,11 @@ class MonthlyActionPowers:
         self, monthly_action_power_data: MonthlyActionPowerData, remove_action_power: int
     ) -> MonthlyActionPowerData:
         async with self.db.session() as session:
-            updated = await self.remove_action_power_lock(session, monthly_action_power_data, remove_action_power)
+            updated = await self.remove_action_power_in_session(
+                session,
+                monthly_action_power_data,
+                remove_action_power,
+            )
             await session.commit()
             return updated
 

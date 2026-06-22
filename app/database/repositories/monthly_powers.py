@@ -84,8 +84,10 @@ class MonthlyPowers:
             .subquery()
         )
 
-    async def _get_or_create_monthly_power_model_lock(self, session: AsyncSession, user_id: int) -> MonthlyPowerModel:
-        stmt = select(MonthlyPowerModel).where(MonthlyPowerModel.user_id == user_id).with_for_update()
+    async def _get_or_create_monthly_power_model_in_session(
+        self, session: AsyncSession, user_id: int
+    ) -> MonthlyPowerModel:
+        stmt = select(MonthlyPowerModel).where(MonthlyPowerModel.user_id == user_id)
         model = await session.scalar(stmt)
         if model is not None:
             return model
@@ -116,8 +118,8 @@ class MonthlyPowers:
             result = await session.execute(stmt)
             return self._to_data(result.one_or_none())
 
-    async def get_monthly_power_lock(self, session: AsyncSession, user_id: int) -> MonthlyPowerData | None:
-        stmt = select(MonthlyPowerModel).where(MonthlyPowerModel.user_id == user_id).with_for_update()
+    async def get_monthly_power_in_session(self, session: AsyncSession, user_id: int) -> MonthlyPowerData | None:
+        stmt = select(MonthlyPowerModel).where(MonthlyPowerModel.user_id == user_id)
         return self._to_data(await session.scalar(stmt))
 
     @overload
@@ -156,11 +158,11 @@ class MonthlyPowers:
 
     async def create_monthly_power(self, user_id: int, text_power: int = 0, voice_power: int = 0) -> MonthlyPowerData:
         async with self.db.session() as session:
-            data = await self.create_monthly_power_lock(session, user_id, text_power, voice_power)
+            data = await self.create_monthly_power_in_session(session, user_id, text_power, voice_power)
             await session.commit()
             return data
 
-    async def create_monthly_power_lock(
+    async def create_monthly_power_in_session(
         self, session: AsyncSession, user_id: int, text_power: int = 0, voice_power: int = 0
     ) -> MonthlyPowerData:
         now = datetime.now()
@@ -170,14 +172,14 @@ class MonthlyPowers:
 
     async def add_text_power(self, monthly_power_data: MonthlyPowerData, add_text_power: int) -> MonthlyPowerData:
         async with self.db.session() as session:
-            updated = await self.add_text_power_lock(session, monthly_power_data, add_text_power)
+            updated = await self.add_text_power_in_session(session, monthly_power_data, add_text_power)
             await session.commit()
             return updated
 
-    async def add_text_power_lock(
+    async def add_text_power_in_session(
         self, session: AsyncSession, monthly_power_data: MonthlyPowerData, add_text_power: int
     ) -> MonthlyPowerData:
-        model = await self._get_or_create_monthly_power_model_lock(session, monthly_power_data.user_id)
+        model = await self._get_or_create_monthly_power_model_in_session(session, monthly_power_data.user_id)
         model.text_power += add_text_power
         return MonthlyPowerData(
             monthly_power_data.user_id,
@@ -210,14 +212,14 @@ class MonthlyPowers:
 
     async def add_voice_power(self, monthly_power_data: MonthlyPowerData, add_voice_power: int) -> MonthlyPowerData:
         async with self.db.session() as session:
-            updated = await self.add_voice_power_lock(session, monthly_power_data, add_voice_power)
+            updated = await self.add_voice_power_in_session(session, monthly_power_data, add_voice_power)
             await session.commit()
             return updated
 
-    async def add_voice_power_lock(
+    async def add_voice_power_in_session(
         self, session: AsyncSession, monthly_power_data: MonthlyPowerData, add_voice_power: int
     ) -> MonthlyPowerData:
-        model = await self._get_or_create_monthly_power_model_lock(session, monthly_power_data.user_id)
+        model = await self._get_or_create_monthly_power_model_in_session(session, monthly_power_data.user_id)
         model.voice_power += add_voice_power
         return MonthlyPowerData(
             monthly_power_data.user_id,
