@@ -8,7 +8,6 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models.star_grades import StarGradeModel
-from app.database.table_utils import model_table
 from app.features.leveling.domain.math_calculation import calculation_grade, calculation_prestige, calculation_shard
 
 
@@ -82,14 +81,6 @@ class StarGrades:
             StarGradeModel.updated_at.label("updated_at"),
             ranking.label("ranking"),
         ).subquery()
-
-    async def create_table(self) -> None:
-        async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: model_table(StarGradeModel).create(sync_conn, checkfirst=True))
-
-    async def drop_table(self) -> None:
-        async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: model_table(StarGradeModel).drop(sync_conn, checkfirst=True))
 
     async def get_star_grade(self, user_id: int) -> StarGradeData | None:
         async with self.db.session() as session:

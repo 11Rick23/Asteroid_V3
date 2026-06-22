@@ -9,7 +9,6 @@ from app.database.models.role_panel import (
     RolePanelCategoryModel,
     RolePanelRoleModel,
 )
-from app.database.table_utils import model_table
 
 
 @dataclass
@@ -66,18 +65,6 @@ class RolePanel:
             created_at=model.created_at,
             updated_at=model.updated_at,
         )
-
-    async def create_table(self) -> None:
-        async with self.db.engine.begin() as conn:
-            await conn.run_sync(
-                lambda sync_conn: model_table(RolePanelCategoryModel).create(sync_conn, checkfirst=True)
-            )
-            await conn.run_sync(lambda sync_conn: model_table(RolePanelRoleModel).create(sync_conn, checkfirst=True))
-
-    async def drop_table(self) -> None:
-        async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: model_table(RolePanelRoleModel).drop(sync_conn, checkfirst=True))
-            await conn.run_sync(lambda sync_conn: model_table(RolePanelCategoryModel).drop(sync_conn, checkfirst=True))
 
     async def create_category(
         self,

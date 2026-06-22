@@ -6,7 +6,6 @@ from datetime import datetime
 from sqlalchemy import delete, func, select
 
 from app.database.models.xp_boosts import XPBoostModel
-from app.database.table_utils import model_table
 
 
 @dataclass
@@ -35,14 +34,6 @@ class XPBoosts:
             created_at=model.created_at,
             updated_at=model.updated_at,
         )
-
-    async def create_table(self) -> None:
-        async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: model_table(XPBoostModel).create(sync_conn, checkfirst=True))
-
-    async def drop_table(self) -> None:
-        async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: model_table(XPBoostModel).drop(sync_conn, checkfirst=True))
 
     async def get_xp_boosts(self) -> list[XPBoostData]:
         async with self.db.session() as session:

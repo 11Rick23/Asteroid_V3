@@ -6,7 +6,6 @@ from datetime import datetime
 from sqlalchemy import func, select
 
 from app.database.models.starred_messages import StarredMessageModel
-from app.database.table_utils import model_table
 
 
 @dataclass
@@ -43,14 +42,6 @@ class StarredMessages:
             created_at=model.created_at,
             updated_at=model.updated_at,
         )
-
-    async def create_table(self) -> None:
-        async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: model_table(StarredMessageModel).create(sync_conn, checkfirst=True))
-
-    async def drop_table(self) -> None:
-        async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: model_table(StarredMessageModel).drop(sync_conn, checkfirst=True))
 
     async def get_starred_message(self, message_id: int) -> StarredMessageData | None:
         async with self.db.session() as session:

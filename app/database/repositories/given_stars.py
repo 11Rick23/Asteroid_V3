@@ -6,7 +6,6 @@ from datetime import datetime
 from sqlalchemy import select
 
 from app.database.models.given_stars import GivenStarModel
-from app.database.table_utils import model_table
 
 
 @dataclass
@@ -31,14 +30,6 @@ class GivenStars:
             created_at=model.created_at,
             updated_at=model.updated_at,
         )
-
-    async def create_table(self) -> None:
-        async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: model_table(GivenStarModel).create(sync_conn, checkfirst=True))
-
-    async def drop_table(self) -> None:
-        async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: model_table(GivenStarModel).drop(sync_conn, checkfirst=True))
 
     async def get_given_star(self, user_id: int) -> GivenStarData | None:
         async with self.db.session() as session:

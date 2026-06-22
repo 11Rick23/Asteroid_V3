@@ -7,7 +7,6 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models.voice_xp_limits import VoiceXPLimitModel
-from app.database.table_utils import model_table
 
 
 @dataclass
@@ -40,14 +39,6 @@ class VoiceXPLimits:
             created_at=model.created_at,
             updated_at=model.updated_at,
         )
-
-    async def create_table(self) -> None:
-        async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: model_table(VoiceXPLimitModel).create(sync_conn, checkfirst=True))
-
-    async def drop_table(self) -> None:
-        async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: model_table(VoiceXPLimitModel).drop(sync_conn, checkfirst=True))
 
     async def get_voice_xp_limit(self, user_id: int) -> VoiceXPLimitData | None:
         async with self.db.session() as session:
