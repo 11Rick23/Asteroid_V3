@@ -74,17 +74,15 @@ class RolePanel:
         requires_boost: bool = False,
     ) -> RolePanelCategoryData:
         async with self.db.session() as session:
-            now = datetime.now()
             model = RolePanelCategoryModel(
                 name=name,
                 description=description,
                 display_order=display_order,
                 requires_boost=requires_boost,
-                created_at=now,
-                updated_at=now,
             )
             session.add(model)
             await session.flush()
+            await session.refresh(model)
             data = self._to_category_data(model)
             await session.commit()
         if data is None:
@@ -112,8 +110,8 @@ class RolePanel:
                 model.display_order = display_order
             if requires_boost is not None:
                 model.requires_boost = requires_boost
-            now = datetime.now()
-            model.updated_at = now
+            await session.flush()
+            await session.refresh(model)
             data = self._to_category_data(model)
             await session.commit()
             return data
@@ -184,18 +182,16 @@ class RolePanel:
                 return None
             model = await session.get(RolePanelRoleModel, (category_id, role_id))
             if model is None:
-                now = datetime.now()
                 model = RolePanelRoleModel(
                     category_id=category_id,
                     role_id=role_id,
                     display_order=display_order,
-                    created_at=now,
-                    updated_at=now,
                 )
                 session.add(model)
-                await session.flush()
             else:
                 model.display_order = display_order
+            await session.flush()
+            await session.refresh(model)
             data = self._to_role_data(model)
             await session.commit()
             return data
@@ -216,20 +212,19 @@ class RolePanel:
             if await session.get(RolePanelCategoryModel, category_id) is None:
                 return None
             await session.execute(delete(RolePanelRoleModel).where(RolePanelRoleModel.category_id == category_id))
-            now = datetime.now()
             models = [
                 RolePanelRoleModel(
                     category_id=category_id,
                     role_id=role_id,
                     display_order=index,
-                    created_at=now,
-                    updated_at=now,
                 )
                 for index, role_id in enumerate(role_ids)
             ]
             if models:
                 session.add_all(models)
                 await session.flush()
+                for model in models:
+                    await session.refresh(model)
             data = [role_data for model in models if (role_data := self._to_role_data(model)) is not None]
             await session.commit()
             return data

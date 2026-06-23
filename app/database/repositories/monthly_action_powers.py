@@ -82,10 +82,14 @@ class MonthlyActionPowers:
     async def create_monthly_action_power_in_session(
         self, session: AsyncSession, user_id: int, action_power: int = 0
     ) -> MonthlyActionPowerData:
-        now = datetime.now()
-        session.add(MonthlyActionPowerModel(user_id=user_id, action_power=action_power))
+        model = MonthlyActionPowerModel(user_id=user_id, action_power=action_power)
+        session.add(model)
         await session.flush()
-        return MonthlyActionPowerData(user_id, action_power, now, now)
+        await session.refresh(model)
+        data = self._to_data(model)
+        if data is None:
+            raise RuntimeError(f"monthly_action_powers[{user_id}] の作成に失敗しました。")
+        return data
 
     async def add_action_power(
         self, monthly_action_power_data: MonthlyActionPowerData, add_action_power: int
@@ -105,12 +109,12 @@ class MonthlyActionPowers:
             session, monthly_action_power_data.user_id
         )
         model.action_power += add_action_power
-        return MonthlyActionPowerData(
-            monthly_action_power_data.user_id,
-            monthly_action_power_data.action_power + add_action_power,
-            monthly_action_power_data.created_at,
-            datetime.now(),
-        )
+        await session.flush()
+        await session.refresh(model)
+        data = self._to_data(model)
+        if data is None:
+            raise RuntimeError(f"monthly_action_powers[{monthly_action_power_data.user_id}] の更新に失敗しました。")
+        return data
 
     async def remove_action_power_in_session(
         self,
@@ -123,12 +127,10 @@ class MonthlyActionPowers:
         if model is None:
             return monthly_action_power_data
         model.action_power -= remove_action_power
-        return MonthlyActionPowerData(
-            monthly_action_power_data.user_id,
-            monthly_action_power_data.action_power - remove_action_power,
-            monthly_action_power_data.created_at,
-            datetime.now(),
-        )
+        await session.flush()
+        await session.refresh(model)
+        data = self._to_data(model)
+        return data if data is not None else monthly_action_power_data
 
     async def remove_action_power(
         self, monthly_action_power_data: MonthlyActionPowerData, remove_action_power: int

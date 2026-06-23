@@ -80,19 +80,21 @@ class VoiceXPLimits:
         half_notify: bool = False,
         full_notify: bool = False,
     ) -> VoiceXPLimitData:
-        now = datetime.now()
-        session.add(
-            VoiceXPLimitModel(
-                user_id=user_id,
-                voice_shard=voice_shard,
-                bonus_shard=bonus_shard,
-                voice_power=voice_power,
-                half_notify=half_notify,
-                full_notify=full_notify,
-            )
+        model = VoiceXPLimitModel(
+            user_id=user_id,
+            voice_shard=voice_shard,
+            bonus_shard=bonus_shard,
+            voice_power=voice_power,
+            half_notify=half_notify,
+            full_notify=full_notify,
         )
+        session.add(model)
         await session.flush()
-        return VoiceXPLimitData(user_id, voice_shard, bonus_shard, voice_power, half_notify, full_notify, now, now)
+        await session.refresh(model)
+        data = self._to_data(model)
+        if data is None:
+            raise RuntimeError(f"voice_xp_limits[{user_id}] の作成に失敗しました。")
+        return data
 
     def _updated(
         self,
@@ -112,23 +114,28 @@ class VoiceXPLimits:
             data.half_notify if half_notify is None else half_notify,
             data.full_notify if full_notify is None else full_notify,
             data.created_at,
-            datetime.now(),
+            data.updated_at,
         )
 
-    async def _write_state(self, data: VoiceXPLimitData) -> None:
+    async def _write_state(self, data: VoiceXPLimitData) -> VoiceXPLimitData:
         async with self.db.session() as session:
-            await self._write_state_in_session(session, data)
+            updated = await self._write_state_in_session(session, data)
             await session.commit()
+            return updated
 
-    async def _write_state_in_session(self, session: AsyncSession, data: VoiceXPLimitData) -> None:
+    async def _write_state_in_session(self, session: AsyncSession, data: VoiceXPLimitData) -> VoiceXPLimitData:
         model = await session.get(VoiceXPLimitModel, data.user_id)
         if model is None:
-            return
+            return data
         model.voice_shard = data.voice_shard
         model.bonus_shard = data.bonus_shard
         model.voice_power = data.voice_power
         model.half_notify = data.half_notify
         model.full_notify = data.full_notify
+        await session.flush()
+        await session.refresh(model)
+        updated = self._to_data(model)
+        return updated if updated is not None else data
 
     def _apply_limit(
         self, current: int, add_value: int, limit: int, half_notify: bool, full_notify: bool
@@ -153,7 +160,7 @@ class VoiceXPLimits:
             half_notify=half_notify,
             full_notify=full_notify,
         )
-        await self._write_state(updated)
+        updated = await self._write_state(updated)
         return updated, half_notify, full_notify
 
     async def add_voice_shard_in_session(
@@ -169,7 +176,7 @@ class VoiceXPLimits:
             half_notify=half_notify,
             full_notify=full_notify,
         )
-        await self._write_state_in_session(session, updated)
+        updated = await self._write_state_in_session(session, updated)
         return updated, half_notify, full_notify
 
     async def add_bonus_shard(
@@ -185,7 +192,7 @@ class VoiceXPLimits:
             half_notify=half_notify,
             full_notify=full_notify,
         )
-        await self._write_state(updated)
+        updated = await self._write_state(updated)
         return updated, half_notify, full_notify
 
     async def add_bonus_shard_in_session(
@@ -201,7 +208,7 @@ class VoiceXPLimits:
             half_notify=half_notify,
             full_notify=full_notify,
         )
-        await self._write_state_in_session(session, updated)
+        updated = await self._write_state_in_session(session, updated)
         return updated, half_notify, full_notify
 
     async def add_voice_power(
@@ -220,7 +227,7 @@ class VoiceXPLimits:
             half_notify=half_notify,
             full_notify=full_notify,
         )
-        await self._write_state(updated)
+        updated = await self._write_state(updated)
         return updated, half_notify, full_notify
 
     async def add_voice_power_in_session(
@@ -239,7 +246,7 @@ class VoiceXPLimits:
             half_notify=half_notify,
             full_notify=full_notify,
         )
-        await self._write_state_in_session(session, updated)
+        updated = await self._write_state_in_session(session, updated)
         return updated, half_notify, full_notify
 
     async def delete_voice_xp_limit(self, user_id: int) -> None:

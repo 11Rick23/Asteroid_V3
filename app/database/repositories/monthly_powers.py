@@ -165,10 +165,14 @@ class MonthlyPowers:
     async def create_monthly_power_in_session(
         self, session: AsyncSession, user_id: int, text_power: int = 0, voice_power: int = 0
     ) -> MonthlyPowerData:
-        now = datetime.now()
-        session.add(MonthlyPowerModel(user_id=user_id, text_power=text_power, voice_power=voice_power))
+        model = MonthlyPowerModel(user_id=user_id, text_power=text_power, voice_power=voice_power)
+        session.add(model)
         await session.flush()
-        return MonthlyPowerData(user_id, text_power, voice_power, 0, now, now)
+        await session.refresh(model)
+        data = self._to_data(model)
+        if data is None:
+            raise RuntimeError(f"monthly_powers[{user_id}] の作成に失敗しました。")
+        return data
 
     async def add_text_power(self, monthly_power_data: MonthlyPowerData, add_text_power: int) -> MonthlyPowerData:
         async with self.db.session() as session:
@@ -181,13 +185,15 @@ class MonthlyPowers:
     ) -> MonthlyPowerData:
         model = await self._get_or_create_monthly_power_model_in_session(session, monthly_power_data.user_id)
         model.text_power += add_text_power
+        await session.flush()
+        await session.refresh(model)
         return MonthlyPowerData(
-            monthly_power_data.user_id,
-            monthly_power_data.text_power + add_text_power,
-            monthly_power_data.voice_power,
+            model.user_id,
+            model.text_power,
+            model.voice_power,
             monthly_power_data.action_power,
-            monthly_power_data.created_at,
-            datetime.now(),
+            model.created_at,
+            model.updated_at,
         )
 
     async def remove_text_power(
@@ -200,15 +206,17 @@ class MonthlyPowers:
             if model is None:
                 return monthly_power_data
             model.text_power -= remove_text_power
+            await session.flush()
+            await session.refresh(model)
             await session.commit()
-        return MonthlyPowerData(
-            monthly_power_data.user_id,
-            monthly_power_data.text_power - remove_text_power,
-            monthly_power_data.voice_power,
-            monthly_power_data.action_power,
-            monthly_power_data.created_at,
-            datetime.now(),
-        )
+            return MonthlyPowerData(
+                model.user_id,
+                model.text_power,
+                model.voice_power,
+                monthly_power_data.action_power,
+                model.created_at,
+                model.updated_at,
+            )
 
     async def add_voice_power(self, monthly_power_data: MonthlyPowerData, add_voice_power: int) -> MonthlyPowerData:
         async with self.db.session() as session:
@@ -221,13 +229,15 @@ class MonthlyPowers:
     ) -> MonthlyPowerData:
         model = await self._get_or_create_monthly_power_model_in_session(session, monthly_power_data.user_id)
         model.voice_power += add_voice_power
+        await session.flush()
+        await session.refresh(model)
         return MonthlyPowerData(
-            monthly_power_data.user_id,
-            monthly_power_data.text_power,
-            monthly_power_data.voice_power + add_voice_power,
+            model.user_id,
+            model.text_power,
+            model.voice_power,
             monthly_power_data.action_power,
-            monthly_power_data.created_at,
-            datetime.now(),
+            model.created_at,
+            model.updated_at,
         )
 
     async def remove_voice_power(
@@ -240,15 +250,17 @@ class MonthlyPowers:
             if model is None:
                 return monthly_power_data
             model.voice_power -= remove_voice_power
+            await session.flush()
+            await session.refresh(model)
             await session.commit()
-        return MonthlyPowerData(
-            monthly_power_data.user_id,
-            monthly_power_data.text_power,
-            monthly_power_data.voice_power - remove_voice_power,
-            monthly_power_data.action_power,
-            monthly_power_data.created_at,
-            datetime.now(),
-        )
+            return MonthlyPowerData(
+                model.user_id,
+                model.text_power,
+                model.voice_power,
+                monthly_power_data.action_power,
+                model.created_at,
+                model.updated_at,
+            )
 
     async def delete_monthly_power(self, user_id: int) -> None:
         async with self.db.session() as session:
