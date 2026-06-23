@@ -13,7 +13,8 @@ from app.core.bot import AsteroidBot
 logger = getLogger(__name__)
 
 discord_message_url_pattern = re.compile(
-    r"(?!<)https://(ptb.|canary.)?discord(app)?.com/channels/(?P<guild>[0-9]{17,20})/(?P<channel>[0-9]{17,20})/(?P<message>[0-9]{17,20})(?!>)"
+    r"(?<!<)https://(?:ptb\.|canary\.)?discord(?:app)?\.com/channels/"
+    r"(?P<guild>[0-9]{17,20})/(?P<channel>[0-9]{17,20})/(?P<message>[0-9]{17,20})(?![0-9>])"
 )
 
 IMAGE_FILE_EXTENSION = (".jpeg", ".jpg", ".png", ".gif", ".apng", ".tiff", ".bmp", ".webp")
