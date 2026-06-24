@@ -47,7 +47,7 @@ def test_timestamp_columns_use_database_defaults() -> None:
     )
 
     for model in models:
-        assert server_default(model, "created_at") == "now()"
+        assert server_default(model, "created_at") == "CURRENT_TIMESTAMP"
         assert server_default(model, "updated_at") == "CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"
         assert column(model, "updated_at").server_onupdate is not None
 
