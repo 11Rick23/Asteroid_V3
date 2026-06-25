@@ -5,6 +5,8 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.database.repositories.monthly_action_powers import MonthlyActionPowerData
 from app.database.repositories.monthly_powers import MonthlyPowerData
 from app.database.repositories.star_grades import StarGradeData
@@ -102,24 +104,14 @@ class LevelingTransactions:
     async def add_text_power(self, user_id: int, amount: int) -> MonthlyPowerData:
         async with self._user_update(user_id):
             async with self.db.session() as session:
-                monthly_power = await self.db.monthly_powers.get_monthly_power_in_session(
-                    session, user_id
-                ) or await self.db.monthly_powers.create_monthly_power_in_session(session, user_id)
-                updated = await self.db.monthly_powers.add_text_power_in_session(session, monthly_power, amount)
-                if amount > 0:
-                    await self.db.leveling_hotness.record_gain_in_session(session, user_id, amount)
+                updated = await self._add_monthly_power_in_session(session, user_id, "text", amount)
                 await session.commit()
                 return updated
 
     async def add_voice_power(self, user_id: int, amount: int) -> MonthlyPowerData:
         async with self._user_update(user_id):
             async with self.db.session() as session:
-                monthly_power = await self.db.monthly_powers.get_monthly_power_in_session(
-                    session, user_id
-                ) or await self.db.monthly_powers.create_monthly_power_in_session(session, user_id)
-                updated = await self.db.monthly_powers.add_voice_power_in_session(session, monthly_power, amount)
-                if amount > 0:
-                    await self.db.leveling_hotness.record_gain_in_session(session, user_id, amount)
+                updated = await self._add_monthly_power_in_session(session, user_id, "voice", amount)
                 await session.commit()
                 return updated
 
@@ -317,59 +309,67 @@ class LevelingTransactions:
 
     async def add_shard(self, user_id: int, shard_type: str, amount: int) -> LevelingShardUpdateData:
         async with self._user_update(user_id):
-            star_grade = await self._get_or_create_star_grade(user_id)
-            if shard_type == "テキスト":
-                star_grade, grade_up_amount, prestige_amount = await self.db.star_grades.add_text_shard(
-                    star_grade, amount
-                )
-            elif shard_type == "ボイス":
-                star_grade, grade_up_amount, prestige_amount = await self.db.star_grades.add_voice_shard(
-                    star_grade, amount
-                )
-            else:
-                star_grade, grade_up_amount, prestige_amount = await self.db.star_grades.add_bonus_shard(
-                    star_grade, amount
-                )
+            async with self.db.session() as session:
+                star_grade = await self.db.star_grades.get_star_grade_in_session(
+                    session, user_id
+                ) or await self.db.star_grades.create_star_grade_in_session(session, user_id)
+                if shard_type == "テキスト":
+                    star_grade, grade_up_amount, prestige_amount = await self.db.star_grades.add_text_shard_in_session(
+                        session, star_grade, amount
+                    )
+                elif shard_type == "ボイス":
+                    star_grade, grade_up_amount, prestige_amount = (
+                        await self.db.star_grades.add_voice_shard_in_session(session, star_grade, amount)
+                    )
+                else:
+                    star_grade, grade_up_amount, prestige_amount = (
+                        await self.db.star_grades.add_bonus_shard_in_session(session, star_grade, amount)
+                    )
+                await session.commit()
             return LevelingShardUpdateData(star_grade, grade_up_amount, prestige_amount)
 
     async def remove_shard(self, user_id: int, shard_type: str, amount: int) -> LevelingShardUpdateData:
         async with self._user_update(user_id):
-            star_grade = await self._get_or_create_star_grade(user_id)
-            if shard_type == "テキスト":
-                star_grade, grade_up_amount, prestige_amount = await self.db.star_grades.remove_text_shard(
-                    star_grade, amount
-                )
-            elif shard_type == "ボイス":
-                star_grade, grade_up_amount, prestige_amount = await self.db.star_grades.remove_voice_shard(
-                    star_grade, amount
-                )
-            else:
-                star_grade, grade_up_amount, prestige_amount = await self.db.star_grades.remove_bonus_shard(
-                    star_grade, amount
-                )
+            async with self.db.session() as session:
+                star_grade = await self.db.star_grades.get_star_grade_in_session(
+                    session, user_id
+                ) or await self.db.star_grades.create_star_grade_in_session(session, user_id)
+                if shard_type == "テキスト":
+                    star_grade, grade_up_amount, prestige_amount = (
+                        await self.db.star_grades.remove_text_shard_in_session(session, star_grade, amount)
+                    )
+                elif shard_type == "ボイス":
+                    star_grade, grade_up_amount, prestige_amount = (
+                        await self.db.star_grades.remove_voice_shard_in_session(session, star_grade, amount)
+                    )
+                else:
+                    star_grade, grade_up_amount, prestige_amount = (
+                        await self.db.star_grades.remove_bonus_shard_in_session(session, star_grade, amount)
+                    )
+                await session.commit()
             return LevelingShardUpdateData(star_grade, grade_up_amount, prestige_amount)
 
     async def add_power(self, user_id: int, power_type: str, amount: int) -> MonthlyPowerData:
         async with self._user_update(user_id):
-            if power_type == "action":
-                await self._add_action_power(user_id, amount)
-                return await self._get_or_create_monthly_power(user_id)
-
-            power = await self._get_or_create_monthly_power(user_id)
-            if power_type == "text":
-                return await self.db.monthly_powers.add_text_power(power, amount)
-            return await self.db.monthly_powers.add_voice_power(power, amount)
+            async with self.db.session() as session:
+                if power_type == "action":
+                    updated = await self._add_action_power_and_get_monthly_power_in_session(session, user_id, amount)
+                else:
+                    updated = await self._add_monthly_power_in_session(session, user_id, power_type, amount)
+                await session.commit()
+                return updated
 
     async def remove_power(self, user_id: int, power_type: str, amount: int) -> MonthlyPowerData:
         async with self._user_update(user_id):
-            if power_type == "action":
-                await self._remove_action_power(user_id, amount)
-                return await self._get_or_create_monthly_power(user_id)
-
-            power = await self._get_or_create_monthly_power(user_id)
-            if power_type == "text":
-                return await self.db.monthly_powers.remove_text_power(power, amount)
-            return await self.db.monthly_powers.remove_voice_power(power, amount)
+            async with self.db.session() as session:
+                if power_type == "action":
+                    updated = await self._remove_action_power_and_get_monthly_power_in_session(
+                        session, user_id, amount
+                    )
+                else:
+                    updated = await self._remove_monthly_power_in_session(session, user_id, power_type, amount)
+                await session.commit()
+                return updated
 
     async def apply_mee6_transfer(
         self,
@@ -379,13 +379,19 @@ class LevelingTransactions:
         text_prestige: int,
     ) -> LevelingShardUpdateData:
         async with self._user_update(user_id):
-            star_grade = await self._get_or_create_star_grade(user_id)
-            if text_prestige > 0:
-                star_grade, _, _, _ = await self.db.star_grades.add_prestige(star_grade, text_prestige, "テキスト")
+            async with self.db.session() as session:
+                star_grade = await self.db.star_grades.get_star_grade_in_session(
+                    session, user_id
+                ) or await self.db.star_grades.create_star_grade_in_session(session, user_id)
+                if text_prestige > 0:
+                    star_grade, _, _, _ = await self.db.star_grades.add_prestige_in_session(
+                        session, star_grade, text_prestige, "テキスト"
+                    )
 
-            star_grade, grade_up_amount, prestige_amount = await self.db.star_grades.add_text_shard(
-                star_grade, text_shard
-            )
+                star_grade, grade_up_amount, prestige_amount = await self.db.star_grades.add_text_shard_in_session(
+                    session, star_grade, text_shard
+                )
+                await session.commit()
             return LevelingShardUpdateData(star_grade, grade_up_amount, prestige_amount)
 
     async def reset_monthly_power_state(self) -> None:
@@ -394,14 +400,82 @@ class LevelingTransactions:
             await self.db.monthly_action_powers.reset_monthly_action_powers()
             await self.db.voice_xp_limits.reset_voice_power()
 
-    async def _get_or_create_monthly_power(self, user_id: int) -> MonthlyPowerData:
-        monthly_power = await self.db.monthly_powers.get_monthly_power(user_id)
-        if monthly_power is not None:
-            return monthly_power
-        return await self.db.monthly_powers.create_monthly_power(user_id)
+    async def _add_monthly_power_in_session(
+        self,
+        session: AsyncSession,
+        user_id: int,
+        power_type: str,
+        amount: int,
+    ) -> MonthlyPowerData:
+        monthly_power = await self.db.monthly_powers.get_monthly_power_in_session(
+            session, user_id
+        ) or await self.db.monthly_powers.create_monthly_power_in_session(session, user_id)
+        if power_type == "text":
+            updated = await self.db.monthly_powers.add_text_power_in_session(session, monthly_power, amount)
+        else:
+            updated = await self.db.monthly_powers.add_voice_power_in_session(session, monthly_power, amount)
+        if amount > 0:
+            await self.db.leveling_hotness.record_gain_in_session(session, user_id, amount)
+        return updated
 
-    async def _get_or_create_star_grade(self, user_id: int) -> StarGradeData:
-        star_grade = await self.db.star_grades.get_star_grade(user_id)
-        if star_grade is not None:
-            return star_grade
-        return await self.db.star_grades.create_star_grade(user_id)
+    async def _remove_monthly_power_in_session(
+        self,
+        session: AsyncSession,
+        user_id: int,
+        power_type: str,
+        amount: int,
+    ) -> MonthlyPowerData:
+        monthly_power = await self.db.monthly_powers.get_monthly_power_in_session(
+            session, user_id
+        ) or await self.db.monthly_powers.create_monthly_power_in_session(session, user_id)
+        if power_type == "text":
+            return await self.db.monthly_powers.remove_text_power_in_session(session, monthly_power, amount)
+        return await self.db.monthly_powers.remove_voice_power_in_session(session, monthly_power, amount)
+
+    async def _add_action_power_and_get_monthly_power_in_session(
+        self,
+        session: AsyncSession,
+        user_id: int,
+        amount: int,
+    ) -> MonthlyPowerData:
+        monthly_power = await self.db.monthly_powers.get_monthly_power_in_session(
+            session, user_id
+        ) or await self.db.monthly_powers.create_monthly_power_in_session(session, user_id)
+        action_power = await self.db.monthly_action_powers.get_monthly_action_power_in_session(
+            session, user_id
+        ) or await self.db.monthly_action_powers.create_monthly_action_power_in_session(session, user_id)
+        action_power = await self.db.monthly_action_powers.add_action_power_in_session(session, action_power, amount)
+        if amount > 0:
+            await self.db.leveling_hotness.record_gain_in_session(session, user_id, amount)
+        return MonthlyPowerData(
+            monthly_power.user_id,
+            monthly_power.text_power,
+            monthly_power.voice_power,
+            action_power.action_power,
+            monthly_power.created_at,
+            monthly_power.updated_at,
+        )
+
+    async def _remove_action_power_and_get_monthly_power_in_session(
+        self,
+        session: AsyncSession,
+        user_id: int,
+        amount: int,
+    ) -> MonthlyPowerData:
+        monthly_power = await self.db.monthly_powers.get_monthly_power_in_session(
+            session, user_id
+        ) or await self.db.monthly_powers.create_monthly_power_in_session(session, user_id)
+        action_power = await self.db.monthly_action_powers.get_monthly_action_power_in_session(
+            session, user_id
+        ) or await self.db.monthly_action_powers.create_monthly_action_power_in_session(session, user_id)
+        action_power = await self.db.monthly_action_powers.remove_action_power_in_session(
+            session, action_power, amount
+        )
+        return MonthlyPowerData(
+            monthly_power.user_id,
+            monthly_power.text_power,
+            monthly_power.voice_power,
+            action_power.action_power,
+            monthly_power.created_at,
+            monthly_power.updated_at,
+        )

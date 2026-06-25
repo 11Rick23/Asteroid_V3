@@ -11,7 +11,7 @@ from app.database.models.star_grades import StarGradeModel
 from app.features.leveling.domain.math_calculation import calculation_grade, calculation_prestige, calculation_shard
 
 
-@dataclass
+@dataclass(slots=True)
 class StarGradeData:
     user_id: int
     prestige: int
@@ -24,7 +24,7 @@ class StarGradeData:
     updated_at: datetime
 
 
-@dataclass
+@dataclass(slots=True)
 class StarGradeRankingData(StarGradeData):
     ranking: int
 
@@ -250,6 +250,14 @@ class StarGrades:
     async def add_prestige(
         self, star_grade_data: StarGradeData, add_prestige: int, shard_type: str = "ボーナス"
     ) -> tuple[StarGradeData, int, int, int]:
+        async with self.db.session() as session:
+            updated = await self.add_prestige_in_session(session, star_grade_data, add_prestige, shard_type)
+            await session.commit()
+            return updated
+
+    async def add_prestige_in_session(
+        self, session: AsyncSession, star_grade_data: StarGradeData, add_prestige: int, shard_type: str = "ボーナス"
+    ) -> tuple[StarGradeData, int, int, int]:
         prestige, grade, shard, grade_up_amount, prestige_amount, added_shard = calculation_prestige(
             star_grade_data.prestige, star_grade_data.grade, star_grade_data.shard, add_prestige
         )
@@ -260,7 +268,7 @@ class StarGrades:
             updated.voice_shard += added_shard
         else:
             updated.bonus_shard += added_shard
-        updated = await self._write_state(updated)
+        updated = await self._write_state_in_session(session, updated)
         return updated, grade_up_amount, prestige_amount, added_shard
 
     async def remove_prestige(
@@ -344,6 +352,14 @@ class StarGrades:
     async def remove_text_shard(
         self, star_grade_data: StarGradeData, remove_shard: int
     ) -> tuple[StarGradeData, int, int]:
+        async with self.db.session() as session:
+            updated = await self.remove_text_shard_in_session(session, star_grade_data, remove_shard)
+            await session.commit()
+            return updated
+
+    async def remove_text_shard_in_session(
+        self, session: AsyncSession, star_grade_data: StarGradeData, remove_shard: int
+    ) -> tuple[StarGradeData, int, int]:
         remove_shard = min(remove_shard, star_grade_data.text_shard)
         prestige, grade, shard, grade_up_amount, prestige_amount = calculation_shard(
             star_grade_data.prestige, star_grade_data.grade, star_grade_data.shard, -remove_shard
@@ -355,7 +371,7 @@ class StarGrades:
             shard=shard,
             text_shard=star_grade_data.text_shard - remove_shard,
         )
-        updated = await self._write_state(updated)
+        updated = await self._write_state_in_session(session, updated)
         return updated, grade_up_amount, prestige_amount
 
     async def add_voice_shard(self, star_grade_data: StarGradeData, add_shard: int) -> tuple[StarGradeData, int, int]:
@@ -391,6 +407,14 @@ class StarGrades:
     async def remove_voice_shard(
         self, star_grade_data: StarGradeData, remove_shard: int
     ) -> tuple[StarGradeData, int, int]:
+        async with self.db.session() as session:
+            updated = await self.remove_voice_shard_in_session(session, star_grade_data, remove_shard)
+            await session.commit()
+            return updated
+
+    async def remove_voice_shard_in_session(
+        self, session: AsyncSession, star_grade_data: StarGradeData, remove_shard: int
+    ) -> tuple[StarGradeData, int, int]:
         remove_shard = min(remove_shard, star_grade_data.voice_shard)
         prestige, grade, shard, grade_up_amount, prestige_amount = calculation_shard(
             star_grade_data.prestige, star_grade_data.grade, star_grade_data.shard, -remove_shard
@@ -402,7 +426,7 @@ class StarGrades:
             shard=shard,
             voice_shard=star_grade_data.voice_shard - remove_shard,
         )
-        updated = await self._write_state(updated)
+        updated = await self._write_state_in_session(session, updated)
         return updated, grade_up_amount, prestige_amount
 
     async def add_bonus_shard(self, star_grade_data: StarGradeData, add_shard: int) -> tuple[StarGradeData, int, int]:
@@ -438,6 +462,14 @@ class StarGrades:
     async def remove_bonus_shard(
         self, star_grade_data: StarGradeData, remove_shard: int
     ) -> tuple[StarGradeData, int, int]:
+        async with self.db.session() as session:
+            updated = await self.remove_bonus_shard_in_session(session, star_grade_data, remove_shard)
+            await session.commit()
+            return updated
+
+    async def remove_bonus_shard_in_session(
+        self, session: AsyncSession, star_grade_data: StarGradeData, remove_shard: int
+    ) -> tuple[StarGradeData, int, int]:
         remove_shard = min(remove_shard, star_grade_data.bonus_shard)
         prestige, grade, shard, grade_up_amount, prestige_amount = calculation_shard(
             star_grade_data.prestige, star_grade_data.grade, star_grade_data.shard, -remove_shard
@@ -449,7 +481,7 @@ class StarGrades:
             shard=shard,
             bonus_shard=star_grade_data.bonus_shard - remove_shard,
         )
-        updated = await self._write_state(updated)
+        updated = await self._write_state_in_session(session, updated)
         return updated, grade_up_amount, prestige_amount
 
     async def delete_star_grade(self, user_id: int) -> None:

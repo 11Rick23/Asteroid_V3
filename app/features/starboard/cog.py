@@ -44,11 +44,7 @@ class Starboard(commands.Cog):
         if message.author.id == event.member.id:
             return
 
-        given_star_data = await self.bot.db.given_stars.get_given_star(event.member.id)
-        if given_star_data is None:
-            await self.bot.db.given_stars.create_given_star(event.member.id)
-        else:
-            await self.bot.db.given_stars.add_given_star(event.member.id)
+        await self.bot.db.given_stars.add_given_star(event.member.id)
 
         reactions = next((reaction for reaction in message.reactions if str(reaction.emoji) == "⭐"), None)
         if reactions is None:
@@ -80,9 +76,7 @@ class Starboard(commands.Cog):
         if message.author.id == event.user_id:
             return
 
-        given_star_data = await self.bot.db.given_stars.get_given_star(event.user_id)
-        if given_star_data is not None:
-            await self.bot.db.given_stars.remove_given_star(event.user_id)
+        await self.bot.db.given_stars.remove_given_star(event.user_id)
 
         star_amount = 0
         reaction = next((reaction for reaction in message.reactions if str(reaction.emoji) == "⭐"), None)

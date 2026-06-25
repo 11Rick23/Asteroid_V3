@@ -8,7 +8,7 @@ from sqlalchemy import delete, func, select
 from app.database.models.xp_boosts import XPBoostModel
 
 
-@dataclass
+@dataclass(slots=True)
 class XPBoostData:
     role_id: int
     name: str

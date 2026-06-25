@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.models.voice_xp_limits import VoiceXPLimitModel
 
 
-@dataclass
+@dataclass(slots=True)
 class VoiceXPLimitData:
     user_id: int
     voice_shard: int

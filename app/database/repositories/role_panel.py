@@ -11,7 +11,7 @@ from app.database.models.role_panel import (
 )
 
 
-@dataclass
+@dataclass(slots=True)
 class RolePanelCategoryData:
     category_id: int
     name: str
@@ -22,7 +22,7 @@ class RolePanelCategoryData:
     updated_at: datetime
 
 
-@dataclass
+@dataclass(slots=True)
 class RolePanelRoleData:
     category_id: int
     role_id: int
@@ -31,7 +31,7 @@ class RolePanelRoleData:
     updated_at: datetime
 
 
-@dataclass
+@dataclass(slots=True)
 class RolePanelCategoryDetail(RolePanelCategoryData):
     roles: list[RolePanelRoleData] = field(default_factory=list)
 
@@ -64,6 +64,18 @@ class RolePanel:
             display_order=model.display_order,
             created_at=model.created_at,
             updated_at=model.updated_at,
+        )
+
+    @staticmethod
+    def _to_category_detail(data: RolePanelCategoryData) -> RolePanelCategoryDetail:
+        return RolePanelCategoryDetail(
+            category_id=data.category_id,
+            name=data.name,
+            description=data.description,
+            display_order=data.display_order,
+            requires_boost=data.requires_boost,
+            created_at=data.created_at,
+            updated_at=data.updated_at,
         )
 
     async def create_category(
@@ -141,7 +153,7 @@ class RolePanel:
             )
             role_models = (await session.scalars(role_stmt)).all()
 
-        category = RolePanelCategoryDetail(**category_data.__dict__)
+        category = self._to_category_detail(category_data)
         category.roles = [role_data for model in role_models if (role_data := self._to_role_data(model)) is not None]
         return category
 
@@ -165,7 +177,7 @@ class RolePanel:
             category_data = self._to_category_data(model)
             if category_data is None:
                 continue
-            category = RolePanelCategoryDetail(**category_data.__dict__)
+            category = self._to_category_detail(category_data)
             categories.append(category)
             category_by_id[category.category_id] = category
 

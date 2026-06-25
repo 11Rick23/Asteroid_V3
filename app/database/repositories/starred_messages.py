@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from app.database.models.starred_messages import StarredMessageModel
 
 
-@dataclass
+@dataclass(slots=True)
 class StarredMessageData:
     starred_message_id: int
     starboard_message_id: int
@@ -19,7 +19,7 @@ class StarredMessageData:
     updated_at: datetime
 
 
-@dataclass
+@dataclass(slots=True)
 class StarAmountRankingData:
     user_id: int
     star_amount: int

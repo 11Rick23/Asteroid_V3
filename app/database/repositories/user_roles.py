@@ -8,7 +8,7 @@ from sqlalchemy import delete, select
 from app.database.models.user_roles import UserRoleModel
 
 
-@dataclass
+@dataclass(slots=True)
 class UserRoleData:
     user_id: int
     role_id: int

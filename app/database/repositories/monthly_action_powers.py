@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.models.monthly_action_powers import MonthlyActionPowerModel
 
 
-@dataclass
+@dataclass(slots=True)
 class MonthlyActionPowerData:
     user_id: int
     action_power: int

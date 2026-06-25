@@ -9,7 +9,7 @@ from sqlalchemy import select
 from app.database.models.user_birthdays import UserBirthdayModel
 
 
-@dataclass
+@dataclass(slots=True)
 class UserBirthdayData:
     user_id: int
     date: Date
