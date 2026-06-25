@@ -100,8 +100,9 @@ async def setup_starboard(interaction: discord.Interaction) -> None:
         try:
             old_message = await source_channel.fetch_message(data.starboard_message_id)
         except discord.NotFound:
-            await bot.db.starred_messages.delete_starred_message(data.starred_message_id)
-            deleted_count += 1
+            deleted = await bot.db.starred_messages.delete_starred_message(data.starred_message_id)
+            if deleted:
+                deleted_count += 1
             logger.warning(
                 "旧スターボード投稿が見つからなかったため DB から削除しました: "
                 f"source_channel_id={source_channel.id} old_starboard_message_id={data.starboard_message_id} "
@@ -168,7 +169,13 @@ async def setup_starboard(interaction: discord.Interaction) -> None:
                 ephemeral=True,
             )
             return
-        await bot.db.starred_messages.set_starboard_message_id(data.starred_message_id, new_message.id)
+        updated = await bot.db.starred_messages.set_starboard_message_id(data.starred_message_id, new_message.id)
+        if not updated:
+            logger.warning(
+                "スターボード再作成対象が DB に存在しませんでした: "
+                f"starred_message_id={data.starred_message_id} new_starboard_message_id={new_message.id}"
+            )
+            continue
         recreated_count += 1
         logger.debug(
             "スターボード投稿を再作成しました: "
