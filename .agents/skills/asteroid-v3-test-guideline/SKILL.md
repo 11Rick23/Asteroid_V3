@@ -18,6 +18,8 @@ For the team-facing test plan, read `tests/README.md` first.
 - Place shared fakes, factories, and assertions under `tests/support/`.
 - Do not split tests by `unit` / `integration` / `e2e` directories by default.
 - Split test files by what functional or non-functional requirement you want to test. Production responsibility is a placement hint, not the final reason.
+- Read the code intent first. Test that the functional requirement is satisfied; when a non-functional requirement is visible, test that property too.
+- If no meaningful non-functional requirement exists for the behavior, do not invent one and do not add a `# 非機能要件：...` comment.
 - Do not create placeholder test files for every category. Add only files that match the contracts being protected.
 - Treat `tests_archive/` as old-test storage, not as the source of truth for new tests.
 
@@ -27,7 +29,7 @@ For the team-facing test plan, read `tests/README.md` first.
 - Before Given-When-Then, add Japanese comments that explicitly identify the tested requirement: `# 機能要件：...` and/or `# 非機能要件：...`.
 - Use `# 機能要件：...` for externally visible behavior such as commands, UI responses, service results, repository results, and config behavior.
 - Use `# 非機能要件：...` for properties such as authorization, guild scope, side-effect prevention, idempotency, logging, error handling, and stability.
-- Do not force a non-functional requirement comment when no non-functional requirement is being tested.
+- Do not force a non-functional requirement comment when no non-functional requirement exists or is being tested.
 - Keep test function names short and English.
 - Put the detailed behavior description in a Japanese function docstring.
 - Make the docstring describe the externally visible contract, not private implementation details.
@@ -52,8 +54,9 @@ async def test_rejects_outside_guild(fake_interaction, service):
 
 ## What To Test
 
-- Read the code intent first, name the functional or non-functional requirement that must not break, then choose the file that makes that contract easiest to understand.
-- If the code does not expose a meaningful non-functional requirement, do not invent one just to fill the template.
+- Read the code intent first, name the functional requirement that must be satisfied, then choose the file that makes that contract easiest to understand.
+- If the code exposes a meaningful non-functional requirement, name it and test it explicitly.
+- If the code does not expose a meaningful non-functional requirement, record only the functional requirement in the test comments.
 - Pure domain functions and calculations directly.
 - Services with fake Discord objects when behavior does not require real Discord API calls.
 - Repository create/update/delete/list behavior when DB persistence changes.

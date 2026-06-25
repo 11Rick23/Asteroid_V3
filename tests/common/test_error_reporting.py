@@ -6,6 +6,8 @@ from app.common.interaction_errors import build_error_embed, format_rate_limited
 
 def test_builds_traceback_tail():
     """例外の traceback tail は送信用の短い文字列として生成する。"""
+    # 機能要件：例外の種類とメッセージを traceback tail に含める。
+    # 非機能要件：Discord 送信に使える長さへ traceback 表示を制限する。
     # Given
     try:
         raise ValueError("broken")
@@ -22,6 +24,7 @@ def test_builds_traceback_tail():
 
 def test_builds_error_embeds():
     """エラー表示用 Embed はユーザー向けメッセージと traceback を分離して作成する。"""
+    # 機能要件：ユーザー向けエラーと開発者向け traceback を別 Embed として作成する。
     # Given
     exception = RuntimeError("failed")
 
@@ -42,6 +45,7 @@ def test_builds_error_embeds():
 
 def test_formats_rate_limit():
     """rate limit メッセージは秒数を 1 桁に丸めて再試行案内に含める。"""
+    # 機能要件：rate limit 発生時は再試行までの秒数をユーザー案内に含める。
     # Given / When
     message = format_rate_limited_error(12.34, action="VC名を変更できませんでした。")
 

@@ -5,6 +5,8 @@ from app.core.system_commands import stop_bot
 
 def test_stop_metadata():
     """stop command は guild 限定で、公開引数名と説明を日本語で登録する。"""
+    # 機能要件：stop command は停止理由と予定期間を日本語引数として公開する。
+    # 非機能要件：stop command は guild 限定 command として登録される。
     # Given / When
     params = stop_bot.parameters
     reason = params[0]

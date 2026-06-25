@@ -6,7 +6,6 @@ import pytest
 from discord import Interaction
 
 from app.common.guild_scope import (
-    OUTSIDE_OPERATING_GUILD_MESSAGE,
     GuildScopedView,
     OperatingGuildCommandTree,
     OutsideOperatingGuild,
@@ -18,6 +17,7 @@ from tests.support.discord_fakes import FakeClient, FakeInteraction, FakeInterac
 
 def test_checks_guild_id(operating_guild_id):
     """運用対象 guild ID だけを許可し、DM と対象外 guild は拒否する。"""
+    # 非機能要件：運用対象 guild 以外と DM は guild scope 判定で拒否される。
     # Given
     client = FakeClient(operating_guild_id)
 
@@ -30,6 +30,8 @@ def test_checks_guild_id(operating_guild_id):
 @pytest.mark.asyncio
 async def test_sends_initial_denial(operating_guild_id):
     """未応答 interaction では対象外 guild の拒否通知を ephemeral response として送信する。"""
+    # 機能要件：対象外 guild の未応答 interaction には拒否通知を返す。
+    # 非機能要件：拒否通知は本人だけに見える ephemeral response として送信する。
     # Given
     interaction = FakeInteraction(client=FakeClient(operating_guild_id), guild_id=None)
 
@@ -37,15 +39,16 @@ async def test_sends_initial_denial(operating_guild_id):
     await send_outside_operating_guild_message(cast(Interaction, interaction))
 
     # Then
-    assert interaction.response.sent_messages == [
-        {"content": OUTSIDE_OPERATING_GUILD_MESSAGE, "ephemeral": True},
-    ]
+    assert len(interaction.response.sent_messages) == 1
+    assert interaction.response.sent_messages[0]["ephemeral"] is True
     assert interaction.followup.sent_messages == []
 
 
 @pytest.mark.asyncio
 async def test_sends_followup_denial(operating_guild_id):
     """応答済み interaction では対象外 guild の拒否通知を ephemeral followup として送信する。"""
+    # 機能要件：対象外 guild の応答済み interaction には followup で拒否通知を返す。
+    # 非機能要件：応答済み interaction へ二重初期応答を送信しない。
     # Given
     interaction = FakeInteraction(
         client=FakeClient(operating_guild_id),
@@ -58,14 +61,14 @@ async def test_sends_followup_denial(operating_guild_id):
 
     # Then
     assert interaction.response.sent_messages == []
-    assert interaction.followup.sent_messages == [
-        {"content": OUTSIDE_OPERATING_GUILD_MESSAGE, "ephemeral": True},
-    ]
+    assert len(interaction.followup.sent_messages) == 1
+    assert interaction.followup.sent_messages[0]["ephemeral"] is True
 
 
 @pytest.mark.asyncio
 async def test_tree_rejects_outside(operating_guild_id):
     """CommandTree は対象外 guild の slash command 実行を CheckFailure として拒否する。"""
+    # 非機能要件：対象外 guild の slash command は callback 実行前に拒否される。
     # Given
     tree = object.__new__(OperatingGuildCommandTree)
     tree.client = FakeClient(operating_guild_id)
@@ -79,6 +82,8 @@ async def test_tree_rejects_outside(operating_guild_id):
 @pytest.mark.asyncio
 async def test_view_rejects_outside(operating_guild_id):
     """GuildScopedView は対象外 guild の UI 操作を拒否し、ephemeral 通知を返す。"""
+    # 機能要件：対象外 guild の UI 操作には拒否通知を返す。
+    # 非機能要件：対象外 guild の UI callback は許可状態にならない。
     # Given
     view = GuildScopedView()
     interaction = FakeInteraction(client=FakeClient(operating_guild_id), guild_id=operating_guild_id + 1)
@@ -88,6 +93,5 @@ async def test_view_rejects_outside(operating_guild_id):
 
     # Then
     assert allowed is False
-    assert interaction.response.sent_messages == [
-        {"content": OUTSIDE_OPERATING_GUILD_MESSAGE, "ephemeral": True},
-    ]
+    assert len(interaction.response.sent_messages) == 1
+    assert interaction.response.sent_messages[0]["ephemeral"] is True

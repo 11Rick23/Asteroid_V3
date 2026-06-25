@@ -44,6 +44,7 @@ def _category(
 
 def test_requires_boost():
     """ブースト必須カテゴリでは premium_since がない member を条件不足として扱う。"""
+    # 機能要件：ブースト必須カテゴリでは未ブースト member を条件不足として扱う。
     # Given
     guild = FakeGuild()
     member = FakeMember(guild=guild)
@@ -55,6 +56,8 @@ def test_requires_boost():
 
 def test_sorts_visible_roles():
     """表示ロールは guild のロール階層順で並べ、Discord select 上限の 25 件に丸める。"""
+    # 機能要件：ロールパネルの表示候補は guild のロール階層順で並べる。
+    # 非機能要件：Discord select の上限に合わせて表示ロールを 25 件までに制限する。
     # Given
     guild_roles = [FakeRole(id=role_id, position=role_id) for role_id in range(1, 31)]
     guild = FakeGuild(roles=guild_roles)
@@ -69,6 +72,8 @@ def test_sorts_visible_roles():
 
 def test_builds_sync_plan():
     """選択状態と現在ロールから追加、削除、カテゴリ外選択を分離する。"""
+    # 機能要件：選択状態と現在ロールから追加・削除対象を計画する。
+    # 非機能要件：カテゴリ外の選択 ID は同期対象にせず記録する。
     # Given
     add_role = FakeRole(id=1, position=10)
     keep_role = FakeRole(id=2, position=9)
@@ -89,6 +94,7 @@ def test_builds_sync_plan():
 
 def test_skips_unmanageable():
     """BOT が管理できないロールは同期対象から外し、管理不能 ID として記録する。"""
+    # 非機能要件：BOT が管理できないロールを追加・削除対象にしない。
     # Given
     high_role = FakeRole(id=1, position=1000)
     guild = FakeGuild(roles=[high_role], bot_top_role=FakeRole(id=999, position=100))
@@ -105,6 +111,8 @@ def test_skips_unmanageable():
 
 def test_builds_boost_removal():
     """ブースト解除時はブースト必須カテゴリの保持ロールだけを削除計画に入れる。"""
+    # 機能要件：ブースト解除時はブースト必須カテゴリの保持ロールを削除対象にする。
+    # 非機能要件：通常カテゴリのロールはブースト解除処理で削除しない。
     # Given
     boost_role = FakeRole(id=1, position=10)
     normal_role = FakeRole(id=2, position=9)

@@ -11,6 +11,7 @@ async def _dummy_callback(_interaction):
 
 def test_unwraps_invoke_error():
     """CommandInvokeError は内部の original exception を報告対象にする。"""
+    # 機能要件：app command 実行中の例外は original exception を報告対象にする。
     # Given
     original = RuntimeError("failed")
     command = app_commands.Command(name="dummy", description="dummy", callback=_dummy_callback)
@@ -22,6 +23,7 @@ def test_unwraps_invoke_error():
 
 def test_maps_expected_error():
     """想定済み app command error はユーザー向けの定型文に変換する。"""
+    # 機能要件：想定済み command error はユーザー向けメッセージに変換する。
     # Given
     exception = app_commands.MissingPermissions(["administrator"])
 

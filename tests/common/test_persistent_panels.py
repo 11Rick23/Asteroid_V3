@@ -21,6 +21,7 @@ async def _render(title: str = "通常") -> PersistentPanelContent:
 
 def test_rejects_duplicate():
     """同じ panel_id の二重登録は lifecycle の衝突を避けるため拒否する。"""
+    # 非機能要件：同じ panel_id の二重登録で panel lifecycle を競合させない。
     # Given
     channel = FakeTextChannel(channel_id=10)
     manager = PersistentPanelManager(cast(PersistentPanelBot, FakePanelBot(channel=channel)))
@@ -34,6 +35,8 @@ def test_rejects_duplicate():
 @pytest.mark.asyncio
 async def test_reuses_latest_message():
     """初期化時は同じ panel marker を持つ最新 BOT メッセージを編集して再利用する。"""
+    # 機能要件：既存の panel message がある場合は編集して最新表示に更新する。
+    # 非機能要件：初期化のたびに panel message を重複投稿しない。
     # Given
     marker = FakePanelComponent(id=get_panel_marker_id("main"))
     latest_message = FakePanelMessage(message_id=55, author_id=42, components=[marker])
@@ -54,6 +57,7 @@ async def test_reuses_latest_message():
 @pytest.mark.asyncio
 async def test_skips_after_offline():
     """オフライン化後の refresh は通常表示で上書きせず False を返す。"""
+    # 非機能要件：オフライン表示後は通常 refresh で停止状態を上書きしない。
     # Given
     channel = FakeTextChannel(channel_id=10)
     manager = PersistentPanelManager(cast(PersistentPanelBot, FakePanelBot(channel=channel, user_id=42)))
@@ -73,6 +77,7 @@ async def test_skips_after_offline():
 
 def test_marker_is_stable():
     """panel marker ID は同じ panel_id で安定し、Discord component ID として正の値になる。"""
+    # 非機能要件：panel marker ID は再起動後も同じ panel_id から安定して生成される。
     # Given / When
     first = get_panel_marker_id("main")
     second = get_panel_marker_id("main")

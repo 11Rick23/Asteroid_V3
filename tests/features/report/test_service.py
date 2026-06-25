@@ -19,6 +19,7 @@ class _User:
 
 def test_builds_report_embed():
     """通報 Embed は本文、通報者、未対応 footer、添付画像を含める。"""
+    # 機能要件：通報 Embed には本文、通報者、対応状態、添付画像を含める。
     # Given
     reporter = _User("reporter", _Avatar("https://example.com/avatar.png"))
     image = type("FakeAttachment", (), {"url": "https://example.com/image.png"})()
@@ -35,6 +36,7 @@ def test_builds_report_embed():
 
 def test_resolves_report_embed():
     """対応済み Embed は footer を moderator 情報へ差し替える。"""
+    # 機能要件：通報の対応済み表示では moderator 情報を footer に反映する。
     # Given
     moderator = _User("moderator", _Avatar("https://example.com/mod.png"))
     embed = build_report_embed(cast(Any, _User("reporter", _Avatar("avatar"))), "違反内容")

@@ -7,6 +7,7 @@ from app.common.offline import OfflineInfo, build_offline_embed
 
 def test_builds_from_signal():
     """シグナル停止情報は強制停止理由と未定の予定期間を持つ。"""
+    # 機能要件：シグナル停止は停止理由と予定期間を OfflineInfo として表現する。
     # Given / When
     info = OfflineInfo.from_signal("SIGTERM")
 
@@ -17,6 +18,7 @@ def test_builds_from_signal():
 
 def test_builds_embed():
     """オフライン Embed は理由、予定期間、緊急連絡先、最終更新日時を表示する。"""
+    # 機能要件：オフライン表示には停止理由、予定期間、連絡先、更新日時を含める。
     # Given
     info = OfflineInfo(reason="メンテナンス", planned_period="10分")
     updated_at = datetime(2026, 6, 23, 12, 0, tzinfo=UTC)

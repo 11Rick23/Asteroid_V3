@@ -8,6 +8,7 @@ from app.features.leveling.build_send_message import format_prestige_num, format
 
 def test_totals_monthly_power():
     """月間パワー合計は text、voice、action の合算で返す。"""
+    # 機能要件：月間パワー合計は text、voice、action の合算で表示する。
     # Given
     now = datetime(2026, 6, 23)
     monthly_power = MonthlyPowerData(
@@ -25,6 +26,7 @@ def test_totals_monthly_power():
 
 def test_formats_rank():
     """ランキング表示は上位 3 件をメダル、それ以外を N位 で返す。"""
+    # 機能要件：ランキング順位は上位 3 件をメダル、それ以外を順位表記で表示する。
     # Given / When / Then
     assert format_ranking_position(1) == "🥇"
     assert format_ranking_position(2) == "🥈"
@@ -34,6 +36,7 @@ def test_formats_rank():
 
 def test_formats_prestige():
     """prestige 表示は 0 をハイフン、それ以外をローマ数字へ変換する。"""
+    # 機能要件：prestige 表示は未到達と到達済み段階を区別して表示する。
     # Given / When / Then
     assert format_prestige_num(0) == "-"
     assert format_prestige_num(4) == "IV"
