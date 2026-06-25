@@ -154,6 +154,7 @@ uv run alembic stamp 273b6467e5ff
 
 ```bash
 mise run db:upgrade
+```
 生成されたマイグレーションに現在の全テーブル作成処理が含まれていることを確認してください。
 
 ### 新規 DB に適用する場合

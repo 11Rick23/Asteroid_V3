@@ -5,6 +5,7 @@ from typing import Any, cast
 import pytest
 
 from app.features.leveling.message_handler import LevelingMessageHandler
+from app.features.leveling.monthly import run_monthly_ranking
 
 
 class _LevelingConfig:
@@ -133,3 +134,86 @@ async def test_ignores_missing_action_power_target():
     assert handled is False
     assert bot.db.leveling.added_action_powers == []
     assert message.reactions == []
+
+
+class _MonthlyPowersRepository:
+    async def get_monthly_power_ranking(self, limit: int) -> list[object]:
+        return []
+
+
+class _MonthlyActionPowersRepository:
+    async def sum_action_power(self) -> int:
+        return 0
+
+
+class _MonthlyLevelingRepository:
+    def __init__(self) -> None:
+        self.reset_count = 0
+
+    async def reset_monthly_power_state(self) -> None:
+        self.reset_count += 1
+
+
+class _MonthlyDatabase:
+    def __init__(self) -> None:
+        self.leveling = _MonthlyLevelingRepository()
+        self.monthly_powers = _MonthlyPowersRepository()
+        self.monthly_action_powers = _MonthlyActionPowersRepository()
+
+    def is_initialized(self) -> bool:
+        return True
+
+
+class _MonthlyLevelingConfig:
+    month_ranking_board_channel_id = 20
+    action_power_channel_id = 21
+    top1_role_id = 30
+    top10_role_id = 31
+
+
+class _MonthlyDiscordConfig:
+    guild_id = 12345
+
+
+class _MonthlyConfig:
+    leveling = _MonthlyLevelingConfig()
+    discord = _MonthlyDiscordConfig()
+
+
+class _MonthlyGuild:
+    id = 12345
+
+    def get_role(self, role_id: int) -> None:
+        return None
+
+
+class _MonthlyBot:
+    config = _MonthlyConfig()
+
+    def __init__(self) -> None:
+        self.db = _MonthlyDatabase()
+
+    def get_guild(self, guild_id: int) -> _MonthlyGuild | None:
+        return _MonthlyGuild() if guild_id == 12345 else None
+
+    def get_channel(self, channel_id: int) -> None:
+        return None
+
+    def is_operating_channel(self, channel: object) -> bool:
+        return False
+
+
+@pytest.mark.asyncio
+async def test_monthly_reset_uses_leveling_transaction():
+    """月間ランキング集計後の削除は leveling transaction の排他制御経由で行う。"""
+    # 機能要件：delete_data=True の月間ランキング集計は月次データを削除する。
+    # 非機能要件：削除は個別 repository 直呼びではなく LevelingTransactions の reset 経由で行う。
+    # Given
+    bot = _MonthlyBot()
+
+    # When
+    result = await run_monthly_ranking(cast(Any, bot), force=True, delete_data=True)
+
+    # Then
+    assert result == 0
+    assert bot.db.leveling.reset_count == 1

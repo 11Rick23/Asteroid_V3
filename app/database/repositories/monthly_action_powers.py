@@ -122,10 +122,10 @@ class MonthlyActionPowers:
         monthly_action_power_data: MonthlyActionPowerData,
         remove_action_power: int,
     ) -> MonthlyActionPowerData:
-        remove_action_power = min(remove_action_power, monthly_action_power_data.action_power)
         model = await session.get(MonthlyActionPowerModel, monthly_action_power_data.user_id)
         if model is None:
             return monthly_action_power_data
+        remove_action_power = min(remove_action_power, model.action_power)
         model.action_power -= remove_action_power
         await session.flush()
         await session.refresh(model)

@@ -207,10 +207,10 @@ class MonthlyPowers:
     async def remove_text_power_in_session(
         self, session: AsyncSession, monthly_power_data: MonthlyPowerData, remove_text_power: int
     ) -> MonthlyPowerData:
-        remove_text_power = min(remove_text_power, monthly_power_data.text_power)
         model = await session.get(MonthlyPowerModel, monthly_power_data.user_id)
         if model is None:
             return monthly_power_data
+        remove_text_power = min(remove_text_power, model.text_power)
         model.text_power -= remove_text_power
         await session.flush()
         await session.refresh(model)
@@ -256,10 +256,10 @@ class MonthlyPowers:
     async def remove_voice_power_in_session(
         self, session: AsyncSession, monthly_power_data: MonthlyPowerData, remove_voice_power: int
     ) -> MonthlyPowerData:
-        remove_voice_power = min(remove_voice_power, monthly_power_data.voice_power)
         model = await session.get(MonthlyPowerModel, monthly_power_data.user_id)
         if model is None:
             return monthly_power_data
+        remove_voice_power = min(remove_voice_power, model.voice_power)
         model.voice_power -= remove_voice_power
         await session.flush()
         await session.refresh(model)
