@@ -5,7 +5,7 @@ description: Use when adding, changing, reorganizing, or diagnosing Asteroid_V3 
 
 # Asteroid V3 Test Guideline
 
-Use tests to lock the contract at the smallest useful boundary first, then broaden verification when shared behavior is touched.
+Use tests to lock functional and non-functional requirements at the smallest useful boundary first, then broaden verification when shared behavior is touched.
 
 For the team-facing test plan, read `tests/README.md` first.
 
@@ -17,13 +17,17 @@ For the team-facing test plan, read `tests/README.md` first.
 - Place repository and migration tests under `tests/database/`.
 - Place shared fakes, factories, and assertions under `tests/support/`.
 - Do not split tests by `unit` / `integration` / `e2e` directories by default.
-- Split test files by what contract or behavior you want to test. Production responsibility is a placement hint, not the final reason.
+- Split test files by what functional or non-functional requirement you want to test. Production responsibility is a placement hint, not the final reason.
 - Do not create placeholder test files for every category. Add only files that match the contracts being protected.
 - Treat `tests_archive/` as old-test storage, not as the source of truth for new tests.
 
 ## Test Style
 
 - Write test bodies with Given-When-Then comments.
+- Before Given-When-Then, add Japanese comments that explicitly identify the tested requirement: `# 機能要件：...` and/or `# 非機能要件：...`.
+- Use `# 機能要件：...` for externally visible behavior such as commands, UI responses, service results, repository results, and config behavior.
+- Use `# 非機能要件：...` for properties such as authorization, guild scope, side-effect prevention, idempotency, logging, error handling, and stability.
+- Do not force a non-functional requirement comment when no non-functional requirement is being tested.
 - Keep test function names short and English.
 - Put the detailed behavior description in a Japanese function docstring.
 - Make the docstring describe the externally visible contract, not private implementation details.
@@ -33,6 +37,8 @@ Example:
 ```python
 async def test_rejects_outside_guild(fake_interaction, service):
     """対象外 guild の UI 操作では拒否応答のみを返し、ロール更新は行わない。"""
+    # 機能要件：対象外 guild の UI 操作は拒否応答を返す。
+    # 非機能要件：拒否された操作ではロール更新などの副作用を発生させない。
     # Given
     fake_interaction.guild_id = 999
 
@@ -46,7 +52,8 @@ async def test_rejects_outside_guild(fake_interaction, service):
 
 ## What To Test
 
-- Start by naming what must not break, then choose the file that makes that contract easiest to understand.
+- Read the code intent first, name the functional or non-functional requirement that must not break, then choose the file that makes that contract easiest to understand.
+- If the code does not expose a meaningful non-functional requirement, do not invent one just to fill the template.
 - Pure domain functions and calculations directly.
 - Services with fake Discord objects when behavior does not require real Discord API calls.
 - Repository create/update/delete/list behavior when DB persistence changes.
