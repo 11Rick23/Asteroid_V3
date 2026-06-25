@@ -26,7 +26,7 @@ skill instead.
 | `asteroid-v3-logging-guideline` | Log levels, audit log content, exception logs, and log assertions. |
 | `asteroid-v3-database-guideline` | SQLAlchemy models, repositories, DB sessions, migrations, and persistent state. |
 | `asteroid-v3-code-style-guideline` | Ruff, Pyright, Pylance, typing, imports, Discord.py narrowing, and code organization. |
-| `asteroid-v3-test-guideline` | pytest design, fake Discord objects, permission tests, guild-scope tests, service/repository tests, and caplog. |
+| `asteroid-v3-test-guideline` | pytest layout by tested requirement, functional/non-functional requirement comments, test case design techniques, Given-When-Then style, Japanese docstring specs, fake Discord objects, permission tests, guild-scope tests, service/repository tests, and caplog. |
 | `asteroid-v3-runtime-guideline` | uv, mise, startup, dependencies, verification commands, and local tooling. |
 | `asteroid-v3-command-security` | Legacy entry point that redirects current work to app-command and logging guidance. |
 | `asteroid-v3-overview` | Legacy entry point that redirects normal work to `AGENTS.md` and skill maintenance to `asteroid-v3-skill-maintenance`. |
