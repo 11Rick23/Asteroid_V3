@@ -105,7 +105,8 @@ mise run typecheck
 mise run test
 ```
 
-テストの配置、Given-When-Then の記述スタイル、短い英語関数名と日本語 docstring の方針は
+テストしたい契約に応じたファイル分割、同値分割・境界値分析・デシジョンテーブルなどのケース設計、
+Given-When-Then の記述スタイル、短い英語関数名と日本語 docstring の方針は
 [`tests/README.md`](tests/README.md) を参照してください。
 
 ### 一括チェック
