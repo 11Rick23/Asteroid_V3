@@ -14,7 +14,6 @@ dependencies = [
     "greenlet>=3.2.4",
     "pillow>=11.0.0",
     "pydantic>=2.12.5",
-    "pytimeparse>=1.1.8",
     "ruamel-yaml>=0.19.1",
     "sqlalchemy>=2.0.41",
 ]

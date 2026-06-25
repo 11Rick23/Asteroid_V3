@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import datetime
+import re
 from logging import getLogger
 
 import discord
 from discord import app_commands
-from pytimeparse import parse
 
 from app.common.command_groups import get_bot, register_group
 from app.common.guild_scope import GuildScopedView
@@ -22,6 +22,31 @@ from .service import (
 from .views import PermRoleSelect
 
 logger = getLogger(__name__)
+_DURATION_PATTERN = re.compile(r"\s*(\d+(?:\.\d+)?|\.\d+)\s*([wdhms])\s*,?", re.IGNORECASE)
+_SECONDS_BY_UNIT = {
+    "w": 604800,
+    "d": 86400,
+    "h": 3600,
+    "m": 60,
+    "s": 1,
+}
+
+
+def parse_timeout_duration(duration: str) -> float | None:
+    seconds = 0.0
+    position = 0
+    matched = False
+    for match in _DURATION_PATTERN.finditer(duration):
+        if match.start() != position:
+            return None
+        matched = True
+        seconds += float(match.group(1)) * _SECONDS_BY_UNIT[match.group(2).lower()]
+        position = match.end()
+
+    if not matched or duration[position:].strip():
+        return None
+    return seconds
+
 
 punish_group = app_commands.Group(
     name="punish",
@@ -93,7 +118,7 @@ async def timeout(
     reason: str,
     probation: str | None = None,
 ) -> None:
-    length = parse(duration)
+    length = parse_timeout_duration(duration)
     if length is None:
         logger.debug(f"タイムアウト時間の解析に失敗しました: value={duration} moderator_id={interaction.user.id}")
         await interaction.response.send_message(

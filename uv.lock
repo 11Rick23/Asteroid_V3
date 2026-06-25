@@ -123,7 +123,6 @@ dependencies = [
     { name = "greenlet" },
     { name = "pillow" },
     { name = "pydantic" },
-    { name = "pytimeparse" },
     { name = "ruamel-yaml" },
     { name = "sqlalchemy" },
 ]
@@ -147,7 +146,6 @@ requires-dist = [
     { name = "greenlet", specifier = ">=3.2.4" },
     { name = "pillow", specifier = ">=11.0.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
-    { name = "pytimeparse", specifier = ">=1.1.8" },
     { name = "ruamel-yaml", specifier = ">=0.19.1" },
     { name = "sqlalchemy", specifier = ">=2.0.41" },
 ]
@@ -719,15 +717,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/90/2c/8af215c0f776415f3590cac4f9086ccefd6fd463befeae41cd4d3f193e5a/pytest_asyncio-1.3.0.tar.gz", hash = "sha256:d7f52f36d231b80ee124cd216ffb19369aa168fc10095013c6b014a34d3ee9e5", size = 50087, upload-time = "2025-11-10T16:07:47.256Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e5/35/f8b19922b6a25bc0880171a2f1a003eaeb93657475193ab516fd87cac9da/pytest_asyncio-1.3.0-py3-none-any.whl", hash = "sha256:611e26147c7f77640e6d0a92a38ed17c3e9848063698d5c93d5aa7aa11cebff5", size = 15075, upload-time = "2025-11-10T16:07:45.537Z" },
-]
-
-[[package]]
-name = "pytimeparse"
-version = "1.1.8"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/37/5d/231f5f33c81e09682708fb323f9e4041408d8223e2f0fb9742843328778f/pytimeparse-1.1.8.tar.gz", hash = "sha256:e86136477be924d7e670646a98561957e8ca7308d44841e21f5ddea757556a0a", size = 9403, upload-time = "2018-05-18T17:40:42.76Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/1b/b4/afd75551a3b910abd1d922dbd45e49e5deeb4d47dc50209ce489ba9844dd/pytimeparse-1.1.8-py2.py3-none-any.whl", hash = "sha256:04b7be6cc8bd9f5647a6325444926c3ac34ee6bc7e69da4367ba282f076036bd", size = 9969, upload-time = "2018-05-18T17:40:41.28Z" },
 ]
 
 [[package]]
