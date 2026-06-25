@@ -318,13 +318,17 @@ class LevelingTransactions:
                         session, star_grade, amount
                     )
                 elif shard_type == "ボイス":
-                    star_grade, grade_up_amount, prestige_amount = (
-                        await self.db.star_grades.add_voice_shard_in_session(session, star_grade, amount)
-                    )
+                    (
+                        star_grade,
+                        grade_up_amount,
+                        prestige_amount,
+                    ) = await self.db.star_grades.add_voice_shard_in_session(session, star_grade, amount)
                 else:
-                    star_grade, grade_up_amount, prestige_amount = (
-                        await self.db.star_grades.add_bonus_shard_in_session(session, star_grade, amount)
-                    )
+                    (
+                        star_grade,
+                        grade_up_amount,
+                        prestige_amount,
+                    ) = await self.db.star_grades.add_bonus_shard_in_session(session, star_grade, amount)
                 await session.commit()
             return LevelingShardUpdateData(star_grade, grade_up_amount, prestige_amount)
 
@@ -335,17 +339,23 @@ class LevelingTransactions:
                     session, user_id
                 ) or await self.db.star_grades.create_star_grade_in_session(session, user_id)
                 if shard_type == "テキスト":
-                    star_grade, grade_up_amount, prestige_amount = (
-                        await self.db.star_grades.remove_text_shard_in_session(session, star_grade, amount)
-                    )
+                    (
+                        star_grade,
+                        grade_up_amount,
+                        prestige_amount,
+                    ) = await self.db.star_grades.remove_text_shard_in_session(session, star_grade, amount)
                 elif shard_type == "ボイス":
-                    star_grade, grade_up_amount, prestige_amount = (
-                        await self.db.star_grades.remove_voice_shard_in_session(session, star_grade, amount)
-                    )
+                    (
+                        star_grade,
+                        grade_up_amount,
+                        prestige_amount,
+                    ) = await self.db.star_grades.remove_voice_shard_in_session(session, star_grade, amount)
                 else:
-                    star_grade, grade_up_amount, prestige_amount = (
-                        await self.db.star_grades.remove_bonus_shard_in_session(session, star_grade, amount)
-                    )
+                    (
+                        star_grade,
+                        grade_up_amount,
+                        prestige_amount,
+                    ) = await self.db.star_grades.remove_bonus_shard_in_session(session, star_grade, amount)
                 await session.commit()
             return LevelingShardUpdateData(star_grade, grade_up_amount, prestige_amount)
 

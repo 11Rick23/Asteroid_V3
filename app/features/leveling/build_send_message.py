@@ -95,8 +95,7 @@ async def send_prestige_up_message(
         embed=discord.Embed(
             title="プレステージ！",
             description=(
-                f"{author.mention}さんがPrestige. {prestige - prestige_amount}から"
-                f"Prestige. {prestige}へプレステージ！"
+                f"{author.mention}さんがPrestige. {prestige - prestige_amount}からPrestige. {prestige}へプレステージ！"
             ),
             color=discord.Color.random(),
         )

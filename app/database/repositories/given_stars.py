@@ -65,9 +65,7 @@ class GivenStars:
             await session.execute(stmt)
             await session.commit()
 
-    async def _add_given_star_in_session(
-        self, session: AsyncSession, user_id: int, given_star_amount: int
-    ) -> None:
+    async def _add_given_star_in_session(self, session: AsyncSession, user_id: int, given_star_amount: int) -> None:
         stmt = mysql_insert(GivenStarModel).values(user_id=user_id, given_star_amount=given_star_amount)
         await session.execute(
             stmt.on_duplicate_key_update(

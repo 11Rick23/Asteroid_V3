@@ -14,9 +14,7 @@ def get_save_role_ids(member: discord.Member, ignored_role_ids: list[int]) -> li
     return [
         role.id
         for role in member.roles
-        if role != member.guild.default_role
-        and role < member.guild.me.top_role
-        and role.id not in ignored_role_ids
+        if role != member.guild.default_role and role < member.guild.me.top_role and role.id not in ignored_role_ids
     ]
 
 
