@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, cast
 
 import pytest
 
+from app.database.repositories.user_roles import UserRoleData
 from app.features.roles import cog as roles_cog
 from app.features.roles.cog import JoinRolesCog
 from tests.support.discord_fakes import FakeGuild, FakeMember, FakeRole
@@ -21,15 +23,21 @@ class _Config:
 class _UserRolesRepository:
     def __init__(self, *, restore_count: int = 0) -> None:
         self.restore_count = restore_count
-        self.saved_members: list[object] = []
-        self.restored_members: list[object] = []
+        self.saved_roles: list[tuple[int, list[int]]] = []
+        self.deleted_roles: list[tuple[int, int]] = []
 
-    async def save_user_roles(self, member: object) -> None:
-        self.saved_members.append(member)
+    async def save_user_roles(self, user_id: int, role_ids: list[int]) -> None:
+        self.saved_roles.append((user_id, role_ids))
 
-    async def restore_user_roles(self, member: object) -> int:
-        self.restored_members.append(member)
-        return self.restore_count
+    async def get_user_roles(self, user_id: int) -> list[UserRoleData]:
+        now = datetime.now()
+        return [
+            UserRoleData(user_id=user_id, role_id=10 + index, created_at=now, updated_at=now)
+            for index in range(self.restore_count)
+        ]
+
+    async def delete_user_role(self, user_id: int, role_id: int) -> None:
+        self.deleted_roles.append((user_id, role_id))
 
 
 class _Database:
@@ -62,7 +70,7 @@ async def test_skips_outside_guild():
     await cog.save_roles(cast(Any, member))
 
     # Then
-    assert bot.user_roles.saved_members == []
+    assert bot.user_roles.saved_roles == []
 
 
 @pytest.mark.asyncio
@@ -98,11 +106,12 @@ async def test_sends_return_welcome(monkeypatch):
     monkeypatch.setattr(roles_cog, "send_return_welcome", fake_send_return_welcome)
     bot = _Bot(restore_count=2)
     cog = JoinRolesCog(cast(Any, bot))
-    member = FakeMember(guild=FakeGuild(roles=[FakeRole(id=10, position=10)]))
+    restored_role = FakeRole(id=10, position=10)
+    member = FakeMember(guild=FakeGuild(roles=[restored_role]))
 
     # When
     await cog.restore_or_give_roles(cast(Any, member))
 
     # Then
     assert welcomed_members == [member]
-    assert member.added_roles == []
+    assert member.added_roles == [restored_role]

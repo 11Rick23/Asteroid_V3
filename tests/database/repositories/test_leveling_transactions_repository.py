@@ -40,14 +40,14 @@ class FakeMonthlyActionPowers:
     def __init__(self, data: MonthlyActionPowerData) -> None:
         self.data = data
 
-    async def get_monthly_action_power_lock(
+    async def get_monthly_action_power_in_session(
         self,
         session: FakeSession,
         user_id: int,
     ) -> MonthlyActionPowerData:
         return self.data
 
-    async def add_action_power_lock(
+    async def add_action_power_in_session(
         self,
         session: FakeSession,
         data: MonthlyActionPowerData,
@@ -66,10 +66,10 @@ class FakeVoiceXPLimits:
         self.data = data
         self.deleted_user_id: int | None = None
 
-    async def get_voice_xp_limit_lock(self, session: FakeSession, user_id: int) -> VoiceXPLimitData:
+    async def get_voice_xp_limit_in_session(self, session: FakeSession, user_id: int) -> VoiceXPLimitData:
         return self.data
 
-    async def delete_voice_xp_limit_lock(self, session: FakeSession, user_id: int) -> None:
+    async def delete_voice_xp_limit_in_session(self, session: FakeSession, user_id: int) -> None:
         self.deleted_user_id = user_id
 
 
@@ -78,10 +78,10 @@ class FakeMonthlyPowers:
         now = datetime.now()
         self.data = MonthlyPowerData(123, 10, 20, 0, now, now)
 
-    async def get_monthly_power_lock(self, session: FakeSession, user_id: int) -> MonthlyPowerData:
+    async def get_monthly_power_in_session(self, session: FakeSession, user_id: int) -> MonthlyPowerData:
         return self.data
 
-    async def add_text_power_lock(
+    async def add_text_power_in_session(
         self,
         session: FakeSession,
         data: MonthlyPowerData,
@@ -96,7 +96,7 @@ class FakeMonthlyPowers:
             datetime.now(),
         )
 
-    async def add_voice_power_lock(
+    async def add_voice_power_in_session(
         self,
         session: FakeSession,
         data: MonthlyPowerData,
@@ -116,10 +116,10 @@ class FakeStarGrades:
     def __init__(self, data: StarGradeData) -> None:
         self.data = data
 
-    async def get_star_grade_lock(self, session: FakeSession, user_id: int) -> StarGradeData:
+    async def get_star_grade_in_session(self, session: FakeSession, user_id: int) -> StarGradeData:
         return self.data
 
-    async def add_voice_shard_lock(
+    async def add_voice_shard_in_session(
         self,
         session: FakeSession,
         data: StarGradeData,
@@ -127,7 +127,7 @@ class FakeStarGrades:
     ) -> tuple[StarGradeData, int, int]:
         return data, 1, 0
 
-    async def add_text_shard_lock(
+    async def add_text_shard_in_session(
         self,
         session: FakeSession,
         data: StarGradeData,
@@ -135,7 +135,7 @@ class FakeStarGrades:
     ) -> tuple[StarGradeData, int, int]:
         return data, 0, 0
 
-    async def add_bonus_shard_lock(
+    async def add_bonus_shard_in_session(
         self,
         session: FakeSession,
         data: StarGradeData,
@@ -148,7 +148,7 @@ class FakeLevelingHotness:
     def __init__(self) -> None:
         self.recorded: list[tuple[FakeSession, int, int]] = []
 
-    async def record_gain_lock(
+    async def record_gain_in_session(
         self,
         session: FakeSession,
         user_id: int,

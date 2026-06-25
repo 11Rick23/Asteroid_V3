@@ -8,7 +8,6 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models.leveling_hotness import LevelingHotnessEventModel
-from app.database.table_utils import model_table
 
 HOTNESS_WINDOW = timedelta(hours=24)
 DEFAULT_HOTNESS_RANKING_LIMIT = 3
@@ -34,24 +33,6 @@ class LevelingHotness:
     def __init__(self, db: Any) -> None:
         self.db = db
 
-    async def create_table(self) -> None:
-        async with self.db.engine.begin() as conn:
-            await conn.run_sync(
-                lambda sync_conn: model_table(LevelingHotnessEventModel).create(
-                    sync_conn,
-                    checkfirst=True,
-                )
-            )
-
-    async def drop_table(self) -> None:
-        async with self.db.engine.begin() as conn:
-            await conn.run_sync(
-                lambda sync_conn: model_table(LevelingHotnessEventModel).drop(
-                    sync_conn,
-                    checkfirst=True,
-                )
-            )
-
     async def record_gain(
         self,
         user_id: int,
@@ -60,7 +41,7 @@ class LevelingHotness:
         earned_at: datetime | None = None,
     ) -> None:
         async with self.db.session() as session:
-            await self.record_gain_lock(
+            await self.record_gain_in_session(
                 session,
                 user_id,
                 amount,
@@ -68,7 +49,7 @@ class LevelingHotness:
             )
             await session.commit()
 
-    async def record_gain_lock(
+    async def record_gain_in_session(
         self,
         session: AsyncSession,
         user_id: int,
