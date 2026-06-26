@@ -108,8 +108,11 @@ class MonthlyPowers:
 
     async def reset_monthly_powers(self) -> None:
         async with self.db.session() as session:
-            await session.execute(delete(MonthlyPowerModel))
+            await self.reset_monthly_powers_in_session(session)
             await session.commit()
+
+    async def reset_monthly_powers_in_session(self, session: AsyncSession) -> None:
+        await session.execute(delete(MonthlyPowerModel))
 
     async def get_monthly_power(self, user_id: int) -> MonthlyPowerData | None:
         async with self.db.session() as session:

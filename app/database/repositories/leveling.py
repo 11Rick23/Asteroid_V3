@@ -406,9 +406,11 @@ class LevelingTransactions:
 
     async def reset_monthly_power_state(self) -> None:
         async with self._monthly_power_reset():
-            await self.db.monthly_powers.reset_monthly_powers()
-            await self.db.monthly_action_powers.reset_monthly_action_powers()
-            await self.db.voice_xp_limits.reset_voice_power()
+            async with self.db.session() as session:
+                await self.db.monthly_powers.reset_monthly_powers_in_session(session)
+                await self.db.monthly_action_powers.reset_monthly_action_powers_in_session(session)
+                await self.db.voice_xp_limits.reset_voice_power_in_session(session)
+                await session.commit()
 
     async def _add_monthly_power_in_session(
         self,

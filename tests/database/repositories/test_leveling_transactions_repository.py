@@ -15,9 +15,11 @@ from app.database.repositories.voice_xp_limits import VoiceXPLimitData
 class FakeSession:
     def __init__(self) -> None:
         self.committed = False
+        self.commit_count = 0
 
     async def commit(self) -> None:
         self.committed = True
+        self.commit_count += 1
 
 
 class FakeSessionContext:
@@ -39,6 +41,7 @@ class FakeSessionContext:
 class FakeMonthlyActionPowers:
     def __init__(self, data: MonthlyActionPowerData) -> None:
         self.data = data
+        self.reset_sessions: list[FakeSession] = []
 
     async def get_monthly_action_power_in_session(
         self,
@@ -81,11 +84,15 @@ class FakeMonthlyActionPowers:
             updated_at=datetime.now(),
         )
 
+    async def reset_monthly_action_powers_in_session(self, session: FakeSession) -> None:
+        self.reset_sessions.append(session)
+
 
 class FakeVoiceXPLimits:
     def __init__(self, data: VoiceXPLimitData) -> None:
         self.data = data
         self.deleted_user_id: int | None = None
+        self.reset_sessions: list[FakeSession] = []
 
     async def get_voice_xp_limit_in_session(self, session: FakeSession, user_id: int) -> VoiceXPLimitData:
         return self.data
@@ -93,11 +100,15 @@ class FakeVoiceXPLimits:
     async def delete_voice_xp_limit_in_session(self, session: FakeSession, user_id: int) -> None:
         self.deleted_user_id = user_id
 
+    async def reset_voice_power_in_session(self, session: FakeSession) -> None:
+        self.reset_sessions.append(session)
+
 
 class FakeMonthlyPowers:
     def __init__(self) -> None:
         now = datetime.now()
         self.data = MonthlyPowerData(123, 10, 20, 0, now, now)
+        self.reset_sessions: list[FakeSession] = []
 
     async def get_monthly_power_in_session(self, session: FakeSession, user_id: int) -> MonthlyPowerData:
         return self.data
@@ -170,6 +181,9 @@ class FakeMonthlyPowers:
             data.created_at,
             datetime.now(),
         )
+
+    async def reset_monthly_powers_in_session(self, session: FakeSession) -> None:
+        self.reset_sessions.append(session)
 
 
 class FakeStarGrades:
@@ -520,3 +534,32 @@ async def test_mee6_transfer_uses_single_session() -> None:
     assert result.star_grade.prestige == 2
     assert db.session_calls == 1
     assert session.committed is True
+
+
+@pytest.mark.asyncio
+async def test_reset_monthly_power_state_uses_single_session() -> None:
+    """月次 power reset は3つの状態更新を 1 session / 1 commit で行う。"""
+    # 機能要件：月次 reset は monthly power、action power、voice power 状態を reset する。
+    # 非機能要件：3つの reset を同一 session に閉じ、部分 commit 済み状態を作らない。
+    # Given
+    now = datetime.now()
+    session = FakeSession()
+    monthly_powers = FakeMonthlyPowers()
+    monthly_action_powers = FakeMonthlyActionPowers(MonthlyActionPowerData(123, 10, now, now))
+    voice_xp_limits = FakeVoiceXPLimits(VoiceXPLimitData(123, 10, 5, 20, False, False, now, now))
+    db = FakeDatabase(
+        session=session,
+        monthly_powers=monthly_powers,
+        monthly_action_powers=monthly_action_powers,
+        voice_xp_limits=voice_xp_limits,
+    )
+
+    # When
+    await LevelingTransactions(db).reset_monthly_power_state()
+
+    # Then
+    assert monthly_powers.reset_sessions == [session]
+    assert monthly_action_powers.reset_sessions == [session]
+    assert voice_xp_limits.reset_sessions == [session]
+    assert db.session_calls == 1
+    assert session.commit_count == 1

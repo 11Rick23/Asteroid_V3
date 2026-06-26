@@ -261,5 +261,8 @@ class VoiceXPLimits:
 
     async def reset_voice_power(self) -> None:
         async with self.db.session() as session:
-            await session.execute(update(VoiceXPLimitModel).values(voice_power=0))
+            await self.reset_voice_power_in_session(session)
             await session.commit()
+
+    async def reset_voice_power_in_session(self, session: AsyncSession) -> None:
+        await session.execute(update(VoiceXPLimitModel).values(voice_power=0))
