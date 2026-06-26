@@ -155,43 +155,6 @@ uv run alembic stamp 273b6467e5ff
 ```bash
 mise run db:upgrade
 ```
-生成されたマイグレーションに現在の全テーブル作成処理が含まれていることを確認してください。
-
-### 新規 DB に適用する場合
-
-テーブルが存在しない新規 DB では、全マイグレーションをそのまま適用します。
-
-```bash
-uv run alembic upgrade head
-```
-
-### 既存 DB を Alembic 管理下に置く場合
-
-既にテーブルが存在し、`alembic_version` が無い DB では、作業前に必ず DB のバックアップを取得してください。その上で、初期マイグレーションは実行せず、既存 DB に初期スキーマが適用済みであることだけを記録します。
-
-```bash
-uv run alembic stamp 273b6467e5ff
-```
-
-その後、初期 revision より後のマイグレーションを適用します。
-
-```bash
-uv run alembic upgrade head
-```
-
-`stamp head` を実行すると、後続マイグレーションまで適用済みとして記録されます。既存 DB に index 追加などの差分を実際に適用したい場合は、`stamp head` ではなく、初期 revision である `273b6467e5ff` に stamp してから `upgrade head` を実行してください。
-
-現在の適用状態は次のコマンドで確認できます。
-
-```bash
-uv run alembic current
-```
-
-既に Alembic 管理下にある DB では、通常通り未適用分を反映します。
-
-```bash
-uv run alembic upgrade head
-```
 
 ### DB の更新を適用する方法
 
