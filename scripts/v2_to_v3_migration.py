@@ -170,15 +170,17 @@ def dump_source_data(source_url: URL, dump_path: Path, tables: list[str]) -> Non
     if source_url.database is None:
         raise ValueError("移行元DB名が指定されていません。")
     command = ["mysqldump", *_mysql_connection_args(source_url)]
-    command.extend([
-        "--single-transaction",
-        "--skip-lock-tables",
-        "--skip-comments",
-        "--no-create-info",
-        "--skip-triggers",
-        source_url.database,
-        *tables,
-    ])
+    command.extend(
+        [
+            "--single-transaction",
+            "--skip-lock-tables",
+            "--skip-comments",
+            "--no-create-info",
+            "--skip-triggers",
+            source_url.database,
+            *tables,
+        ]
+    )
     logger.info("移行元DBをダンプします: source=%s", _masked_url(source_url))
     with dump_path.open("w", encoding="utf-8") as dump_file:
         try:
