@@ -32,6 +32,9 @@ def server_default(model: type[Any], name: str) -> str:
 
 
 def test_timestamp_columns_use_database_defaults() -> None:
+    """timestamp columns は DB 側の作成・更新時刻 default を持つ。"""
+    # 機能要件：timestamp columns は明示値なしでも DB 側で作成・更新時刻を補完する。
+    # Given
     models = (
         GivenStarModel,
         MonthlyActionPowerModel,
@@ -46,13 +49,27 @@ def test_timestamp_columns_use_database_defaults() -> None:
         XPBoostModel,
     )
 
-    for model in models:
-        assert server_default(model, "created_at") == "CURRENT_TIMESTAMP"
-        assert server_default(model, "updated_at") == "CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"
-        assert column(model, "updated_at").server_onupdate is not None
+    # When
+    defaults = [
+        (
+            server_default(model, "created_at"),
+            server_default(model, "updated_at"),
+            column(model, "updated_at").server_onupdate is not None,
+        )
+        for model in models
+    ]
+
+    # Then
+    for created_at, updated_at, has_onupdate in defaults:
+        assert created_at == "CURRENT_TIMESTAMP"
+        assert updated_at == "CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"
+        assert has_onupdate is True
 
 
 def test_zero_value_columns_use_database_defaults() -> None:
+    """数値・boolean の初期値 columns は DB 側の 0 default を持つ。"""
+    # 機能要件：数値・boolean columns は明示値なしでも DB 側で 0 初期値を補完する。
+    # Given
     default_zero_columns = (
         (GivenStarModel, "given_star_amount"),
         (MonthlyActionPowerModel, "action_power"),
@@ -75,5 +92,8 @@ def test_zero_value_columns_use_database_defaults() -> None:
         (VoiceXPLimitModel, "full_notify"),
     )
 
-    for model, name in default_zero_columns:
-        assert server_default(model, name) == "0"
+    # When
+    defaults = [server_default(model, name) for model, name in default_zero_columns]
+
+    # Then
+    assert defaults == ["0"] * len(default_zero_columns)

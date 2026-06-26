@@ -132,10 +132,11 @@ async def test_record_gain_rejects_non_positive(user_id: int, amount: int) -> No
     session = FakeSession()
     repository = build_repository(session)
 
-    # When / Then
+    # When
     with pytest.raises(ValueError):
         await repository.record_gain(user_id, amount)
 
+    # Then
     assert session.added == []
     assert session.commit_count == 0
 
@@ -188,8 +189,11 @@ async def test_get_top_hotness_skips_non_positive_limit() -> None:
     session = FakeSession()
     repository = build_repository(session)
 
-    # When / Then
-    assert await repository.get_top_hotness(limit=0) == []
+    # When
+    result = await repository.get_top_hotness(limit=0)
+
+    # Then
+    assert result == []
     assert session.executed == []
 
 
@@ -216,11 +220,11 @@ async def test_delete_expired_removes_events_before_cutoff() -> None:
 def test_hotness_table_has_time_and_user_index() -> None:
     """hotness ranking query 用の earned_at/user_id index を持つ。"""
     # 非機能要件：直近 window の user 別集計に使う複合 index を定義する。
-    # Given / When
-    indexes = {
-        index.name: tuple(column.name for column in index.columns)
-        for index in cast(Any, LevelingHotnessEventModel.__table__).indexes
-    }
+    # Given
+    table = cast(Any, LevelingHotnessEventModel.__table__)
+
+    # When
+    indexes = {index.name: tuple(column.name for column in index.columns) for index in table.indexes}
 
     # Then
     assert indexes["idx_leveling_hotness_events_earned_at_user_id"] == ("earned_at", "user_id")
@@ -229,8 +233,11 @@ def test_hotness_table_has_time_and_user_index() -> None:
 def test_hotness_earned_at_uses_database_default() -> None:
     """hotness event の earned_at は DB 側の現在時刻 default を持つ。"""
     # 非機能要件：明示時刻なしの INSERT でも DB 側で獲得時刻を補完できる。
-    # Given / When
-    default = cast(Any, LevelingHotnessEventModel.__table__).c.earned_at.server_default
+    # Given
+    table = cast(Any, LevelingHotnessEventModel.__table__)
+
+    # When
+    default = table.c.earned_at.server_default
 
     # Then
     assert isinstance(default, DefaultClause)
@@ -240,11 +247,14 @@ def test_hotness_earned_at_uses_database_default() -> None:
 def test_database_repositories_exposes_leveling_hotness() -> None:
     """DatabaseRepositories から leveling hotness repository を利用できる。"""
     # 機能要件：DB repository 集約は leveling_hotness repository を公開する。
-    # Given / When
+    # Given
     repositories = DatabaseRepositories()
 
+    # When
+    repository = repositories.leveling_hotness
+
     # Then
-    assert isinstance(repositories.leveling_hotness, LevelingHotness)
+    assert isinstance(repository, LevelingHotness)
 
 
 class FakeRow:

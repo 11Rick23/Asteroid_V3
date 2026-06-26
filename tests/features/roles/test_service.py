@@ -13,7 +13,7 @@ from app.features.roles.service import JoinRolesService, get_restorable_roles, g
 
 
 class FakeRole:
-    def __init__(self, role_id: int, position: int):
+    def __init__(self, role_id: int, position: int) -> None:
         self.id = role_id
         self.position = position
 
@@ -22,7 +22,7 @@ class FakeRole:
 
 
 class FakeGuild:
-    def __init__(self, roles: list[FakeRole], top_role: FakeRole):
+    def __init__(self, roles: list[FakeRole], top_role: FakeRole) -> None:
         self.id = 100
         self.default_role = roles[0]
         self.me = SimpleNamespace(top_role=top_role)
@@ -33,7 +33,7 @@ class FakeGuild:
 
 
 class FakeMember:
-    def __init__(self, guild: FakeGuild, roles: list[FakeRole], *, bot: bool = False):
+    def __init__(self, guild: FakeGuild, roles: list[FakeRole], *, bot: bool = False) -> None:
         self.id = 200
         self.guild = guild
         self.roles = roles
@@ -45,7 +45,7 @@ class FakeMember:
 
 
 class FakeUserRolesRepository:
-    def __init__(self, roles_data: list[UserRoleData] | None = None):
+    def __init__(self, roles_data: list[UserRoleData] | None = None) -> None:
         self.roles_data = roles_data or []
         self.saved: tuple[int, list[int]] | None = None
         self.deleted: list[tuple[int, int]] = []
@@ -82,7 +82,11 @@ def build_service(repository: FakeUserRolesRepository, *, join_role_ids: list[in
     return JoinRolesService(bot)
 
 
-def test_get_save_role_ids_excludes_default_high_and_ignored_roles() -> None:
+def test_get_save_role_ids_filters_unmanaged_roles() -> None:
+    """保存対象ロール ID は default / ignored / 管理不能ロールを除外して返す。"""
+    # 機能要件：脱退時に保存するロール ID を member の現在ロールから抽出する。
+    # 非機能要件：default role、除外設定、Bot が管理できないロールは保存しない。
+    # Given
     default_role = FakeRole(1, 1)
     saved_role = FakeRole(10, 10)
     ignored_role = FakeRole(30, 30)
@@ -90,26 +94,37 @@ def test_get_save_role_ids_excludes_default_high_and_ignored_roles() -> None:
     guild = FakeGuild([default_role, saved_role, ignored_role, too_high_role], FakeRole(999, 100))
     member = FakeMember(guild, [default_role, saved_role, ignored_role, too_high_role])
 
+    # When
     role_ids = get_save_role_ids(cast(discord.Member, member), [30])
 
+    # Then
     assert role_ids == [10]
 
 
-def test_get_restorable_roles_returns_manageable_roles_and_missing_ids() -> None:
+def test_get_restorable_roles_returns_missing_ids() -> None:
+    """復元可能ロールと存在しない保存済みロール ID を分けて返す。"""
+    # 機能要件：保存済み role ID から復元可能な role と欠損 role ID を返す。
+    # 非機能要件：Bot が管理できない role は復元候補に含めない。
+    # Given
     default_role = FakeRole(1, 1)
     restorable_role = FakeRole(10, 10)
     too_high_role = FakeRole(40, 400)
     guild = FakeGuild([default_role, restorable_role, too_high_role], FakeRole(999, 100))
     member = FakeMember(guild, [default_role])
 
+    # When
     roles, missing_role_ids = get_restorable_roles(cast(discord.Member, member), [10, 20, 40])
 
+    # Then
     assert [role.id for role in roles] == [10]
     assert missing_role_ids == [20]
 
 
 @pytest.mark.asyncio
-async def test_save_user_roles_persists_selected_role_ids() -> None:
+async def test_save_user_roles_persists_selected_ids() -> None:
+    """保存対象ロール ID を user_roles repository へ保存する。"""
+    # 機能要件：脱退時のロール保存は保存対象ロール ID を repository へ渡す。
+    # Given
     default_role = FakeRole(1, 1)
     saved_role = FakeRole(10, 10)
     guild = FakeGuild([default_role, saved_role], FakeRole(999, 100))
@@ -117,13 +132,19 @@ async def test_save_user_roles_persists_selected_role_ids() -> None:
     repository = FakeUserRolesRepository()
     service = build_service(repository)
 
+    # When
     await service.save_user_roles(cast(discord.Member, member))
 
+    # Then
     assert repository.saved == (200, [10])
 
 
 @pytest.mark.asyncio
-async def test_restore_user_roles_adds_existing_roles_and_deletes_missing_roles() -> None:
+async def test_restore_user_roles_deletes_missing() -> None:
+    """復元可能ロールを付与し、存在しない保存済みロール ID は削除する。"""
+    # 機能要件：保存済みロールのうち復元可能なロールを member に付与する。
+    # 非機能要件：欠損した保存済みロール ID は repository から削除する。
+    # Given
     default_role = FakeRole(1, 1)
     restorable_role = FakeRole(10, 10)
     guild = FakeGuild([default_role, restorable_role], FakeRole(999, 100))
@@ -131,8 +152,10 @@ async def test_restore_user_roles_adds_existing_roles_and_deletes_missing_roles(
     repository = FakeUserRolesRepository([build_role_data(10), build_role_data(20)])
     service = build_service(repository)
 
+    # When
     restored_count = await service.restore_user_roles(cast(discord.Member, member))
 
+    # Then
     assert restored_count == 1
     assert repository.deleted == [(200, 20)]
     roles, reason, atomic = member.add_roles_calls[0]
@@ -142,15 +165,21 @@ async def test_restore_user_roles_adds_existing_roles_and_deletes_missing_roles(
 
 
 @pytest.mark.asyncio
-async def test_give_join_roles_adds_configured_manageable_roles() -> None:
+async def test_give_join_roles_adds_manageable_roles() -> None:
+    """設定済みの参加時ロールのうち管理可能なロールだけを付与する。"""
+    # 機能要件：新規参加者に設定済みの参加時ロールを付与する。
+    # 非機能要件：存在しないロールや Bot が管理できないロールは付与しない。
+    # Given
     default_role = FakeRole(1, 1)
     join_role = FakeRole(10, 10)
     guild = FakeGuild([default_role, join_role], FakeRole(999, 100))
     member = FakeMember(guild, [default_role])
     service = build_service(FakeUserRolesRepository(), join_role_ids=[10, 20])
 
+    # When
     added_count = await service.give_join_roles(cast(discord.Member, member))
 
+    # Then
     assert added_count == 1
     roles, reason, atomic = member.add_roles_calls[0]
     assert [role.id for role in roles] == [10]
