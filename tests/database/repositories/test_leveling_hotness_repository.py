@@ -146,17 +146,13 @@ async def test_get_top_hotness_aggregates_window() -> None:
     # 機能要件：直近 window の hotness 合計を降順、同点 user ID 昇順で返す。
     # 非機能要件：既定 limit を SQL に渡し、window 境界を naive datetime で比較する。
     # Given
-    session = FakeSession(
-        [
-            FakeResult(
-                [
-                    FakeRow(user_id=10, hotness=500),
-                    FakeRow(user_id=20, hotness=300),
-                    FakeRow(user_id=30, hotness=100),
-                ]
-            )
-        ]
-    )
+    session = FakeSession([
+        FakeResult([
+            FakeRow(user_id=10, hotness=500),
+            FakeRow(user_id=20, hotness=300),
+            FakeRow(user_id=30, hotness=100),
+        ])
+    ])
     repository = build_repository(session)
     now = datetime(2026, 6, 12, 12, 0, tzinfo=UTC)
 

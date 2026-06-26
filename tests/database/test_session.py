@@ -20,14 +20,12 @@ def test_create_engine_logs_backend_and_driver(monkeypatch, caplog) -> None:
         return object()
 
     monkeypatch.setattr(session_module, "create_async_engine", fake_create_async_engine)
-    config = AsteroidConfig.model_validate(
-        {
-            "database": {
-                "url": "mysql://user:password@localhost/test_db",
-                "echo": True,
-            }
+    config = AsteroidConfig.model_validate({
+        "database": {
+            "url": "mysql://user:password@localhost/test_db",
+            "echo": True,
         }
-    )
+    })
 
     # When
     with caplog.at_level(logging.INFO, logger="app.database.session"):
