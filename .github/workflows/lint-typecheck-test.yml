@@ -25,7 +25,7 @@ jobs:
 
     steps:
       - name: リポジトリをチェックアウト
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: uv をインストール
         uses: astral-sh/setup-uv@v6
