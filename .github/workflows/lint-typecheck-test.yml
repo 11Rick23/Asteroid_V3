@@ -1,0 +1,58 @@
+name: Lint・型チェック・テスト
+
+on:
+  pull_request:
+    branches:
+      - dev
+      - main
+  push:
+    branches:
+      - dev
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint・型チェック・テスト
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+      UV_CACHE_DIR: ${{ github.workspace }}/.cache/uv
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: uv をインストール
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Python をセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
+
+      - name: 依存関係をインストール
+        run: uv sync --dev --frozen
+
+      - name: フォーマットを検証
+        run: uv run ruff format --check .
+
+      - name: Lint を実行
+        run: uv run ruff check .
+
+      - name: 型チェックを実行
+        run: uv run pyright
+
+      - name: テストを実行
+        run: uv run pytest

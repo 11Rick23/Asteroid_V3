@@ -1,0 +1,54 @@
+name: dev の更新を main へ反映
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  propose:
+    name: dev から main への PR 作成
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: dev が main より進んでいるか確認
+        id: compare
+        run: |
+          git fetch origin main dev
+          ahead_count="$(git rev-list --count origin/main..origin/dev)"
+          echo "ahead-count=${ahead_count}" >> "$GITHUB_OUTPUT"
+
+      - name: 既存の PR を確認
+        id: existing-pr
+        if: steps.compare.outputs.ahead-count != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pr_count="$(gh pr list --base main --head dev --state open --json number --jq 'length')"
+          echo "count=${pr_count}" >> "$GITHUB_OUTPUT"
+
+      - name: PR を作成
+        if: steps.compare.outputs.ahead-count != '0' && steps.existing-pr.outputs.count == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr create \
+            --base main \
+            --head dev \
+            --title "dev の更新を main へ反映" \
+            --body "dev ブランチが main ブランチより進んでいるため、main へ反映するための PR を作成しました。"
