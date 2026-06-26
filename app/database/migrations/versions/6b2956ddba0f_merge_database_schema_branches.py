@@ -1,7 +1,7 @@
 """merge database schema branches
 
 Revision ID: 6b2956ddba0f
-Revises: 2d91613550c1, 8f2a6c4b9d31
+Revises: 2d91613550c1, 9f0a2c7d4b6e
 Create Date: 2026-06-26 01:53:56.383334
 
 """
@@ -10,7 +10,7 @@ from collections.abc import Sequence
 
 # revision identifiers, used by Alembic.
 revision: str = "6b2956ddba0f"
-down_revision: str | Sequence[str] | None = ("2d91613550c1", "8f2a6c4b9d31")
+down_revision: str | Sequence[str] | None = ("2d91613550c1", "9f0a2c7d4b6e")
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

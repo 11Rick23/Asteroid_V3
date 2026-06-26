@@ -26,11 +26,11 @@ def upgrade() -> None:
         sa.Column("id", mysql.BIGINT(unsigned=True), autoincrement=True, nullable=False),
         sa.Column("user_id", mysql.BIGINT(unsigned=True), nullable=False),
         sa.Column("amount", mysql.INTEGER(unsigned=True), nullable=False),
-        sa.Column("earned_at", sa.DateTime(), server_default=sa.text("CURRENT_TIMESTAMP"), nullable=False),
+        sa.Column("earned_at", sa.DateTime(), server_default=sa.func.now(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
-        "idx_leveling_hotness_events_earned_at_user_id",
+        "ix_leveling_hotness_events_earned_at_user_id",
         "leveling_hotness_events",
         ["earned_at", "user_id"],
     )
@@ -38,5 +38,5 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Downgrade schema."""
-    op.drop_index("idx_leveling_hotness_events_earned_at_user_id", table_name="leveling_hotness_events")
+    op.drop_index("ix_leveling_hotness_events_earned_at_user_id", table_name="leveling_hotness_events")
     op.drop_table("leveling_hotness_events")
