@@ -52,6 +52,7 @@ When adding a repository:
 ## Schema Changes
 
 - For any model/table shape change, add or update an Alembic migration. Prefer `uv run alembic revision --autogenerate -m "..."`, then inspect and correct the generated operations.
+- Do not modify Alembic revisions that are already on shared/base branches or otherwise part of published history. Preserve existing revisions and add a new revision from the current head for follow-up corrections. Amend a revision only when it is purely local, unpublished, and the branch contract explicitly allows rewriting it.
 - Verify generated migrations include every intended table, column, constraint, index, and default, and do not include unrelated churn.
 - Keep migration defaults consistent with models, such as `sa.func.now()` for timestamp server defaults when models use `func.now()`.
 - Include a reasonable downgrade path when practical, especially for reversible table/column additions.

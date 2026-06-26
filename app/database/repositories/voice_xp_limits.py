@@ -7,10 +7,9 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models.voice_xp_limits import VoiceXPLimitModel
-from app.database.table_utils import model_table
 
 
-@dataclass
+@dataclass(slots=True)
 class VoiceXPLimitData:
     user_id: int
     voice_shard: int
@@ -41,20 +40,12 @@ class VoiceXPLimits:
             updated_at=model.updated_at,
         )
 
-    async def create_table(self) -> None:
-        async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: model_table(VoiceXPLimitModel).create(sync_conn, checkfirst=True))
-
-    async def drop_table(self) -> None:
-        async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: model_table(VoiceXPLimitModel).drop(sync_conn, checkfirst=True))
-
     async def get_voice_xp_limit(self, user_id: int) -> VoiceXPLimitData | None:
         async with self.db.session() as session:
             return self._to_data(await session.get(VoiceXPLimitModel, user_id))
 
-    async def get_voice_xp_limit_lock(self, session: AsyncSession, user_id: int) -> VoiceXPLimitData | None:
-        stmt = select(VoiceXPLimitModel).where(VoiceXPLimitModel.user_id == user_id).with_for_update()
+    async def get_voice_xp_limit_in_session(self, session: AsyncSession, user_id: int) -> VoiceXPLimitData | None:
+        stmt = select(VoiceXPLimitModel).where(VoiceXPLimitModel.user_id == user_id)
         return self._to_data(await session.scalar(stmt))
 
     async def create_voice_xp_limit(
@@ -67,7 +58,7 @@ class VoiceXPLimits:
         full_notify: bool = False,
     ) -> VoiceXPLimitData:
         async with self.db.session() as session:
-            data = await self.create_voice_xp_limit_lock(
+            data = await self.create_voice_xp_limit_in_session(
                 session,
                 user_id,
                 voice_shard,
@@ -79,7 +70,7 @@ class VoiceXPLimits:
             await session.commit()
             return data
 
-    async def create_voice_xp_limit_lock(
+    async def create_voice_xp_limit_in_session(
         self,
         session: AsyncSession,
         user_id: int,
@@ -89,19 +80,21 @@ class VoiceXPLimits:
         half_notify: bool = False,
         full_notify: bool = False,
     ) -> VoiceXPLimitData:
-        now = datetime.now()
-        session.add(
-            VoiceXPLimitModel(
-                user_id=user_id,
-                voice_shard=voice_shard,
-                bonus_shard=bonus_shard,
-                voice_power=voice_power,
-                half_notify=half_notify,
-                full_notify=full_notify,
-            )
+        model = VoiceXPLimitModel(
+            user_id=user_id,
+            voice_shard=voice_shard,
+            bonus_shard=bonus_shard,
+            voice_power=voice_power,
+            half_notify=half_notify,
+            full_notify=full_notify,
         )
+        session.add(model)
         await session.flush()
-        return VoiceXPLimitData(user_id, voice_shard, bonus_shard, voice_power, half_notify, full_notify, now, now)
+        await session.refresh(model)
+        data = self._to_data(model)
+        if data is None:
+            raise RuntimeError(f"voice_xp_limits[{user_id}] の作成に失敗しました。")
+        return data
 
     def _updated(
         self,
@@ -121,23 +114,28 @@ class VoiceXPLimits:
             data.half_notify if half_notify is None else half_notify,
             data.full_notify if full_notify is None else full_notify,
             data.created_at,
-            datetime.now(),
+            data.updated_at,
         )
 
-    async def _write_state(self, data: VoiceXPLimitData) -> None:
+    async def _write_state(self, data: VoiceXPLimitData) -> VoiceXPLimitData:
         async with self.db.session() as session:
-            await self._write_state_lock(session, data)
+            updated = await self._write_state_in_session(session, data)
             await session.commit()
+            return updated
 
-    async def _write_state_lock(self, session: AsyncSession, data: VoiceXPLimitData) -> None:
+    async def _write_state_in_session(self, session: AsyncSession, data: VoiceXPLimitData) -> VoiceXPLimitData:
         model = await session.get(VoiceXPLimitModel, data.user_id)
         if model is None:
-            return
+            return data
         model.voice_shard = data.voice_shard
         model.bonus_shard = data.bonus_shard
         model.voice_power = data.voice_power
         model.half_notify = data.half_notify
         model.full_notify = data.full_notify
+        await session.flush()
+        await session.refresh(model)
+        updated = self._to_data(model)
+        return updated if updated is not None else data
 
     def _apply_limit(
         self, current: int, add_value: int, limit: int, half_notify: bool, full_notify: bool
@@ -162,10 +160,10 @@ class VoiceXPLimits:
             half_notify=half_notify,
             full_notify=full_notify,
         )
-        await self._write_state(updated)
+        updated = await self._write_state(updated)
         return updated, half_notify, full_notify
 
-    async def add_voice_shard_lock(
+    async def add_voice_shard_in_session(
         self, session: AsyncSession, voice_xp_limit_data: VoiceXPLimitData, add_shard: int, limit: int
     ) -> tuple[VoiceXPLimitData, bool, bool]:
         current = voice_xp_limit_data.voice_shard + voice_xp_limit_data.bonus_shard
@@ -178,7 +176,7 @@ class VoiceXPLimits:
             half_notify=half_notify,
             full_notify=full_notify,
         )
-        await self._write_state_lock(session, updated)
+        updated = await self._write_state_in_session(session, updated)
         return updated, half_notify, full_notify
 
     async def add_bonus_shard(
@@ -194,10 +192,10 @@ class VoiceXPLimits:
             half_notify=half_notify,
             full_notify=full_notify,
         )
-        await self._write_state(updated)
+        updated = await self._write_state(updated)
         return updated, half_notify, full_notify
 
-    async def add_bonus_shard_lock(
+    async def add_bonus_shard_in_session(
         self, session: AsyncSession, voice_xp_limit_data: VoiceXPLimitData, add_shard: int, limit: int
     ) -> tuple[VoiceXPLimitData, bool, bool]:
         current = voice_xp_limit_data.voice_shard + voice_xp_limit_data.bonus_shard
@@ -210,7 +208,7 @@ class VoiceXPLimits:
             half_notify=half_notify,
             full_notify=full_notify,
         )
-        await self._write_state_lock(session, updated)
+        updated = await self._write_state_in_session(session, updated)
         return updated, half_notify, full_notify
 
     async def add_voice_power(
@@ -229,10 +227,10 @@ class VoiceXPLimits:
             half_notify=half_notify,
             full_notify=full_notify,
         )
-        await self._write_state(updated)
+        updated = await self._write_state(updated)
         return updated, half_notify, full_notify
 
-    async def add_voice_power_lock(
+    async def add_voice_power_in_session(
         self, session: AsyncSession, voice_xp_limit_data: VoiceXPLimitData, add_power: int, limit: int
     ) -> tuple[VoiceXPLimitData, bool, bool]:
         add_power, half_notify, full_notify = self._apply_limit(
@@ -248,20 +246,23 @@ class VoiceXPLimits:
             half_notify=half_notify,
             full_notify=full_notify,
         )
-        await self._write_state_lock(session, updated)
+        updated = await self._write_state_in_session(session, updated)
         return updated, half_notify, full_notify
 
     async def delete_voice_xp_limit(self, user_id: int) -> None:
         async with self.db.session() as session:
-            await self.delete_voice_xp_limit_lock(session, user_id)
+            await self.delete_voice_xp_limit_in_session(session, user_id)
             await session.commit()
 
-    async def delete_voice_xp_limit_lock(self, session: AsyncSession, user_id: int) -> None:
+    async def delete_voice_xp_limit_in_session(self, session: AsyncSession, user_id: int) -> None:
         model = await session.get(VoiceXPLimitModel, user_id)
         if model is not None:
             await session.delete(model)
 
     async def reset_voice_power(self) -> None:
         async with self.db.session() as session:
-            await session.execute(update(VoiceXPLimitModel).values(voice_power=0))
+            await self.reset_voice_power_in_session(session)
             await session.commit()
+
+    async def reset_voice_power_in_session(self, session: AsyncSession) -> None:
+        await session.execute(update(VoiceXPLimitModel).values(voice_power=0))

@@ -9,10 +9,9 @@ from app.database.models.role_panel import (
     RolePanelCategoryModel,
     RolePanelRoleModel,
 )
-from app.database.table_utils import model_table
 
 
-@dataclass
+@dataclass(slots=True)
 class RolePanelCategoryData:
     category_id: int
     name: str
@@ -23,7 +22,7 @@ class RolePanelCategoryData:
     updated_at: datetime
 
 
-@dataclass
+@dataclass(slots=True)
 class RolePanelRoleData:
     category_id: int
     role_id: int
@@ -32,7 +31,7 @@ class RolePanelRoleData:
     updated_at: datetime
 
 
-@dataclass
+@dataclass(slots=True)
 class RolePanelCategoryDetail(RolePanelCategoryData):
     roles: list[RolePanelRoleData] = field(default_factory=list)
 
@@ -67,17 +66,17 @@ class RolePanel:
             updated_at=model.updated_at,
         )
 
-    async def create_table(self) -> None:
-        async with self.db.engine.begin() as conn:
-            await conn.run_sync(
-                lambda sync_conn: model_table(RolePanelCategoryModel).create(sync_conn, checkfirst=True)
-            )
-            await conn.run_sync(lambda sync_conn: model_table(RolePanelRoleModel).create(sync_conn, checkfirst=True))
-
-    async def drop_table(self) -> None:
-        async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: model_table(RolePanelRoleModel).drop(sync_conn, checkfirst=True))
-            await conn.run_sync(lambda sync_conn: model_table(RolePanelCategoryModel).drop(sync_conn, checkfirst=True))
+    @staticmethod
+    def _to_category_detail(data: RolePanelCategoryData) -> RolePanelCategoryDetail:
+        return RolePanelCategoryDetail(
+            category_id=data.category_id,
+            name=data.name,
+            description=data.description,
+            display_order=data.display_order,
+            requires_boost=data.requires_boost,
+            created_at=data.created_at,
+            updated_at=data.updated_at,
+        )
 
     async def create_category(
         self,
@@ -87,17 +86,15 @@ class RolePanel:
         requires_boost: bool = False,
     ) -> RolePanelCategoryData:
         async with self.db.session() as session:
-            now = datetime.now()
             model = RolePanelCategoryModel(
                 name=name,
                 description=description,
                 display_order=display_order,
                 requires_boost=requires_boost,
-                created_at=now,
-                updated_at=now,
             )
             session.add(model)
             await session.flush()
+            await session.refresh(model)
             data = self._to_category_data(model)
             await session.commit()
         if data is None:
@@ -125,8 +122,8 @@ class RolePanel:
                 model.display_order = display_order
             if requires_boost is not None:
                 model.requires_boost = requires_boost
-            now = datetime.now()
-            model.updated_at = now
+            await session.flush()
+            await session.refresh(model)
             data = self._to_category_data(model)
             await session.commit()
             return data
@@ -156,7 +153,7 @@ class RolePanel:
             )
             role_models = (await session.scalars(role_stmt)).all()
 
-        category = RolePanelCategoryDetail(**category_data.__dict__)
+        category = self._to_category_detail(category_data)
         category.roles = [role_data for model in role_models if (role_data := self._to_role_data(model)) is not None]
         return category
 
@@ -180,7 +177,7 @@ class RolePanel:
             category_data = self._to_category_data(model)
             if category_data is None:
                 continue
-            category = RolePanelCategoryDetail(**category_data.__dict__)
+            category = self._to_category_detail(category_data)
             categories.append(category)
             category_by_id[category.category_id] = category
 
@@ -197,18 +194,16 @@ class RolePanel:
                 return None
             model = await session.get(RolePanelRoleModel, (category_id, role_id))
             if model is None:
-                now = datetime.now()
                 model = RolePanelRoleModel(
                     category_id=category_id,
                     role_id=role_id,
                     display_order=display_order,
-                    created_at=now,
-                    updated_at=now,
                 )
                 session.add(model)
-                await session.flush()
             else:
                 model.display_order = display_order
+            await session.flush()
+            await session.refresh(model)
             data = self._to_role_data(model)
             await session.commit()
             return data
@@ -229,20 +224,19 @@ class RolePanel:
             if await session.get(RolePanelCategoryModel, category_id) is None:
                 return None
             await session.execute(delete(RolePanelRoleModel).where(RolePanelRoleModel.category_id == category_id))
-            now = datetime.now()
             models = [
                 RolePanelRoleModel(
                     category_id=category_id,
                     role_id=role_id,
                     display_order=index,
-                    created_at=now,
-                    updated_at=now,
                 )
                 for index, role_id in enumerate(role_ids)
             ]
             if models:
                 session.add_all(models)
                 await session.flush()
+                for model in models:
+                    await session.refresh(model)
             data = [role_data for model in models if (role_data := self._to_role_data(model)) is not None]
             await session.commit()
             return data

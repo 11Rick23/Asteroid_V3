@@ -3,13 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select, update
 
 from app.database.models.starred_messages import StarredMessageModel
-from app.database.table_utils import model_table
 
 
-@dataclass
+@dataclass(slots=True)
 class StarredMessageData:
     starred_message_id: int
     starboard_message_id: int
@@ -20,7 +19,7 @@ class StarredMessageData:
     updated_at: datetime
 
 
-@dataclass
+@dataclass(slots=True)
 class StarAmountRankingData:
     user_id: int
     star_amount: int
@@ -43,14 +42,6 @@ class StarredMessages:
             created_at=model.created_at,
             updated_at=model.updated_at,
         )
-
-    async def create_table(self) -> None:
-        async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: model_table(StarredMessageModel).create(sync_conn, checkfirst=True))
-
-    async def drop_table(self) -> None:
-        async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: model_table(StarredMessageModel).drop(sync_conn, checkfirst=True))
 
     async def get_starred_message(self, message_id: int) -> StarredMessageData | None:
         async with self.db.session() as session:
@@ -101,36 +92,48 @@ class StarredMessages:
         star_amount: int,
         user_id: int,
         starred_message_channel_id: int,
-    ) -> None:
+    ) -> StarredMessageData:
         async with self.db.session() as session:
-            session.add(
-                StarredMessageModel(
-                    starred_message_id=message_id,
-                    starboard_message_id=starboard_message_id,
-                    star_amount=star_amount,
-                    user_id=user_id,
-                    starred_message_channel_id=starred_message_channel_id,
-                )
+            model = StarredMessageModel(
+                starred_message_id=message_id,
+                starboard_message_id=starboard_message_id,
+                star_amount=star_amount,
+                user_id=user_id,
+                starred_message_channel_id=starred_message_channel_id,
+            )
+            session.add(model)
+            await session.flush()
+            await session.refresh(model)
+            await session.commit()
+            data = self._to_data(model)
+            if data is None:
+                raise RuntimeError(f"starred_messages[{message_id}] の作成に失敗しました。")
+            return data
+
+    async def set_star_amount(self, message_id: int, star_amount: int) -> bool:
+        async with self.db.session() as session:
+            result = await session.execute(
+                update(StarredMessageModel)
+                .where(StarredMessageModel.starred_message_id == message_id)
+                .values(star_amount=star_amount)
             )
             await session.commit()
+            return bool(result.rowcount)
 
-    async def set_star_amount(self, message_id: int, star_amount: int) -> None:
+    async def set_starboard_message_id(self, message_id: int, starboard_message_id: int) -> bool:
         async with self.db.session() as session:
-            model = await session.get(StarredMessageModel, message_id)
-            if model is not None:
-                model.star_amount = star_amount
-                await session.commit()
+            result = await session.execute(
+                update(StarredMessageModel)
+                .where(StarredMessageModel.starred_message_id == message_id)
+                .values(starboard_message_id=starboard_message_id)
+            )
+            await session.commit()
+            return bool(result.rowcount)
 
-    async def set_starboard_message_id(self, message_id: int, starboard_message_id: int) -> None:
+    async def delete_starred_message(self, message_id: int) -> bool:
         async with self.db.session() as session:
-            model = await session.get(StarredMessageModel, message_id)
-            if model is not None:
-                model.starboard_message_id = starboard_message_id
-                await session.commit()
-
-    async def delete_starred_message(self, message_id: int) -> None:
-        async with self.db.session() as session:
-            model = await session.get(StarredMessageModel, message_id)
-            if model is not None:
-                await session.delete(model)
-                await session.commit()
+            result = await session.execute(
+                delete(StarredMessageModel).where(StarredMessageModel.starred_message_id == message_id)
+            )
+            await session.commit()
+            return bool(result.rowcount)

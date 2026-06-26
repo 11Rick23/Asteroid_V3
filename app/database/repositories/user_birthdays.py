@@ -7,10 +7,9 @@ from datetime import datetime
 from sqlalchemy import select
 
 from app.database.models.user_birthdays import UserBirthdayModel
-from app.database.table_utils import model_table
 
 
-@dataclass
+@dataclass(slots=True)
 class UserBirthdayData:
     user_id: int
     date: Date
@@ -32,14 +31,6 @@ class UserBirthdays:
             created_at=model.created_at,
             updated_at=model.updated_at,
         )
-
-    async def create_table(self) -> None:
-        async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: model_table(UserBirthdayModel).create(sync_conn, checkfirst=True))
-
-    async def drop_table(self) -> None:
-        async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: model_table(UserBirthdayModel).drop(sync_conn, checkfirst=True))
 
     async def get_user_data(self, user_id: int) -> UserBirthdayData | None:
         async with self.db.session() as session:

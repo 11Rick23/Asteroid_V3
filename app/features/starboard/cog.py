@@ -44,11 +44,7 @@ class Starboard(commands.Cog):
         if message.author.id == event.member.id:
             return
 
-        given_star_data = await self.bot.db.given_stars.get_given_star(event.member.id)
-        if given_star_data is None:
-            await self.bot.db.given_stars.create_given_star(event.member.id)
-        else:
-            await self.bot.db.given_stars.add_given_star(event.member.id)
+        await self.bot.db.given_stars.add_given_star(event.member.id)
 
         reactions = next((reaction for reaction in message.reactions if str(reaction.emoji) == "⭐"), None)
         if reactions is None:
@@ -80,9 +76,7 @@ class Starboard(commands.Cog):
         if message.author.id == event.user_id:
             return
 
-        given_star_data = await self.bot.db.given_stars.get_given_star(event.user_id)
-        if given_star_data is not None:
-            await self.bot.db.given_stars.remove_given_star(event.user_id)
+        await self.bot.db.given_stars.remove_given_star(event.user_id)
 
         star_amount = 0
         reaction = next((reaction for reaction in message.reactions if str(reaction.emoji) == "⭐"), None)
@@ -106,7 +100,10 @@ class Starboard(commands.Cog):
 
             if star_amount < 5:
                 await starboard_message.delete()
-                await self.bot.db.starred_messages.delete_starred_message(message.id)
+                deleted = await self.bot.db.starred_messages.delete_starred_message(message.id)
+                if not deleted:
+                    logger.warning(f"スターボード削除対象が DB に存在しませんでした: message_id={message.id}")
+                    return
                 logger.debug(
                     f"スターボード投稿を削除しました: guild_id={guild.id} "
                     f"message_id={message.id} starboard_message_id={starboard_message.id}"
@@ -118,7 +115,10 @@ class Starboard(commands.Cog):
             starboard_embed.add_field(name="元のメッセージ", value=f"[リンク]({message.jump_url})", inline=False)
             starboard_embed.set_footer(text=str(message.id))
             await starboard_message.edit(content=starboard_content, embed=starboard_embed)
-            await self.bot.db.starred_messages.set_star_amount(message.id, star_amount)
+            updated = await self.bot.db.starred_messages.set_star_amount(message.id, star_amount)
+            if not updated:
+                logger.warning(f"スターボード更新対象が DB に存在しませんでした: message_id={message.id}")
+                return
             logger.debug(
                 f"スターボード投稿を更新しました: guild_id={guild.id} "
                 f"message_id={message.id} starboard_message_id={starboard_message.id} star_amount={star_amount}"
@@ -163,7 +163,10 @@ class Starboard(commands.Cog):
             if starboard_message is None:
                 starboard_message = await starboard_channel.fetch_message(starred_message_data.starboard_message_id)
             await starboard_message.edit(content=starboard_content, embed=starboard_embed)
-            await self.bot.db.starred_messages.set_star_amount(starred_message.id, star_amount)
+            updated = await self.bot.db.starred_messages.set_star_amount(starred_message.id, star_amount)
+            if not updated:
+                logger.warning(f"スターボード更新対象が DB に存在しませんでした: message_id={starred_message.id}")
+                return
             logger.debug(
                 "スターボード投稿を更新しました: guild_id="
                 f"{starred_message.guild.id if starred_message.guild else None} "

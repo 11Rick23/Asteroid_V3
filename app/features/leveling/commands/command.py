@@ -132,21 +132,17 @@ async def transfer_mee6(interaction: discord.Interaction, sync_role: bool, prest
         if xp < 13800 and member is None:
             continue
 
-        star_grade = await bot.db.star_grades.get_star_grade(user_id) or await bot.db.star_grades.create_star_grade(
-            user_id
-        )
+        text_prestige = 0
         if member:
-            prestige_amount = sum(
+            text_prestige = sum(
                 1 for prestige_role_id in prestige_roles_id if guild.get_role(prestige_role_id) in member.roles
             )
-            if prestige_amount > 0:
-                star_grade, _, _, _ = await bot.db.star_grades.add_prestige(star_grade, prestige_amount, "テキスト")
 
-        star_grade, _, prestige_amount = await bot.db.star_grades.add_text_shard(star_grade, xp)
-        if prestige_amount > 0 and member and prestige_announce:
-            await send_prestige_announce(bot, member, star_grade.prestige)
+        update = await bot.db.leveling.apply_mee6_transfer(user_id, text_shard=xp, text_prestige=text_prestige)
+        if update.prestige_amount > 0 and member and prestige_announce:
+            await send_prestige_announce(bot, member, update.star_grade.prestige)
         if sync_role and member:
-            await sync_grade_prestige_role(bot, member, star_grade)
+            await sync_grade_prestige_role(bot, member, update.star_grade)
         migrated_count += 1
 
     logger.info(

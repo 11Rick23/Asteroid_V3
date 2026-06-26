@@ -26,6 +26,7 @@ For the team-facing test plan, read `tests/README.md` first.
 ## Test Style
 
 - Write test bodies with Given-When-Then comments.
+- Prefer separate `# Given`, `# When`, and `# Then` comments when the phases are distinct. Combined labels such as `# When / Then` or `# Given / When` are allowed when the phases are naturally inseparable, such as exception assertions, pure schema inspection, or very small pure-function tests.
 - Before Given-When-Then, add Japanese comments that explicitly identify the tested requirement: `# 機能要件：...` and/or `# 非機能要件：...`.
 - Use `# 機能要件：...` for externally visible behavior such as commands, UI responses, service results, repository results, and config behavior.
 - Use `# 非機能要件：...` for properties such as authorization, guild scope, side-effect prevention, idempotency, logging, error handling, and stability.

@@ -93,32 +93,24 @@ async def add_shard(
 ) -> None:
     bot = get_bot(interaction)
     shard_type_value = shard_type.value
-    star_grade = await bot.db.star_grades.get_star_grade(user.id) or await bot.db.star_grades.create_star_grade(
-        user.id
-    )
-    if shard_type_value == "テキスト":
-        star_grade, grade_up_amount, prestige_up_amount = await bot.db.star_grades.add_text_shard(star_grade, amount)
-    elif shard_type_value == "ボイス":
-        star_grade, grade_up_amount, prestige_up_amount = await bot.db.star_grades.add_voice_shard(star_grade, amount)
-    else:
-        star_grade, grade_up_amount, prestige_up_amount = await bot.db.star_grades.add_bonus_shard(star_grade, amount)
+    update = await bot.db.leveling.add_shard(user.id, shard_type_value, amount)
     await interaction.response.send_message(
         view=build_star_grade_view(
             user,
-            star_grade,
+            update.star_grade,
             notice=(
                 f"{user.mention}に`{humanize_number(amount)}`{shard_type_value}シャードを付与しました\n"
-                f"{grade_up_amount}回グレードアップしました、"
-                f"{prestige_up_amount}回プレステージしました"
+                f"{update.grade_up_amount}回グレードアップしました、"
+                f"{update.prestige_amount}回プレステージしました"
             ),
         )
     )
-    await sync_grade_prestige_role(bot, user, star_grade)
+    await sync_grade_prestige_role(bot, user, update.star_grade)
     logger.info(
         "シャードを加算しました: command=/leveling shard add "
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "
         f"target_id={user.id} shard_type={shard_type_value} amount={amount} "
-        f"grade={star_grade.grade} prestige={star_grade.prestige}"
+        f"grade={update.star_grade.grade} prestige={update.star_grade.prestige}"
     )
 
 
@@ -134,28 +126,20 @@ async def remove_shard(
 ) -> None:
     bot = get_bot(interaction)
     shard_type_value = shard_type.value
-    star_grade = await bot.db.star_grades.get_star_grade(user.id) or await bot.db.star_grades.create_star_grade(
-        user.id
-    )
-    if shard_type_value == "テキスト":
-        star_grade, _, _ = await bot.db.star_grades.remove_text_shard(star_grade, amount)
-    elif shard_type_value == "ボイス":
-        star_grade, _, _ = await bot.db.star_grades.remove_voice_shard(star_grade, amount)
-    else:
-        star_grade, _, _ = await bot.db.star_grades.remove_bonus_shard(star_grade, amount)
+    update = await bot.db.leveling.remove_shard(user.id, shard_type_value, amount)
     await interaction.response.send_message(
         view=build_star_grade_view(
             user,
-            star_grade,
+            update.star_grade,
             notice=f"{user.mention}から`{humanize_number(amount)}`{shard_type_value}シャードを減らしました",
         )
     )
-    await sync_grade_prestige_role(bot, user, star_grade)
+    await sync_grade_prestige_role(bot, user, update.star_grade)
     logger.info(
         "シャードを減算しました: command=/leveling shard remove "
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "
         f"target_id={user.id} shard_type={shard_type_value} amount={amount} "
-        f"grade={star_grade.grade} prestige={star_grade.prestige}"
+        f"grade={update.star_grade.grade} prestige={update.star_grade.prestige}"
     )
 
 
@@ -171,17 +155,7 @@ async def add_power(
 ) -> None:
     bot = get_bot(interaction)
     target_value = target.value
-    if target_value == "action":
-        await bot.db.leveling.add_action_power(user.id, amount)
-        power = await bot.db.monthly_powers.get_monthly_power(user.id)
-        if power is None:
-            power = await bot.db.monthly_powers.create_monthly_power(user.id)
-    else:
-        power = await (
-            bot.db.leveling.add_text_power(user.id, amount)
-            if target_value == "text"
-            else bot.db.leveling.add_voice_power(user.id, amount)
-        )
+    power = await bot.db.leveling.add_power(user.id, target_value, amount)
     logger.info(
         "パワーを加算しました: command=/leveling power add "
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "
@@ -202,20 +176,7 @@ async def remove_power(
 ) -> None:
     bot = get_bot(interaction)
     target_value = target.value
-    if target_value == "action":
-        await bot.db.leveling.remove_action_power(user.id, amount)
-        power = await bot.db.monthly_powers.get_monthly_power(user.id)
-        if power is None:
-            power = await bot.db.monthly_powers.create_monthly_power(user.id)
-    else:
-        power = await bot.db.monthly_powers.get_monthly_power(user.id)
-        if power is None:
-            power = await bot.db.monthly_powers.create_monthly_power(user.id)
-        power = await (
-            bot.db.monthly_powers.remove_text_power(power, amount)
-            if target_value == "text"
-            else bot.db.monthly_powers.remove_voice_power(power, amount)
-        )
+    power = await bot.db.leveling.remove_power(user.id, target_value, amount)
     logger.info(
         "パワーを減算しました: command=/leveling power remove "
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "

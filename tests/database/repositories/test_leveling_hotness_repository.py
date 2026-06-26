@@ -6,6 +6,7 @@ from typing import Any, cast
 
 import pytest
 from sqlalchemy.dialects import mysql
+from sqlalchemy.schema import DefaultClause
 
 from app.database.models.leveling_hotness import LevelingHotnessEventModel
 from app.database.repositories import DatabaseRepositories
@@ -96,16 +97,16 @@ async def test_record_gain_commits_timestamped_event() -> None:
 
 
 @pytest.mark.asyncio
-async def test_record_gain_lock_does_not_commit() -> None:
+async def test_record_gain_in_session_does_not_commit() -> None:
     """既存 transaction 内の hotness 記録は受け取った session を使い commit しない。"""
-    # 機能要件：lock variant でも hotness event を保存する。
+    # 機能要件：in_session variant でも hotness event を保存する。
     # 非機能要件：外側 transaction の commit 境界を repository helper が奪わない。
     # Given
     session = FakeSession()
     repository = build_repository(session)
 
     # When
-    await repository.record_gain_lock(
+    await repository.record_gain_in_session(
         cast(Any, session),
         123,
         45,
@@ -131,10 +132,11 @@ async def test_record_gain_rejects_non_positive(user_id: int, amount: int) -> No
     session = FakeSession()
     repository = build_repository(session)
 
-    # When / Then
+    # When
     with pytest.raises(ValueError):
         await repository.record_gain(user_id, amount)
 
+    # Then
     assert session.added == []
     assert session.commit_count == 0
 
@@ -187,8 +189,11 @@ async def test_get_top_hotness_skips_non_positive_limit() -> None:
     session = FakeSession()
     repository = build_repository(session)
 
-    # When / Then
-    assert await repository.get_top_hotness(limit=0) == []
+    # When
+    result = await repository.get_top_hotness(limit=0)
+
+    # Then
+    assert result == []
     assert session.executed == []
 
 
@@ -215,24 +220,41 @@ async def test_delete_expired_removes_events_before_cutoff() -> None:
 def test_hotness_table_has_time_and_user_index() -> None:
     """hotness ranking query 用の earned_at/user_id index を持つ。"""
     # 非機能要件：直近 window の user 別集計に使う複合 index を定義する。
-    # Given / When
-    index_columns = {
-        tuple(column.name for column in index.columns)
-        for index in cast(Any, LevelingHotnessEventModel.__table__).indexes
-    }
+    # Given
+    table = cast(Any, LevelingHotnessEventModel.__table__)
+
+    # When
+    indexes = {index.name: tuple(column.name for column in index.columns) for index in table.indexes}
 
     # Then
-    assert ("earned_at", "user_id") in index_columns
+    assert indexes["idx_leveling_hotness_events_earned_at_user_id"] == ("earned_at", "user_id")
+
+
+def test_hotness_earned_at_uses_database_default() -> None:
+    """hotness event の earned_at は DB 側の現在時刻 default を持つ。"""
+    # 非機能要件：明示時刻なしの INSERT でも DB 側で獲得時刻を補完できる。
+    # Given
+    table = cast(Any, LevelingHotnessEventModel.__table__)
+
+    # When
+    default = table.c.earned_at.server_default
+
+    # Then
+    assert isinstance(default, DefaultClause)
+    assert str(default.arg) == "CURRENT_TIMESTAMP"
 
 
 def test_database_repositories_exposes_leveling_hotness() -> None:
     """DatabaseRepositories から leveling hotness repository を利用できる。"""
     # 機能要件：DB repository 集約は leveling_hotness repository を公開する。
-    # Given / When
+    # Given
     repositories = DatabaseRepositories()
 
+    # When
+    repository = repositories.leveling_hotness
+
     # Then
-    assert isinstance(repositories.leveling_hotness, LevelingHotness)
+    assert isinstance(repository, LevelingHotness)
 
 
 class FakeRow:
