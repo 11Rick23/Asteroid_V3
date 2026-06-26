@@ -27,6 +27,8 @@ class BumpNotifier(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message_edit(self, before: discord.Message, after: discord.Message) -> None:
+        if not self.bot.is_operating_guild(after.guild):
+            return
         if after.interaction_metadata is None or not after.embeds:
             return
         first_embed = after.embeds[0]
@@ -34,7 +36,7 @@ class BumpNotifier(commands.Cog):
         if (
             after.author.id == 761562078095867916
             and first_field is not None
-            and "をアップしたよ" in first_field.name
+            and "をアップしたよ" in (first_field.name or "")
             and before.flags.loading
         ):
             embed = discord.Embed(
@@ -73,6 +75,8 @@ class BumpNotifier(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
+        if not self.bot.is_operating_guild(message.guild):
+            return
         self.bot.remember_message(message)
         if message.interaction_metadata is None:
             return

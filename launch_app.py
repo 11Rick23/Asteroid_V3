@@ -3,6 +3,7 @@ import signal
 import tracemalloc
 from logging import getLogger
 
+from app.common.offline import OfflineInfo
 from app.core.bot import AsteroidBot
 from app.core.config import get_config
 from app.core.logging import setup_logger
@@ -11,7 +12,8 @@ logger = getLogger("app.launch_app")
 
 
 def request_signal_shutdown(bot: AsteroidBot, received_signal: signal.Signals) -> None:
-    if bot.schedule_graceful_shutdown(f"signal={received_signal.name}"):
+    info = OfflineInfo.from_signal(received_signal.name)
+    if bot.schedule_graceful_shutdown(info):
         logger.info(f"停止シグナルを受信しました: signal={received_signal.name}")
         return
 

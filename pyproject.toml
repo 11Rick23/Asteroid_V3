@@ -3,19 +3,19 @@ name = "asteroid-v3"
 version = "0.1.0"
 description = "Discordサーバー『ナメック星』にて使用する専属BOT（3代目）"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.14.6"
 dependencies = [
-    "aiohttp>=3.12.0",
-    "aiomysql>=0.2.0",
+    "aiohttp>=3.12.15",
+    "aiomysql>=0.3.2",
+    "alembic>=1.18.4",
     "captcha>=0.7.1",
-    "cryptography>=46.0.6",
+    "cryptography>=46.0.7",
     "discord-py>=2.7.1",
-    "greenlet>=3.2.4",
+    "greenlet>=3.2.5",
     "pillow>=11.0.0",
     "pydantic>=2.12.5",
-    "pytimeparse>=1.1.8",
     "ruamel-yaml>=0.19.1",
-    "sqlalchemy>=2.0.41",
+    "sqlalchemy>=2.0.51",
 ]
 
 [tool.ruff]
@@ -35,9 +35,13 @@ select = [
     "UP", # pyupgrade
 ]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [dependency-groups]
 dev = [
-    "ruff>=0.11.4",
+    "ruff>=0.11.13",
     "pytest>=8.4.0",
-    "pytest-asyncio>=1.1.0",
+    "pytest-asyncio>=1.1.1",
+    "pyright>=1.1.410",
 ]

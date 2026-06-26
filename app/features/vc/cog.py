@@ -32,6 +32,8 @@ class VoiceCreateCog(commands.Cog):
         before: discord.VoiceState,
         after: discord.VoiceState,
     ) -> None:
+        if not self.bot.is_operating_guild(member.guild):
+            return
         await self.service.handle_voice_state_update(member, before, after)
 
 
@@ -40,7 +42,7 @@ class VoiceCreateCog(commands.Cog):
 async def vc_ui(interaction: discord.Interaction) -> None:
     service = get_vc_service(get_bot(interaction))
     channel = await service.ensure_voice_channel(interaction, allow_create_channel=False)
-    if channel is None:
+    if channel is None or not isinstance(interaction.user, discord.Member):
         return
 
     await service.send_control_message(channel, interaction.user)
@@ -52,6 +54,7 @@ async def vc_ui(interaction: discord.Interaction) -> None:
 
 
 @vc_group.command(name="name", description="VCの名前を変更")
+@app_commands.rename(vc_name="vc名")
 @app_commands.describe(vc_name="新しく設定するVCの名前")
 @app_commands.guild_only()
 async def name(interaction: discord.Interaction, vc_name: str) -> None:
@@ -70,6 +73,7 @@ async def name(interaction: discord.Interaction, vc_name: str) -> None:
 
 
 @vc_group.command(name="limit", description="VCに人数制限を設定")
+@app_commands.rename(limit="人数制限")
 @app_commands.describe(limit="人数制限")
 @app_commands.guild_only()
 async def limit(interaction: discord.Interaction, limit: app_commands.Range[int, 0, 99] = 0) -> None:
@@ -88,6 +92,7 @@ async def limit(interaction: discord.Interaction, limit: app_commands.Range[int,
 
 
 @vc_group.command(name="block", description="VCからユーザーをブロック")
+@app_commands.rename(user="ユーザー")
 @app_commands.describe(user="VCに接続できなくするユーザー")
 @app_commands.guild_only()
 async def block(interaction: discord.Interaction, user: discord.Member) -> None:
@@ -115,6 +120,7 @@ async def block(interaction: discord.Interaction, user: discord.Member) -> None:
 
 
 @vc_group.command(name="unblock", description="VCからブロックしたユーザーをブロック解除")
+@app_commands.rename(user="ユーザー")
 @app_commands.describe(user="VCブロックを解除するユーザー")
 @app_commands.guild_only()
 async def unblock(interaction: discord.Interaction, user: discord.Member) -> None:
@@ -137,6 +143,7 @@ async def unblock(interaction: discord.Interaction, user: discord.Member) -> Non
 
 
 @vc_group.command(name="op", description="VCの管理権限を別のユーザーにも付与")
+@app_commands.rename(user="ユーザー")
 @app_commands.describe(user="VCの管理権限を与えるユーザー")
 @app_commands.guild_only()
 async def op(interaction: discord.Interaction, user: discord.Member) -> None:
@@ -159,6 +166,7 @@ async def op(interaction: discord.Interaction, user: discord.Member) -> None:
 
 
 @vc_group.command(name="deop", description="VCの管理権限を他のユーザーから剥奪")
+@app_commands.rename(user="ユーザー")
 @app_commands.describe(user="管理権限を剥奪するユーザー")
 @app_commands.guild_only()
 async def deop(interaction: discord.Interaction, user: discord.Member) -> None:

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Asteroid V3 Structure"
+  short_description: "Asteroid V3 project structure map"
+  default_prompt: "Use $asteroid-v3-structure-guideline to find where an Asteroid_V3 change belongs."

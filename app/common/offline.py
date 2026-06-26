@@ -1,0 +1,81 @@
+from __future__ import annotations
+
+from collections.abc import Sequence
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import Protocol
+
+import discord
+
+from app.common.constants import AsteroidColor
+
+
+@dataclass(frozen=True, slots=True)
+class OfflineInfo:
+    reason: str
+    planned_period: str
+
+    @classmethod
+    def from_signal(cls, signal_name: str) -> OfflineInfo:
+        return cls(
+            reason=f"{signal_name} シグナルによる強制停止",
+            planned_period="未定",
+        )
+
+
+class ApplicationInfoProvider(Protocol):
+    async def application_info(self) -> discord.AppInfo: ...
+
+
+async def get_emergency_contact_mentions(provider: ApplicationInfoProvider) -> tuple[str, ...]:
+    application_info = await provider.application_info()
+    if application_info.team is not None and application_info.team.members:
+        return tuple(member.mention for member in application_info.team.members)
+    return (application_info.owner.mention,)
+
+
+def build_offline_embed(
+    info: OfflineInfo,
+    description: str,
+    emergency_contact_mentions: Sequence[str],
+    *,
+    updated_at: datetime | None = None,
+) -> discord.Embed:
+    contacts = "\n".join(emergency_contact_mentions)
+    updated_at = updated_at or datetime.now(UTC)
+    embed = discord.Embed(
+        title="BOT は現在オフラインです",
+        description=description,
+        color=AsteroidColor.WARNING,
+    )
+    embed.add_field(name="理由", value=info.reason, inline=True)
+    embed.add_field(name="予定期間", value=info.planned_period, inline=True)
+    embed.add_field(name="緊急連絡先", value=contacts, inline=True)
+    embed.add_field(name="最終更新日時", value=discord.utils.format_dt(updated_at, style="F"), inline=True)
+    return embed
+
+
+def build_offline_view(
+    info: OfflineInfo,
+    description: str,
+    emergency_contact_mentions: Sequence[str],
+    *,
+    updated_at: datetime | None = None,
+) -> discord.ui.LayoutView:
+    contacts = "\n".join(emergency_contact_mentions)
+    updated_at = updated_at or datetime.now(UTC)
+    view = discord.ui.LayoutView(timeout=None)
+    view.add_item(
+        discord.ui.Container(
+            discord.ui.TextDisplay(
+                "# BOT は現在オフラインです\n"
+                f"{description}\n\n"
+                f"**理由**\n{info.reason}\n\n"
+                f"**予定期間**\n{info.planned_period}\n\n"
+                f"**緊急連絡先**\n{contacts}\n\n"
+                f"**最終更新日時**\n{discord.utils.format_dt(updated_at, style='F')}"
+            ),
+            accent_color=AsteroidColor.WARNING,
+        )
+    )
+    return view
