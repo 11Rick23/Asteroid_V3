@@ -4,15 +4,16 @@ from logging import getLogger
 
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 
-from app.common.command_groups import get_bot, register_group, register_setup_command
-from app.common.permissions import admin_only
+from app.common.command_groups import get_bot, register_group
+from app.common.error_reporting import report_background_task_error
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
 
+from .panel import FreeCategoryPanel
 from .service import block_permissions, get_free_category_service, op_permissions
-from .views import CreateChannelButtonView, build_creation_embed
+from .views import CreateChannelButtonView
 
 logger = getLogger(__name__)
 
@@ -23,32 +24,33 @@ class FreeCategory(commands.Cog):
     def __init__(self, bot: AsteroidBot):
         self.bot = bot
         self.service = get_free_category_service(bot)
+        self.panel = FreeCategoryPanel(bot)
+        self.initialize_panel.start()
 
     async def cog_load(self) -> None:
         self.bot.add_view(CreateChannelButtonView(self.service))
 
+    async def cog_unload(self) -> None:
+        self.initialize_panel.cancel()
+        self.panel.unregister()
+
+    @tasks.loop(count=1)
+    async def initialize_panel(self) -> None:
+        await self.panel.initialize()
+
+    @initialize_panel.before_loop
+    async def before_initialize_panel(self) -> None:
+        await self.bot.wait_until_ready()
+
+    @initialize_panel.error
+    async def initialize_panel_error(self, error: BaseException) -> None:
+        await report_background_task_error(self.bot, "free_category.initialize_panel", error)
+
     @commands.Cog.listener("on_message")
     async def auto_bump(self, message: discord.Message) -> None:
+        if not self.bot.is_operating_guild(message.guild):
+            return
         await self.service.maybe_auto_bump(message)
-
-
-@app_commands.command(name="free_category_button", description="フリーチャンネル作成ボタンを送信します")
-@app_commands.guild_only()
-@admin_only
-async def free_category_button(interaction: discord.Interaction) -> None:
-    bot = get_bot(interaction)
-    service = get_free_category_service(bot)
-    channel = interaction.channel
-    if channel is None:
-        await interaction.response.send_message("このチャンネルには送信できません。", ephemeral=True)
-        return
-
-    await channel.send(embed=build_creation_embed(), view=CreateChannelButtonView(service))
-    logger.info(
-        "フリーチャンネル作成ボタンを設置しました: command=/setup free_category_button "
-        f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id}"
-    )
-    await interaction.response.send_message("チャンネル作成ボタンを送信しました！", ephemeral=True)
 
 
 @free_category_group.command(name="archive", description="チャンネルをアーカイブ")
@@ -73,6 +75,7 @@ async def archive(interaction: discord.Interaction) -> None:
 
 
 @free_category_group.command(name="edit", description="チャンネル情報を変更")
+@app_commands.rename(name="チャンネル名", topic="トピック")
 @app_commands.describe(name="新しいチャンネル名", topic="新しいチャンネルトピック")
 @app_commands.guild_only()
 async def edit(
@@ -143,6 +146,7 @@ async def edit(
         await interaction.followup.send(embed=embed)
         return
 
+    assert name is not None and topic is not None
     await channel.edit(
         name=name,
         topic=topic,
@@ -162,6 +166,7 @@ async def edit(
 
 
 @free_category_group.command(name="block", description="指定したユーザーをブロック")
+@app_commands.rename(user="ユーザー")
 @app_commands.describe(user="チャンネルを閲覧できなくするユーザー")
 @app_commands.guild_only()
 async def block(interaction: discord.Interaction, user: discord.Member) -> None:
@@ -183,6 +188,7 @@ async def block(interaction: discord.Interaction, user: discord.Member) -> None:
 
 
 @free_category_group.command(name="unblock", description="指定したユーザーのブロックを解除")
+@app_commands.rename(user="ユーザー")
 @app_commands.describe(user="チャンネル閲覧不可を解除するユーザー")
 @app_commands.guild_only()
 async def unblock(interaction: discord.Interaction, user: discord.Member) -> None:
@@ -204,6 +210,7 @@ async def unblock(interaction: discord.Interaction, user: discord.Member) -> Non
 
 
 @free_category_group.command(name="op", description="指定したユーザーにチャンネルの管理権限を付与")
+@app_commands.rename(user="ユーザー")
 @app_commands.describe(user="チャンネルの管理権限を付与するユーザー")
 @app_commands.guild_only()
 async def op(interaction: discord.Interaction, user: discord.Member) -> None:
@@ -225,6 +232,7 @@ async def op(interaction: discord.Interaction, user: discord.Member) -> None:
 
 
 @free_category_group.command(name="deop", description="指定したユーザーからチャンネルの管理権限を剥奪")
+@app_commands.rename(user="ユーザー")
 @app_commands.describe(user="チャンネルの管理権限を剥奪するユーザー")
 @app_commands.guild_only()
 async def deop(interaction: discord.Interaction, user: discord.Member) -> None:
@@ -246,6 +254,7 @@ async def deop(interaction: discord.Interaction, user: discord.Member) -> None:
 
 
 @free_category_group.command(name="purge", description="指定した件数メッセージを削除")
+@app_commands.rename(count="件数")
 @app_commands.describe(count="削除するメッセージの件数")
 @app_commands.guild_only()
 async def purge(interaction: discord.Interaction, count: app_commands.Range[int, 1, 500]) -> None:
@@ -268,6 +277,5 @@ async def purge(interaction: discord.Interaction, count: app_commands.Range[int,
 
 async def setup(bot: AsteroidBot) -> None:
     get_free_category_service(bot)
-    register_setup_command(bot, free_category_button)
     register_group(bot, free_category_group)
     await bot.add_cog(FreeCategory(bot))

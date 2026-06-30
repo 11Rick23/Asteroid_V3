@@ -1,0 +1,4 @@
+interface:
+  display_name: "Asteroid V3 Runtime"
+  short_description: "Asteroid V3 uv and mise workflows"
+  default_prompt: "Use $asteroid-v3-runtime-guideline to run Asteroid_V3 uv and mise commands safely."

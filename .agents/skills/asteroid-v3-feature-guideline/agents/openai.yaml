@@ -1,0 +1,4 @@
+interface:
+  display_name: "Asteroid V3 Feature Guide"
+  short_description: "Asteroid V3 feature implementation style"
+  default_prompt: "Use $asteroid-v3-feature-guideline to add or refactor an Asteroid_V3 feature consistently."

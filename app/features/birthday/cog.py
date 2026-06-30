@@ -11,6 +11,8 @@ from discord.ext import commands, tasks
 
 from app.common.command_groups import get_bot, register_group
 from app.common.constants import AsteroidColor
+from app.common.discord_types import as_messageable
+from app.common.error_reporting import report_background_task_error
 from app.common.permissions import admin_only
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
@@ -50,7 +52,7 @@ class Birthday(commands.Cog):
         self.bot = bot
         self.announce_birthday.start()
 
-    def cog_unload(self) -> None:
+    async def cog_unload(self) -> None:
         self.announce_birthday.cancel()
 
     @tasks.loop(time=time(hour=0, minute=0, tzinfo=TOKYO_TZ))
@@ -75,7 +77,8 @@ class Birthday(commands.Cog):
 
         announce_channel = guild.get_channel(birthday_channel_id)
         birthday_role = guild.get_role(birthday_role_id)
-        if announce_channel is None or birthday_role is None:
+        messageable_channel = as_messageable(announce_channel)
+        if messageable_channel is None or birthday_role is None:
             logger.warning(
                 f"誕生日アナウンス先を解決できませんでした: guild_id={guild.id} "
                 f"channel_id={birthday_channel_id} role_id={birthday_role_id}"
@@ -89,7 +92,7 @@ class Birthday(commands.Cog):
             if member is None:
                 continue
             await member.add_roles(birthday_role, reason=f"[{generate_timestamp()}] 誕生日機能により付与されました。")
-            await announce_channel.send(f"# 今日は {member.mention} の誕生日だ！おめでとう！{BIRTHDAY_EMOJI}")
+            await messageable_channel.send(f"# 今日は {member.mention} の誕生日だ！おめでとう！{BIRTHDAY_EMOJI}")
             announced_count += 1
 
         removed_count = 0
@@ -106,8 +109,13 @@ class Birthday(commands.Cog):
             f"birthday_count={announced_count} removed_count={removed_count}"
         )
 
+    @announce_birthday.error
+    async def announce_birthday_error(self, error: BaseException) -> None:
+        await report_background_task_error(self.bot, "birthday.announce_birthday", error)
+
 
 @birthday_group.command(name="set", description="誕生日を設定")
+@app_commands.rename(month="月", day="日")
 @app_commands.describe(month="誕生日の月", day="誕生日の日")
 async def birthday_set(interaction: discord.Interaction, month: int, day: int) -> None:
     bot = get_bot(interaction)
@@ -129,12 +137,13 @@ async def birthday_set(interaction: discord.Interaction, month: int, day: int) -
 
 
 @birthday_group.command(name="set_others", description="他人の誕生日を設定")
+@app_commands.rename(user="ユーザー", month="月", day="日")
 @app_commands.describe(user="設定するユーザー", month="誕生日の月", day="誕生日の日")
 @admin_only
 async def birthday_set_others(interaction: discord.Interaction, user: discord.User, month: int, day: int) -> None:
     bot = get_bot(interaction)
     if not validate_date(month, day):
-        logger.info(
+        logger.debug(
             "他人の誕生日設定を拒否しました: command=/birthday set_others reason=invalid_date "
             f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
             f"actor_id={interaction.user.id} target_id={user.id} month={month} day={day}"
@@ -157,42 +166,45 @@ async def birthday_set_others(interaction: discord.Interaction, user: discord.Us
 
 
 @birthday_group.command(name="show", description="誕生日を表示")
+@app_commands.rename(user="ユーザー")
 @app_commands.describe(user="誕生日を表示するユーザー")
 async def birthday_show(interaction: discord.Interaction, user: discord.User | None = None) -> None:
     bot = get_bot(interaction)
-    user = user or interaction.user
-    user_data = await bot.db.user_birthdays.get_user_data(user.id)
+    target_user: discord.abc.User = user or interaction.user
+    user_data = await bot.db.user_birthdays.get_user_data(target_user.id)
     if user_data is None:
         logger.debug(
             "誕生日表示をスキップしました: command=/birthday show "
             f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
-            f"user_id={interaction.user.id} target_id={user.id} result=not_found"
+            f"user_id={interaction.user.id} target_id={target_user.id} result=not_found"
         )
         await interaction.response.send_message(
             embed=discord.Embed(
-                color=AsteroidColor.WARNING, description=f"{user.mention} はまだ誕生日を設定していません。"
+                color=AsteroidColor.WARNING, description=f"{target_user.mention} はまだ誕生日を設定していません。"
             )
         )
         return
     logger.debug(
         "誕生日を表示しました: command=/birthday show "
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
-        f"user_id={interaction.user.id} target_id={user.id}"
+        f"user_id={interaction.user.id} target_id={target_user.id}"
     )
     await interaction.response.send_message(
         embed=discord.Embed(
             color=AsteroidColor.SUCCESS,
-            description=f"{user.mention} の誕生日は `{user_data.date.month}/{user_data.date.day}` です。",
+            description=f"{target_user.mention} の誕生日は `{user_data.date.month}/{user_data.date.day}` です。",
         )
     )
 
 
 @birthday_group.command(name="remove", description="誕生日を削除")
+@app_commands.rename(user="ユーザー")
 @app_commands.describe(user="誕生日を削除するユーザー")
 async def birthday_remove(interaction: discord.Interaction, user: discord.User | None = None) -> None:
     bot = get_bot(interaction)
-    if user and not interaction.user.guild_permissions.administrator:
-        logger.warning(f"誕生日削除の権限が不足しています: actor_id={interaction.user.id} target_id={user.id}")
+    actor = interaction.user
+    if user and (not isinstance(actor, discord.Member) or not actor.guild_permissions.administrator):
+        logger.debug(f"誕生日削除の権限が不足しています: actor_id={interaction.user.id} target_id={user.id}")
         await interaction.response.send_message(
             embed=discord.Embed(
                 color=AsteroidColor.WARNING,
@@ -200,31 +212,31 @@ async def birthday_remove(interaction: discord.Interaction, user: discord.User |
             )
         )
         return
-    user = user or interaction.user
-    data = await bot.db.user_birthdays.get_user_data(user.id)
+    target_user: discord.abc.User = user or interaction.user
+    data = await bot.db.user_birthdays.get_user_data(target_user.id)
     if not data:
-        logger.debug(f"未設定の誕生日削除を拒否しました: target_id={user.id}")
+        logger.debug(f"未設定の誕生日削除を拒否しました: target_id={target_user.id}")
         await interaction.response.send_message(
             embed=discord.Embed(
-                color=AsteroidColor.WARNING, description=f"{user.mention} はまだ誕生日を設定していません。"
+                color=AsteroidColor.WARNING, description=f"{target_user.mention} はまだ誕生日を設定していません。"
             )
         )
         return
-    await bot.db.user_birthdays.delete_data(user.id)
-    if user.id == interaction.user.id:
+    await bot.db.user_birthdays.delete_data(target_user.id)
+    if target_user.id == interaction.user.id:
         logger.debug(
             "誕生日を削除しました: command=/birthday remove "
             f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
-            f"user_id={interaction.user.id} target_id={user.id}"
+            f"user_id={interaction.user.id} target_id={target_user.id}"
         )
     else:
         logger.info(
             "他人の誕生日を削除しました: command=/birthday remove "
             f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
-            f"actor_id={interaction.user.id} target_id={user.id}"
+            f"actor_id={interaction.user.id} target_id={target_user.id}"
         )
     await interaction.response.send_message(
-        embed=discord.Embed(color=AsteroidColor.SUCCESS, description=f"{user.mention} の誕生日を削除しました。")
+        embed=discord.Embed(color=AsteroidColor.SUCCESS, description=f"{target_user.mention} の誕生日を削除しました。")
     )
 
 

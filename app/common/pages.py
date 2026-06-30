@@ -4,6 +4,8 @@ from collections.abc import Sequence
 
 import discord
 
+from app.common.guild_scope import GuildScopedView
+
 
 class PaginatorButton:
     def __init__(
@@ -22,7 +24,7 @@ class PaginatorButton:
         self.disabled = disabled
 
 
-class _PaginatorView(discord.ui.View):
+class _PaginatorView(GuildScopedView):
     def __init__(
         self,
         pages: Sequence[discord.Embed],
