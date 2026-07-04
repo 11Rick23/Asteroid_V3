@@ -41,7 +41,7 @@ testpaths = ["tests"]
 [dependency-groups]
 dev = [
     "ruff>=0.15.20",
-    "pytest>=8.4.2",
+    "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "pyright>=1.1.411",
 ]
