@@ -1,7 +1,7 @@
 """add database indexes
 
 Revision ID: 7ba51941f7cc
-Revises: 273b6467e5ff
+Revises: 4f2a9c8d1e0b
 Create Date: 2026-06-22 17:21:24.127800
 
 """
@@ -12,7 +12,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "7ba51941f7cc"
-down_revision: str | Sequence[str] | None = "273b6467e5ff"
+down_revision: str | Sequence[str] | None = "4f2a9c8d1e0b"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
