@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import os
-from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import pool
@@ -11,6 +10,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 import app.database.models  # noqa: F401
 from app.core.config import AsteroidConfig
+from app.database.alembic_logging import configure_alembic_logging
 from app.database.base import Base
 from app.database.session import _normalize_database_url
 
@@ -24,10 +24,7 @@ if database_url is None:
     database_url = asteroid_config.database.url
 config.set_main_option("sqlalchemy.url", _normalize_database_url(database_url))
 
-# Interpret the config file for Python logging.
-# This line sets up loggers basically.
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+configure_alembic_logging(config.config_file_name)
 
 # add your model's MetaData object here
 # for 'autogenerate' support
