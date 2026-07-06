@@ -23,6 +23,7 @@ jobs:
 
     env:
       GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
       ISSUE_TITLE: 本番 config.yaml の更新が必要です
       COMMIT_SHA: ${{ github.sha }}
       COMPARE_URL: ${{ github.event.compare }}
