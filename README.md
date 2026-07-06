@@ -137,6 +137,7 @@ uv run python scripts/v2_to_v3_migration.py \
 ## Alembic によるスキーマ管理
 
 データベースは Alembic を使用して管理しています。Bot 起動時に DB の Alembic revision を確認し、未適用または古い revision の DB では起動を停止します。
+`database.auto_upgrade_on_startup` を `true` にすると、Bot プロセス開始前に `alembic upgrade head` を自動実行してから起動します。
 
 ### 既存の DB を Alembic の管理下に置く方法
 
@@ -156,6 +157,8 @@ uv run alembic stamp 273b6467e5ff
 mise run db:upgrade
 ```
 
+初回の `stamp` は自動化しないでください。`stamp` は schema を変更せず revision だけを記録するため、実スキーマと一致しない revision を記録すると、必要なテーブル追加やカラム変更が未適用のままになります。
+
 ### DB の更新を適用する方法
 
 新規 DB または Alembic 管理下の既存 DB では、起動前に最新 revision までマイグレーションを適用します。
@@ -164,7 +167,9 @@ mise run db:upgrade
 mise run db:upgrade
 ```
 
-Docker で運用する場合も、Bot 起動とは別にマイグレーションを明示的に実行します。Docker image には `alembic.ini` と `app/database/migrations/` が含まれている必要があります。
+`database.auto_upgrade_on_startup: true` を設定している場合は、Bot 起動前に自動で最新 revision まで適用されます。複数 replica や zero-downtime deploy で同時に複数プロセスを起動する構成では、同時 migration の衝突を避けるため、起動時自動適用ではなく明示的な one-off migration を使ってください。
+
+Docker で明示的に適用する場合は、Bot 起動とは別にマイグレーションを実行します。Docker image には `alembic.ini` と `app/database/migrations/` が含まれている必要があります。
 
 ```bash
 docker run --rm \

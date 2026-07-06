@@ -9,6 +9,7 @@ discord:
 database:
   url: "mysql+aiomysql://user:password@127.0.0.1:3306/database"
   echo: false
+  auto_upgrade_on_startup: false
 
 logging:
   level: "INFO"

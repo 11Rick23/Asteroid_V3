@@ -31,6 +31,7 @@ class DiscordConfig(BaseSection):
 class DatabaseConfig(BaseSection):
     url: str = ""
     echo: bool = False
+    auto_upgrade_on_startup: bool = False
 
 
 class FeatureFlags(BaseSection):

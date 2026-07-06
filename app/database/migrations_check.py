@@ -1,18 +1,29 @@
 from __future__ import annotations
 
+from logging import getLogger
 from pathlib import Path
 
+from alembic import command
 from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+logger = getLogger(__name__)
+
 
 def get_alembic_heads(config_path: str | Path = "alembic.ini") -> tuple[str, ...]:
     alembic_config = Config(str(config_path))
     script = ScriptDirectory.from_config(alembic_config)
     return tuple(script.get_heads())
+
+
+def upgrade_database_to_head(config_path: str | Path = "alembic.ini") -> None:
+    alembic_config = Config(str(config_path))
+    logger.info("DB migration を最新 revision まで適用します。")
+    command.upgrade(alembic_config, "head")
+    logger.info("DB migration の適用が完了しました。")
 
 
 def validate_database_revision(current_heads: tuple[str, ...], expected_heads: tuple[str, ...]) -> None:

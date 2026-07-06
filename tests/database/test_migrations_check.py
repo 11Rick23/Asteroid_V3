@@ -2,7 +2,28 @@ from __future__ import annotations
 
 import pytest
 
+from app.database import migrations_check
 from app.database.migrations_check import validate_database_revision
+
+
+def test_upgrade_database_to_head_runs_alembic_upgrade(monkeypatch: pytest.MonkeyPatch, tmp_path):
+    """DB migration 自動適用では Alembic の head まで upgrade する。"""
+    # 機能要件：起動前 migration は Alembic revision を head まで適用する。
+    # Given
+    config_path = tmp_path / "alembic.ini"
+    config_path.write_text("[alembic]\nscript_location = app/database/migrations\n", encoding="utf-8")
+    calls: list[tuple[str | None, str]] = []
+
+    def fake_upgrade(config, revision: str) -> None:
+        calls.append((config.config_file_name, revision))
+
+    monkeypatch.setattr(migrations_check.command, "upgrade", fake_upgrade)
+
+    # When
+    migrations_check.upgrade_database_to_head(config_path)
+
+    # Then
+    assert calls == [(str(config_path), "head")]
 
 
 def test_accepts_current_heads():

@@ -47,7 +47,9 @@ When adding a repository:
 - Keep `alembic.ini`, `app/database/migrations/env.py`, and `app/database/migrations/versions/` aligned with model changes.
 - For existing databases adopting Alembic, manually stamp only the revision that matches the already-applied schema, then run `mise run db:upgrade`. For example, if the DB matches the initial baseline, use `uv run alembic stamp 273b6467e5ff`; do not stamp `head` when newer migrations add tables or columns.
 - For new databases, run `uv run alembic upgrade head` before starting the bot.
-- In Docker or deployment flows, run migrations explicitly before the bot process starts.
+- `database.auto_upgrade_on_startup` may run `alembic upgrade head` before the bot process connects to Discord, but do not use it for the first Alembic adoption stamp.
+- In Docker or deployment flows, either run migrations explicitly before the bot process starts or enable `database.auto_upgrade_on_startup` after the DB is already stamped.
+- Avoid startup auto-upgrade for multi-replica or zero-downtime deployment unless a deployment-level migration lock is added.
 
 ## Schema Changes
 
