@@ -14,6 +14,9 @@ logger = getLogger(__name__)
 
 ROLE_SELECT_LIMIT = 25
 PANEL_CATEGORY_LIMIT = 25
+CATEGORY_SETTINGS_EMBED_FIELD_LIMIT = 25
+CATEGORY_SETTINGS_EMBED_BATCH_LIMIT = 10
+EMBED_FIELD_VALUE_LIMIT = 1024
 
 
 @dataclass(slots=True)
@@ -188,6 +191,45 @@ class RolePanelService:
                 inline=True,
             )
         return embed
+
+    def build_category_settings_embeds(
+        self,
+        categories: list[RolePanelCategoryDetail],
+    ) -> list[discord.Embed]:
+        if not categories:
+            embed = discord.Embed(
+                title="ロールパネルカテゴリ設定一覧",
+                description="カテゴリはまだ登録されていません。",
+                color=AsteroidColor.INFO,
+            )
+            return [embed]
+
+        embeds: list[discord.Embed] = []
+        total_pages = (
+            len(categories) + CATEGORY_SETTINGS_EMBED_FIELD_LIMIT - 1
+        ) // CATEGORY_SETTINGS_EMBED_FIELD_LIMIT
+        for page_index, start in enumerate(range(0, len(categories), CATEGORY_SETTINGS_EMBED_FIELD_LIMIT), start=1):
+            chunk = categories[start : start + CATEGORY_SETTINGS_EMBED_FIELD_LIMIT]
+            title = "ロールパネルカテゴリ設定一覧"
+            if total_pages > 1:
+                title = f"{title} ({page_index}/{total_pages})"
+            embed = discord.Embed(
+                title=title,
+                color=AsteroidColor.INFO,
+            )
+            for category in chunk:
+                prefix = f"表示順: `{category.display_order}`\n説明文:\n"
+                description = category.description or "説明未設定"
+                max_description_length = EMBED_FIELD_VALUE_LIMIT - len(prefix)
+                if len(description) > max_description_length:
+                    description = description[: max_description_length - 3] + "..."
+                embed.add_field(
+                    name=category.name,
+                    value=f"{prefix}{description}",
+                    inline=False,
+                )
+            embeds.append(embed)
+        return embeds
 
     async def sync_member_roles(
         self,
