@@ -11,7 +11,7 @@ from app.core.bot import AsteroidBot
 
 from .admin_views import RolePanelAdminRoleEditView, RolePanelAdminRoleSelect, response_embed
 from .runtime import get_rolepanel_cog, refresh_panel_if_loaded
-from .service import get_rolepanel_service
+from .service import CATEGORY_SETTINGS_EMBED_BATCH_LIMIT, get_rolepanel_service
 
 logger = getLogger(__name__)
 
@@ -220,13 +220,19 @@ async def refresh(interaction: discord.Interaction) -> None:
 async def list_categories(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
     categories = await bot.db.role_panel.get_categories()
-    embed = get_rolepanel_service(bot).build_panel_embed(categories, interaction.guild)
+    embeds = get_rolepanel_service(bot).build_category_settings_embeds(categories)
     logger.info(
         "ロールパネル設定を一覧表示しました: command=/rolepanel list "
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "
         f"category_count={len(categories)}"
     )
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    await interaction.response.send_message(
+        embeds=embeds[:CATEGORY_SETTINGS_EMBED_BATCH_LIMIT],
+    )
+    for start in range(CATEGORY_SETTINGS_EMBED_BATCH_LIMIT, len(embeds), CATEGORY_SETTINGS_EMBED_BATCH_LIMIT):
+        await interaction.followup.send(
+            embeds=embeds[start : start + CATEGORY_SETTINGS_EMBED_BATCH_LIMIT],
+        )
 
 
 def register_rolepanel_commands(bot: AsteroidBot) -> None:

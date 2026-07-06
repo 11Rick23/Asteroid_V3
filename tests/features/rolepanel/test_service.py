@@ -5,6 +5,7 @@ from typing import Any, cast
 
 from app.database.repositories.role_panel import RolePanelCategoryDetail, RolePanelRoleData
 from app.features.rolepanel.service import (
+    RolePanelService,
     build_boost_role_removal_plan,
     build_role_sync_plan,
     get_visible_category_roles,
@@ -26,15 +27,19 @@ def _role_data(role_id: int, display_order: int = 0) -> RolePanelRoleData:
 
 def _category(
     *,
+    category_id: int = 1,
+    name: str = "カテゴリ",
+    description: str | None = None,
+    display_order: int = 0,
     requires_boost: bool = False,
     roles: list[RolePanelRoleData] | None = None,
 ) -> RolePanelCategoryDetail:
     now = datetime(2026, 6, 23)
     return RolePanelCategoryDetail(
-        category_id=1,
-        name="カテゴリ",
-        description=None,
-        display_order=0,
+        category_id=category_id,
+        name=name,
+        description=description,
+        display_order=display_order,
         requires_boost=requires_boost,
         created_at=now,
         updated_at=now,
@@ -129,3 +134,44 @@ def test_builds_boost_removal():
     # Then
     assert [role.id for role in plan.remove_roles] == [1]
     assert plan.unmanageable_role_ids == set()
+
+
+def test_builds_category_settings_embed():
+    """カテゴリ設定一覧はカテゴリ名、説明文、表示順を管理用に表示する。"""
+    # 機能要件：rolepanel list は全カテゴリのカテゴリ名、説明文、表示順を一覧表示する。
+    # Given
+    service = RolePanelService(cast(Any, object()))
+    categories = [
+        _category(category_id=1, name="通知", description="通知ロールです。", display_order=20),
+        _category(category_id=2, name="イベント", description=None, display_order=10),
+    ]
+
+    # When
+    embeds = service.build_category_settings_embeds(categories)
+
+    # Then
+    assert len(embeds) == 1
+    embed = embeds[0]
+    assert embed.title == "ロールパネルカテゴリ設定一覧"
+    assert [field.name for field in embed.fields] == ["通知", "イベント"]
+    assert embed.fields[0].value == "表示順: `20`\n説明文:\n通知ロールです。"
+    assert embed.fields[1].value == "表示順: `10`\n説明文:\n説明未設定"
+
+
+def test_builds_category_settings_embed_pages():
+    """カテゴリ設定一覧は Discord の embed field 上限を超えるカテゴリも分割して表示する。"""
+    # 機能要件：rolepanel list は 25 件を超えるカテゴリも続きの embed に分割して一覧表示する。
+    # Given
+    service = RolePanelService(cast(Any, object()))
+    categories = [_category(category_id=index, name=f"カテゴリ{index}") for index in range(1, 27)]
+
+    # When
+    embeds = service.build_category_settings_embeds(categories)
+
+    # Then
+    assert [embed.title for embed in embeds] == [
+        "ロールパネルカテゴリ設定一覧 (1/2)",
+        "ロールパネルカテゴリ設定一覧 (2/2)",
+    ]
+    assert len(embeds[0].fields) == 25
+    assert [field.name for field in embeds[1].fields] == ["カテゴリ26"]
