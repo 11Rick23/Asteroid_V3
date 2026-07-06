@@ -1,0 +1,4 @@
+interface:
+  display_name: "Asteroid V3 Overview"
+  short_description: "Legacy pointer for Asteroid V3 skills"
+  default_prompt: "Use $asteroid-v3-overview only for legacy Asteroid_V3 overview requests; prefer AGENTS.md or $asteroid-v3-skill-maintenance."

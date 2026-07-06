@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import datetime
+import asyncio
+import time
 from logging import getLogger
 
 import discord
@@ -40,6 +41,7 @@ class VoiceCreateService:
     def __init__(self, bot: AsteroidBot):
         self.bot = bot
         self.control_panel_messages: dict[int, tuple[int, int]] = {}
+        self.name_change_rate_limited_until: dict[int, float] = {}
 
     def get_voice_create_channel_id(self) -> int:
         return self.bot.config.vc.voice_create_channel_id
@@ -122,7 +124,10 @@ class VoiceCreateService:
             await self.send_interaction_message(interaction, "VC作成用チャンネル自体は操作できません。")
             return None
 
-        if require_manage and not channel.permissions_for(interaction.user).manage_channels:
+        if require_manage and (
+            not isinstance(interaction.user, discord.Member)
+            or not channel.permissions_for(interaction.user).manage_channels
+        ):
             logger.debug(
                 f"VC管理権限不足で操作を拒否しました: guild_id={channel.guild.id} "
                 f"channel_id={channel.id} user_id={interaction.user.id}"
@@ -154,30 +159,76 @@ class VoiceCreateService:
         overwrite = channel.overwrites_for(channel.guild.default_role)
         return overwrite.view_channel is False and overwrite.connect is False
 
-    def build_control_embed(self, channel: discord.VoiceChannel, color: discord.Color | int) -> discord.Embed:
-        owner_list, blocked_list, owner_mentions, blocked_mentions = self.get_owner_and_blocked_lists(channel)
-        embed = discord.Embed(
-            title=channel.name,
-            description="`/vc ui`でこのヘルプを再表示できます。",
-            color=color or AsteroidColor.INFO,
-            timestamp=datetime.datetime.now(),
-        )
-        embed.add_field(name="ブロックしたユーザー", value=blocked_mentions, inline=False)
-        embed.add_field(name="管理権限を与えたユーザー", value=owner_mentions, inline=False)
-        embed.set_footer(
-            text=(
-                f"人数制限: {channel.user_limit or '無制限'}"
-                f" | 非公開: {'はい' if self.is_private_channel(channel) else 'いいえ'}"
-                f" | ブロック: {len(blocked_list)}人"
-                f" | 管理権限: {len(owner_list)}人"
-            )
-        )
-        return embed
+    def get_name_change_rate_limit_remaining(self, channel_id: int | None) -> float:
+        if channel_id is None:
+            return 0.0
 
-    def build_control_view(self, channel: discord.VoiceChannel | None = None) -> discord.ui.View:
+        disabled_until = self.name_change_rate_limited_until.get(channel_id)
+        if disabled_until is None:
+            return 0.0
+
+        remaining = disabled_until - time.monotonic()
+        if remaining <= 0:
+            self.name_change_rate_limited_until.pop(channel_id, None)
+            return 0.0
+        return remaining
+
+    def is_name_change_rate_limited(self, channel_id: int | None) -> bool:
+        return self.get_name_change_rate_limit_remaining(channel_id) > 0
+
+    async def disable_name_change_until_rate_limit_ends(
+        self,
+        channel: discord.VoiceChannel,
+        actor: discord.Member,
+        retry_after: float,
+    ) -> float:
+        disabled_until = time.monotonic() + max(0.0, retry_after)
+        disabled_until = max(disabled_until, self.name_change_rate_limited_until.get(channel.id, 0.0))
+        self.name_change_rate_limited_until[channel.id] = disabled_until
+        remaining = round(max(0.0, disabled_until - time.monotonic()), 1)
+
+        logger.warning(
+            f"VC名変更がrate limitに達しました: guild_id={channel.guild.id} channel_id={channel.id} "
+            f"user_id={actor.id} retry_after={remaining}"
+        )
+        try:
+            await self.refresh_control_panels(channel)
+        except discord.RateLimited as error:
+            logger.warning(
+                f"VC名変更rate limit中のパネル更新がrate limitに達しました: "
+                f"guild_id={channel.guild.id} channel_id={channel.id} retry_after={round(error.retry_after, 1)}"
+            )
+
+        asyncio.create_task(self.refresh_name_change_button_after_rate_limit(channel, disabled_until))
+        return remaining
+
+    async def refresh_name_change_button_after_rate_limit(
+        self,
+        channel: discord.VoiceChannel,
+        disabled_until: float,
+    ) -> None:
+        await asyncio.sleep(max(0.0, disabled_until - time.monotonic()))
+        if self.name_change_rate_limited_until.get(channel.id) != disabled_until:
+            return
+
+        self.name_change_rate_limited_until.pop(channel.id, None)
+        try:
+            await self.refresh_control_panels(channel)
+        except discord.RateLimited as error:
+            logger.warning(
+                f"VC名変更rate limit解除後のパネル更新がrate limitに達しました: "
+                f"guild_id={channel.guild.id} channel_id={channel.id} retry_after={round(error.retry_after, 1)}"
+            )
+
+    def build_control_view(
+        self,
+        channel: discord.VoiceChannel | None = None,
+        *,
+        color: discord.Color | int | None = None,
+    ) -> discord.ui.LayoutView:
         from .views import VoiceControlView
 
-        return VoiceControlView(self, channel)
+        return VoiceControlView(self, channel, color=color)
 
     async def refresh_control_message(
         self,
@@ -208,8 +259,10 @@ class VoiceCreateService:
 
         try:
             await message.edit(
-                embed=self.build_control_embed(channel, color),
-                view=self.build_control_view(channel),
+                content=None,
+                embeds=[],
+                attachments=[],
+                view=self.build_control_view(channel, color=color),
             )
         except discord.NotFound, discord.Forbidden:
             logger.debug(f"VCコントロールパネルの追跡を解除しました: channel_id={channel.id} message_id={message_id}")
@@ -222,10 +275,10 @@ class VoiceCreateService:
         *,
         mention_member: bool = False,
     ) -> discord.Message:
+        if mention_member:
+            await channel.send(content=member.mention)
         message = await channel.send(
-            content=member.mention if mention_member else None,
-            embed=self.build_control_embed(channel, member.color),
-            view=self.build_control_view(channel),
+            view=self.build_control_view(channel, color=member.color),
         )
         self.track_control_message(channel, message, color=member.color)
         return message

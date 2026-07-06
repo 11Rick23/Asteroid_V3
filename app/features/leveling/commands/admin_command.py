@@ -10,8 +10,9 @@ from app.common.permissions import ADMINISTRATOR_PERMISSIONS, admin_only
 from app.common.utils import humanize_number
 from app.core.bot import AsteroidBot
 from app.features.leveling.action_power import build_accumulated_action_power_message
-from app.features.leveling.build_send_message import build_power_embed, build_star_grade_embed
+from app.features.leveling.build_send_message import build_power_view, build_star_grade_view
 from app.features.leveling.manage_reward_role import sync_grade_prestige_role
+from app.features.leveling.monthly import run_monthly_ranking
 
 logger = getLogger(__name__)
 
@@ -53,6 +54,7 @@ async def action_power_total(interaction: discord.Interaction) -> None:
 
 
 @xp_boost_group.command(name="add", description="経験値ブースターを追加します")
+@app_commands.rename(role="ロール", name="名前", amount="倍率")
 @admin_only
 async def xp_boost_add(interaction: discord.Interaction, role: discord.Role, name: str, amount: int) -> None:
     bot = get_bot(interaction)
@@ -66,6 +68,7 @@ async def xp_boost_add(interaction: discord.Interaction, role: discord.Role, nam
 
 
 @xp_boost_group.command(name="delete", description="経験値ブースターを削除します")
+@app_commands.rename(role="ロール")
 @admin_only
 async def xp_boost_delete(interaction: discord.Interaction, role: discord.Role) -> None:
     bot = get_bot(interaction)
@@ -79,6 +82,7 @@ async def xp_boost_delete(interaction: discord.Interaction, role: discord.Role) 
 
 
 @admin_shard_group.command(name="add", description="ユーザーにシャードを追加します")
+@app_commands.rename(user="ユーザー", shard_type="シャード種類", amount="数量")
 @app_commands.choices(shard_type=SHARD_TYPE_CHOICES)
 @admin_only
 async def add_shard(
@@ -89,29 +93,29 @@ async def add_shard(
 ) -> None:
     bot = get_bot(interaction)
     shard_type_value = shard_type.value
-    star_grade = await bot.db.star_grades.get_star_grade(user.id) or await bot.db.star_grades.create_star_grade(
-        user.id
-    )
-    if shard_type_value == "テキスト":
-        star_grade, grade_up_amount, prestige_up_amount = await bot.db.star_grades.add_text_shard(star_grade, amount)
-    elif shard_type_value == "ボイス":
-        star_grade, grade_up_amount, prestige_up_amount = await bot.db.star_grades.add_voice_shard(star_grade, amount)
-    else:
-        star_grade, grade_up_amount, prestige_up_amount = await bot.db.star_grades.add_bonus_shard(star_grade, amount)
+    update = await bot.db.leveling.add_shard(user.id, shard_type_value, amount)
     await interaction.response.send_message(
-        content=f"{user.mention}に`{humanize_number(amount)}`{shard_type_value}シャードを付与しました\n{grade_up_amount}回グレードアップしました、{prestige_up_amount}回プレステージしました",
-        embed=build_star_grade_embed(user, star_grade),
+        view=build_star_grade_view(
+            user,
+            update.star_grade,
+            notice=(
+                f"{user.mention}に`{humanize_number(amount)}`{shard_type_value}シャードを付与しました\n"
+                f"{update.grade_up_amount}回グレードアップしました、"
+                f"{update.prestige_amount}回プレステージしました"
+            ),
+        )
     )
-    await sync_grade_prestige_role(bot, user, star_grade)
+    await sync_grade_prestige_role(bot, user, update.star_grade)
     logger.info(
         "シャードを加算しました: command=/leveling shard add "
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "
         f"target_id={user.id} shard_type={shard_type_value} amount={amount} "
-        f"grade={star_grade.grade} prestige={star_grade.prestige}"
+        f"grade={update.star_grade.grade} prestige={update.star_grade.prestige}"
     )
 
 
 @admin_shard_group.command(name="remove", description="ユーザーからシャードを減らします")
+@app_commands.rename(user="ユーザー", shard_type="シャード種類", amount="数量")
 @app_commands.choices(shard_type=SHARD_TYPE_CHOICES)
 @admin_only
 async def remove_shard(
@@ -122,29 +126,25 @@ async def remove_shard(
 ) -> None:
     bot = get_bot(interaction)
     shard_type_value = shard_type.value
-    star_grade = await bot.db.star_grades.get_star_grade(user.id) or await bot.db.star_grades.create_star_grade(
-        user.id
-    )
-    if shard_type_value == "テキスト":
-        star_grade, _, _ = await bot.db.star_grades.remove_text_shard(star_grade, amount)
-    elif shard_type_value == "ボイス":
-        star_grade, _, _ = await bot.db.star_grades.remove_voice_shard(star_grade, amount)
-    else:
-        star_grade, _, _ = await bot.db.star_grades.remove_bonus_shard(star_grade, amount)
+    update = await bot.db.leveling.remove_shard(user.id, shard_type_value, amount)
     await interaction.response.send_message(
-        content=f"{user.mention}から`{humanize_number(amount)}`{shard_type_value}シャードを減らしました",
-        embed=build_star_grade_embed(user, star_grade),
+        view=build_star_grade_view(
+            user,
+            update.star_grade,
+            notice=f"{user.mention}から`{humanize_number(amount)}`{shard_type_value}シャードを減らしました",
+        )
     )
-    await sync_grade_prestige_role(bot, user, star_grade)
+    await sync_grade_prestige_role(bot, user, update.star_grade)
     logger.info(
         "シャードを減算しました: command=/leveling shard remove "
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "
         f"target_id={user.id} shard_type={shard_type_value} amount={amount} "
-        f"grade={star_grade.grade} prestige={star_grade.prestige}"
+        f"grade={update.star_grade.grade} prestige={update.star_grade.prestige}"
     )
 
 
 @admin_power_group.command(name="add", description="ユーザーにパワーを追加します")
+@app_commands.rename(user="ユーザー", target="パワー種類", amount="数量")
 @app_commands.choices(target=POWER_TYPE_CHOICES)
 @admin_only
 async def add_power(
@@ -155,32 +155,17 @@ async def add_power(
 ) -> None:
     bot = get_bot(interaction)
     target_value = target.value
-    if target_value == "action":
-        async with bot.db.session() as session:
-            action_power = await bot.db.monthly_action_powers.get_monthly_action_power_lock(
-                session, user.id
-            ) or await bot.db.monthly_action_powers.create_monthly_action_power_lock(session, user.id)
-            await bot.db.monthly_action_powers.add_action_power_lock(session, action_power, amount)
-            await session.commit()
-        power = await bot.db.monthly_powers.get_monthly_power(user.id)
-    else:
-        power = await bot.db.monthly_powers.get_monthly_power(user.id)
-        if power is None:
-            power = await bot.db.monthly_powers.create_monthly_power(user.id)
-        power = await (
-            bot.db.monthly_powers.add_text_power(power, amount)
-            if target_value == "text"
-            else bot.db.monthly_powers.add_voice_power(power, amount)
-        )
+    power = await bot.db.leveling.add_power(user.id, target_value, amount)
     logger.info(
         "パワーを加算しました: command=/leveling power add "
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "
         f"target_id={user.id} power_type={target_value} amount={amount}"
     )
-    await interaction.response.send_message(embed=build_power_embed(user, power))
+    await interaction.response.send_message(view=build_power_view(user, power))
 
 
 @admin_power_group.command(name="remove", description="ユーザーからパワーを減らします")
+@app_commands.rename(user="ユーザー", target="パワー種類", amount="数量")
 @app_commands.choices(target=POWER_TYPE_CHOICES)
 @admin_only
 async def remove_power(
@@ -191,43 +176,46 @@ async def remove_power(
 ) -> None:
     bot = get_bot(interaction)
     target_value = target.value
-    if target_value == "action":
-        async with bot.db.session() as session:
-            action_power = await bot.db.monthly_action_powers.get_monthly_action_power_lock(
-                session, user.id
-            ) or await bot.db.monthly_action_powers.create_monthly_action_power_lock(session, user.id)
-            await bot.db.monthly_action_powers.remove_action_power_lock(session, action_power, amount)
-            await session.commit()
-        power = await bot.db.monthly_powers.get_monthly_power(user.id)
-    else:
-        power = await bot.db.monthly_powers.get_monthly_power(user.id)
-        if power is None:
-            power = await bot.db.monthly_powers.create_monthly_power(user.id)
-        power = await (
-            bot.db.monthly_powers.remove_text_power(power, amount)
-            if target_value == "text"
-            else bot.db.monthly_powers.remove_voice_power(power, amount)
-        )
+    power = await bot.db.leveling.remove_power(user.id, target_value, amount)
     logger.info(
         "パワーを減算しました: command=/leveling power remove "
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "
         f"target_id={user.id} power_type={target_value} amount={amount}"
     )
-    await interaction.response.send_message(embed=build_power_embed(user, power))
+    await interaction.response.send_message(view=build_power_view(user, power))
 
 
-@admin_power_group.command(name="reset_ranking", description="パワーランキングを更新してリセットします")
+@admin_power_group.command(name="aggregate", description="現在のデータで月間ランキングを集計します")
+@app_commands.rename(delete_data="データを削除")
+@app_commands.describe(delete_data="集計後に月間パワーデータを削除するか")
 @admin_only
-async def reset_power_ranking(interaction: discord.Interaction) -> None:
+async def aggregate_power_ranking(interaction: discord.Interaction, delete_data: bool = False) -> None:
     bot = get_bot(interaction)
-    await bot.db.monthly_powers.truncate_table()
-    await bot.db.monthly_action_powers.truncate_table()
-    await bot.db.voice_xp_limits.reset_voice_power()
-    logger.info(
-        "月間パワーランキングをリセットしました: command=/leveling power reset_ranking "
-        f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id}"
+    await interaction.response.defer(ephemeral=True)
+    ranked_count = await run_monthly_ranking(
+        bot,
+        force=True,
+        delete_data=delete_data,
     )
-    await interaction.response.send_message("月間パワーランキングをリセットしました。")
+    if ranked_count is None:
+        logger.warning(
+            "月間パワーランキングの手動集計に失敗しました: command=/leveling power aggregate "
+            f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
+            f"actor_id={interaction.user.id} data_deleted={delete_data}"
+        )
+        await interaction.followup.send("月間ランキングを集計できませんでした。", ephemeral=True)
+        return
+
+    logger.info(
+        "月間パワーランキングを手動集計しました: command=/leveling power aggregate "
+        f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
+        f"actor_id={interaction.user.id} ranked_count={ranked_count} data_deleted={delete_data}"
+    )
+    await interaction.followup.send(
+        f"現在のデータで月間ランキングを集計しました。対象者: {ranked_count}人\n"
+        f"集計後のデータ削除: {'実行済み' if delete_data else '未実行'}",
+        ephemeral=True,
+    )
 
 
 def register_leveling_admin_commands(bot: AsteroidBot) -> None:

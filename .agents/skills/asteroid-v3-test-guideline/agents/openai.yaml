@@ -1,0 +1,4 @@
+interface:
+  display_name: "Asteroid V3 Tests"
+  short_description: "Asteroid V3 pytest design rules"
+  default_prompt: "Use $asteroid-v3-test-guideline to add focused tests for Asteroid_V3 behavior."

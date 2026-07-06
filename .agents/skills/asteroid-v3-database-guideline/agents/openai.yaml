@@ -1,0 +1,4 @@
+interface:
+  display_name: "Asteroid V3 Database"
+  short_description: "Asteroid V3 SQLAlchemy and Alembic rules"
+  default_prompt: "Use $asteroid-v3-database-guideline when changing Asteroid_V3 database models, repositories, migrations, or schema startup checks."

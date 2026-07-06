@@ -1,0 +1,71 @@
+name: config.yaml 更新通知
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - config.example.yaml
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    name: 本番 config.yaml 更新 Issue の作成
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      ISSUE_TITLE: 本番 config.yaml の更新が必要です
+      COMMIT_SHA: ${{ github.sha }}
+      COMPARE_URL: ${{ github.event.compare }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+    steps:
+      - name: 既存の未解決 Issue を確認
+        id: existing-issue
+        run: |
+          issue_number="$(
+            gh issue list \
+              --state open \
+              --limit 100 \
+              --search "${ISSUE_TITLE} in:title" \
+              --json number,title \
+              --jq ".[] | select(.title == \"${ISSUE_TITLE}\") | .number" \
+              | head -n 1
+          )"
+          echo "number=${issue_number}" >> "$GITHUB_OUTPUT"
+
+      - name: Issue 本文を作成
+        run: |
+          cat > issue-body.md <<EOF
+          main ブランチの \`config.example.yaml\` が更新されました。
+          実稼働環境の \`config.yaml\` に必要な差分を反映してください。
+
+          - 対象 commit: ${COMMIT_SHA}
+          - 変更差分: ${COMPARE_URL}
+          - Workflow run: ${RUN_URL}
+
+          対応後、この Issue を close してください。
+          EOF
+
+      - name: Issue を作成
+        if: steps.existing-issue.outputs.number == ''
+        run: |
+          gh issue create \
+            --title "${ISSUE_TITLE}" \
+            --body-file issue-body.md
+
+      - name: 既存 Issue に追記
+        if: steps.existing-issue.outputs.number != ''
+        run: |
+          gh issue comment "${{ steps.existing-issue.outputs.number }}" \
+            --body-file issue-body.md

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Asteroid V3 Command Security"
+  short_description: "Compatibility pointer for command rules"
+  default_prompt: "Use $asteroid-v3-command-security for legacy Asteroid_V3 command security requests."

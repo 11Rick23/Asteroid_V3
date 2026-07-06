@@ -8,7 +8,7 @@ from sqlalchemy import delete, func, select
 from app.database.models.xp_boosts import XPBoostModel
 
 
-@dataclass
+@dataclass(slots=True)
 class XPBoostData:
     role_id: int
     name: str
@@ -35,18 +35,10 @@ class XPBoosts:
             updated_at=model.updated_at,
         )
 
-    async def create_table(self) -> None:
-        async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: XPBoostModel.__table__.create(sync_conn, checkfirst=True))
-
-    async def drop_table(self) -> None:
-        async with self.db.engine.begin() as conn:
-            await conn.run_sync(lambda sync_conn: XPBoostModel.__table__.drop(sync_conn, checkfirst=True))
-
     async def get_xp_boosts(self) -> list[XPBoostData]:
         async with self.db.session() as session:
             result = await session.scalars(select(XPBoostModel))
-            return [self._to_data(xp_boost) for xp_boost in result if xp_boost is not None]
+            return [xp_boost for raw in result if (xp_boost := self._to_data(raw)) is not None]
 
     async def get_xp_boost(self, role_id: int) -> XPBoostData | None:
         async with self.db.session() as session:

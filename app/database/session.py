@@ -15,7 +15,7 @@ def _normalize_database_url(database_url: str) -> str:
 
     if url.drivername == "mysql":
         logger.info(f"データベースURLのドライバを補正します: backend={url.get_backend_name()} driver=aiomysql")
-        return str(url.set(drivername="mysql+aiomysql"))
+        return url.set(drivername="mysql+aiomysql").render_as_string(hide_password=False)
 
     if url.get_backend_name() == "mysql" and url.get_driver_name() != "aiomysql":
         raise RuntimeError(

@@ -1,0 +1,1 @@
+"""Bump notifier feature tests."""

@@ -9,6 +9,7 @@ discord:
 database:
   url: "mysql+aiomysql://user:password@127.0.0.1:3306/database"
   echo: false
+  auto_upgrade_on_startup: false
 
 logging:
   level: "INFO"
@@ -26,11 +27,13 @@ features:
   punish: true
   report: true
   roles: true
+  rolepanel: true
   starboard: true
   suggest: true
   vc: true
 
 auth:
+  panel_channel_id: 0000000000000000000
   unauthorized_role_id: 0000000000000000000
   welcome_channel_id: 0000000000000000000
   welcome_ping_role_id: 0000000000000000000
@@ -134,6 +137,9 @@ roles:
     - 0000000000000000000
     - 0000000000000000000
     - 0000000000000000000
+
+rolepanel:
+  panel_channel_id: 0000000000000000000
 
 starboard:
   starboard_channel_id: 0000000000000000000

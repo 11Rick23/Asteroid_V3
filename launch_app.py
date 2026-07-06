@@ -1,17 +1,22 @@
+from __future__ import annotations
+
 import asyncio
 import signal
 import tracemalloc
 from logging import getLogger
 
+from app.common.offline import OfflineInfo
 from app.core.bot import AsteroidBot
 from app.core.config import get_config
 from app.core.logging import setup_logger
+from app.database.migrations_check import upgrade_database_to_head
 
 logger = getLogger("app.launch_app")
 
 
 def request_signal_shutdown(bot: AsteroidBot, received_signal: signal.Signals) -> None:
-    if bot.schedule_graceful_shutdown(f"signal={received_signal.name}"):
+    info = OfflineInfo.from_signal(received_signal.name)
+    if bot.schedule_graceful_shutdown(info):
         logger.info(f"停止シグナルを受信しました: signal={received_signal.name}")
         return
 
@@ -62,6 +67,9 @@ def main() -> None:
         f"sync_commands_on_startup={config.discord.sync_commands_on_startup}"
     )
     logger.info(f"ロガーを初期化しました: level={config.logging.level.upper()}")
+
+    if config.database.auto_upgrade_on_startup:
+        upgrade_database_to_head()
 
     bot = AsteroidBot(config)
     asyncio.run(run_bot(bot, config.discord.token))

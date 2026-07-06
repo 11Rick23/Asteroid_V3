@@ -1,0 +1,4 @@
+interface:
+  display_name: "Asteroid V3 Logging"
+  short_description: "Asteroid V3 logging level rules"
+  default_prompt: "Use $asteroid-v3-logging-guideline to choose log levels for Asteroid_V3 changes."

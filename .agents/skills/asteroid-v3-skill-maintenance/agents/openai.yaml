@@ -1,0 +1,4 @@
+interface:
+  display_name: "Asteroid V3 Skill Maintenance"
+  short_description: "Maintain Asteroid V3 shared skills"
+  default_prompt: "Use $asteroid-v3-skill-maintenance when updating Asteroid_V3 shared skills or AI docs."

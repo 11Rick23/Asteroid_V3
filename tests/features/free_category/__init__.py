@@ -1,0 +1,1 @@
+"""Free category feature tests."""
