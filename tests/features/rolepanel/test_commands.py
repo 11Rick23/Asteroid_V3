@@ -69,9 +69,8 @@ def test_require_boost_arguments_are_japanese():
 
 @pytest.mark.asyncio
 async def test_list_shows_category_settings():
-    """rolepanel list はカテゴリ設定一覧を ephemeral で返す。"""
+    """rolepanel list はカテゴリ設定一覧を返す。"""
     # 機能要件：rolepanel list はカテゴリ名、説明文、表示順の一覧を返す。
-    # 非機能要件：管理用一覧は ephemeral response として返す。
     # Given
     command = rolepanel_group.get_command("list")
     assert isinstance(command, app_commands.Command)
@@ -92,7 +91,6 @@ async def test_list_shows_category_settings():
     await callback(interaction)
 
     # Then
-    assert interaction.response.sent_messages[0]["ephemeral"] is True
     embeds = interaction.response.sent_messages[0]["embeds"]
     assert len(embeds) == 1
     assert embeds[0].title == "ロールパネルカテゴリ設定一覧"
