@@ -7,6 +7,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from app.common.command_groups import get_bot, register_group
+from app.common.interaction_errors import format_rate_limited_error
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
 
@@ -63,7 +64,16 @@ async def name(interaction: discord.Interaction, vc_name: str) -> None:
     if channel is None or not isinstance(interaction.user, discord.Member):
         return
 
-    await service.rename_channel(channel, interaction.user, vc_name)
+    await interaction.response.defer(thinking=True)
+    retry_after = await service.rename_channel_with_rate_limit_handling(channel, interaction.user, vc_name)
+    if retry_after is not None:
+        await service.send_interaction_message(
+            interaction,
+            format_rate_limited_error(retry_after, action="VC名を変更できませんでした。"),
+            ephemeral=True,
+        )
+        return
+
     await service.refresh_control_panels(channel)
     logger.debug(
         "VC名を変更しました: command=/vc name "
