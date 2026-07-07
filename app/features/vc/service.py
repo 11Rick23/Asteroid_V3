@@ -12,6 +12,9 @@ from app.core.bot import AsteroidBot
 
 logger = getLogger(__name__)
 
+NAME_CHANGE_RATE_LIMIT_COUNT = 2
+NAME_CHANGE_RATE_LIMIT_WINDOW_SECONDS = 600.0
+
 owner_permissions = discord.PermissionOverwrite(
     view_channel=True,
     manage_channels=True,
@@ -42,6 +45,7 @@ class VoiceCreateService:
         self.bot = bot
         self.control_panel_messages: dict[int, tuple[int, int]] = {}
         self.name_change_rate_limited_until: dict[int, float] = {}
+        self.name_change_timestamps: dict[int, list[float]] = {}
 
     def get_voice_create_channel_id(self) -> int:
         return self.bot.config.vc.voice_create_channel_id
@@ -159,22 +163,83 @@ class VoiceCreateService:
         overwrite = channel.overwrites_for(channel.guild.default_role)
         return overwrite.view_channel is False and overwrite.connect is False
 
+    def get_current_name_change_timestamps(self, channel_id: int, now: float) -> list[float]:
+        threshold = now - NAME_CHANGE_RATE_LIMIT_WINDOW_SECONDS
+        timestamps = [
+            timestamp for timestamp in self.name_change_timestamps.get(channel_id, []) if timestamp > threshold
+        ]
+        if timestamps:
+            self.name_change_timestamps[channel_id] = timestamps
+        else:
+            self.name_change_timestamps.pop(channel_id, None)
+        return timestamps
+
     def get_name_change_rate_limit_remaining(self, channel_id: int | None) -> float:
         if channel_id is None:
             return 0.0
 
+        now = time.monotonic()
         disabled_until = self.name_change_rate_limited_until.get(channel_id)
-        if disabled_until is None:
-            return 0.0
+        explicit_remaining = 0.0
+        if disabled_until is not None:
+            explicit_remaining = disabled_until - now
+            if explicit_remaining <= 0:
+                self.name_change_rate_limited_until.pop(channel_id, None)
+                explicit_remaining = 0.0
 
-        remaining = disabled_until - time.monotonic()
-        if remaining <= 0:
-            self.name_change_rate_limited_until.pop(channel_id, None)
-            return 0.0
-        return remaining
+        window_remaining = 0.0
+        timestamps = self.get_current_name_change_timestamps(channel_id, now)
+        if len(timestamps) >= NAME_CHANGE_RATE_LIMIT_COUNT:
+            window_remaining = min(timestamps) + NAME_CHANGE_RATE_LIMIT_WINDOW_SECONDS - now
+
+        return max(explicit_remaining, window_remaining, 0.0)
 
     def is_name_change_rate_limited(self, channel_id: int | None) -> bool:
         return self.get_name_change_rate_limit_remaining(channel_id) > 0
+
+    def record_name_change(
+        self,
+        channel: discord.VoiceChannel,
+        actor: discord.Member,
+    ) -> float:
+        now = time.monotonic()
+        timestamps = self.get_current_name_change_timestamps(channel.id, now)
+        timestamps.append(now)
+        self.name_change_timestamps[channel.id] = timestamps
+        remaining = round(self.get_name_change_rate_limit_remaining(channel.id), 1)
+        if remaining > 0:
+            logger.debug(
+                f"VC名変更回数がローカル上限に達しました: guild_id={channel.guild.id} channel_id={channel.id} "
+                f"user_id={actor.id} retry_after={remaining}"
+            )
+            asyncio.create_task(self.refresh_name_change_button_after_delay(channel, remaining))
+        return remaining
+
+    async def rename_channel_with_rate_limit_handling(
+        self,
+        channel: discord.VoiceChannel,
+        actor: discord.Member,
+        name: str,
+    ) -> float | None:
+        remaining = self.get_name_change_rate_limit_remaining(channel.id)
+        if remaining > 0:
+            rounded_remaining = round(remaining, 1)
+            logger.debug(
+                f"VC名変更rate limit中のため変更を拒否しました: guild_id={channel.guild.id} "
+                f"channel_id={channel.id} user_id={actor.id} retry_after={rounded_remaining}"
+            )
+            return rounded_remaining
+
+        try:
+            await self.rename_channel(channel, actor, name)
+        except discord.RateLimited as error:
+            return await self.disable_name_change_until_rate_limit_ends(
+                channel,
+                actor,
+                error.retry_after,
+            )
+        self.record_name_change(channel, actor)
+        return None
 
     async def disable_name_change_until_rate_limit_ends(
         self,
@@ -199,19 +264,17 @@ class VoiceCreateService:
                 f"guild_id={channel.guild.id} channel_id={channel.id} retry_after={round(error.retry_after, 1)}"
             )
 
-        asyncio.create_task(self.refresh_name_change_button_after_rate_limit(channel, disabled_until))
+        asyncio.create_task(self.refresh_name_change_button_after_delay(channel, remaining))
         return remaining
 
-    async def refresh_name_change_button_after_rate_limit(
+    async def refresh_name_change_button_after_delay(
         self,
         channel: discord.VoiceChannel,
-        disabled_until: float,
+        delay: float,
     ) -> None:
-        await asyncio.sleep(max(0.0, disabled_until - time.monotonic()))
-        if self.name_change_rate_limited_until.get(channel.id) != disabled_until:
+        await asyncio.sleep(max(0.0, delay))
+        if self.get_name_change_rate_limit_remaining(channel.id) > 0:
             return
-
-        self.name_change_rate_limited_until.pop(channel.id, None)
         try:
             await self.refresh_control_panels(channel)
         except discord.RateLimited as error:

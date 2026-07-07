@@ -30,14 +30,13 @@ class NameChangeModal(GuildScopedModal, title="VC名変更"):
         if channel is None or not isinstance(interaction.user, discord.Member):
             return
 
-        try:
-            await self.service.rename_channel(channel, interaction.user, self.vc_name.value)
-        except discord.RateLimited as error:
-            retry_after = await self.service.disable_name_change_until_rate_limit_ends(
-                channel,
-                interaction.user,
-                error.retry_after,
-            )
+        await interaction.response.defer(thinking=True)
+        retry_after = await self.service.rename_channel_with_rate_limit_handling(
+            channel,
+            interaction.user,
+            self.vc_name.value,
+        )
+        if retry_after is not None:
             await self.service.send_interaction_message(
                 interaction,
                 format_rate_limited_error(retry_after, action="VC名を変更できませんでした。"),

@@ -41,6 +41,20 @@ class _VoiceChannel:
 
 class _Actor:
     id = 200
+    name = "actor"
+
+
+class _EditableVoiceChannel(_VoiceChannel):
+    def __init__(self) -> None:
+        self.edits: list[dict[str, object]] = []
+
+    async def edit(self, **kwargs: object) -> None:
+        self.edits.append(kwargs)
+
+
+class _RateLimitedVoiceChannel(_VoiceChannel):
+    async def edit(self, **_: object) -> None:
+        raise discord.RateLimited(10.0)
 
 
 def test_builds_default_values():
@@ -117,6 +131,23 @@ def test_expires_name_rate_limit():
     assert service.name_change_rate_limited_until == {}
 
 
+def test_expires_name_change_window(monkeypatch):
+    """10 分窓を過ぎた VC 名変更履歴は rate limit 判定から除外する。"""
+    # 機能要件：VC 名変更の 10 分窓を過ぎた履歴は新しい変更を妨げない。
+    # 非機能要件：期限切れの名変更履歴を内部状態に残し続けない。
+    # Given
+    service = VoiceCreateService(cast(Any, _Bot()))
+    service.name_change_timestamps[100] = [0.0, 1.0]
+    monkeypatch.setattr("app.features.vc.service.time.monotonic", lambda: 601.0)
+
+    # When
+    remaining = service.get_name_change_rate_limit_remaining(100)
+
+    # Then
+    assert remaining == 0.0
+    assert service.name_change_timestamps == {}
+
+
 @pytest.mark.asyncio
 async def test_extends_name_rate_limit(monkeypatch):
     """既存の VC 名変更 rate limit より短い retry_after では解除予定を短縮しない。"""
@@ -145,3 +176,99 @@ async def test_extends_name_rate_limit(monkeypatch):
     # Then
     assert remaining == 100.0
     assert service.name_change_rate_limited_until[100] == 200.0
+
+
+@pytest.mark.asyncio
+async def test_rejects_name_change_during_rate_limit(monkeypatch):
+    """VC 名変更待機中は Discord API を呼ばずに残り時間を返す。"""
+    # 非機能要件：VC 名変更の rate limit 待機中は追加のチャンネル編集 API を発生させない。
+    # Given
+    service = VoiceCreateService(cast(Any, _Bot()))
+    service.name_change_rate_limited_until[100] = 110.0
+    channel = _EditableVoiceChannel()
+    monkeypatch.setattr("app.features.vc.service.time.monotonic", lambda: 100.0)
+
+    # When
+    remaining = await service.rename_channel_with_rate_limit_handling(
+        cast(Any, channel),
+        cast(Any, _Actor()),
+        "new-name",
+    )
+
+    # Then
+    assert remaining == 10.0
+    assert channel.edits == []
+
+
+@pytest.mark.asyncio
+async def test_allows_two_name_changes_per_window(monkeypatch):
+    """VC 名変更は同一チャンネルで 10 分間に 2 回まで許可する。"""
+    # 機能要件：VC 名変更は同一チャンネルで 10 分間に 2 回まで実行できる。
+    # 非機能要件：3 回目以降は Discord API を呼ばずにローカルで待機状態として扱う。
+    # Given
+    service = VoiceCreateService(cast(Any, _Bot()))
+    channel = _EditableVoiceChannel()
+
+    async def refresh_control_panels(_channel: object) -> None:
+        return None
+
+    def create_task(coro: object) -> None:
+        cast(Any, coro).close()
+
+    monkeypatch.setattr("app.features.vc.service.time.monotonic", lambda: 100.0)
+    monkeypatch.setattr(service, "refresh_control_panels", refresh_control_panels)
+    monkeypatch.setattr("app.features.vc.service.asyncio.create_task", create_task)
+
+    # When
+    first_remaining = await service.rename_channel_with_rate_limit_handling(
+        cast(Any, channel),
+        cast(Any, _Actor()),
+        "first-name",
+    )
+    second_remaining = await service.rename_channel_with_rate_limit_handling(
+        cast(Any, channel),
+        cast(Any, _Actor()),
+        "second-name",
+    )
+    third_remaining = await service.rename_channel_with_rate_limit_handling(
+        cast(Any, channel),
+        cast(Any, _Actor()),
+        "third-name",
+    )
+
+    # Then
+    assert first_remaining is None
+    assert second_remaining is None
+    assert third_remaining == 600.0
+    assert [edit["name"] for edit in channel.edits] == ["first-name", "second-name"]
+    assert service.name_change_timestamps[100] == [100.0, 100.0]
+
+
+@pytest.mark.asyncio
+async def test_records_name_change_rate_limit(monkeypatch):
+    """VC 名変更 API が rate limit に達した場合は待機状態として記録する。"""
+    # 機能要件：VC 名変更が Discord rate limit に達した場合は retry_after を呼び出し元へ返す。
+    # 非機能要件：rate limit 到達後は同じチャンネルの名前変更ボタンを待機状態にできるよう記録する。
+    # Given
+    service = VoiceCreateService(cast(Any, _Bot()))
+
+    async def refresh_control_panels(_channel: object) -> None:
+        return None
+
+    def create_task(coro: object) -> None:
+        cast(Any, coro).close()
+
+    monkeypatch.setattr("app.features.vc.service.time.monotonic", lambda: 100.0)
+    monkeypatch.setattr(service, "refresh_control_panels", refresh_control_panels)
+    monkeypatch.setattr("app.features.vc.service.asyncio.create_task", create_task)
+
+    # When
+    remaining = await service.rename_channel_with_rate_limit_handling(
+        cast(Any, _RateLimitedVoiceChannel()),
+        cast(Any, _Actor()),
+        "new-name",
+    )
+
+    # Then
+    assert remaining == 10.0
+    assert service.name_change_rate_limited_until[100] == 110.0
