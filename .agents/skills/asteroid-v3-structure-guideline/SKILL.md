@@ -1,6 +1,6 @@
 ---
 name: asteroid-v3-structure-guideline
-description: Asteroid V3 project structure guide. Use when locating folders, major files, feature boundaries, app/core, app/features, app/database, app/common, tests, scripts, or change ownership.
+description: Asteroid V3 project structure guide. Use when locating folders, major files, feature boundaries, messages.py or messages packages, app/core, app/features, app/database, app/common, tests, scripts, or change ownership.
 ---
 
 # Asteroid V3 Structure Guideline
@@ -29,7 +29,11 @@ Prefer these splits when a feature grows:
 - `views/`: View, Button, Select, Modal, persistent UI, and UI callback classes.
 - `service.py` or `services/`: domain workflow and Discord operation orchestration.
 - `domain/`: pure calculations, policy decisions, value objects, and small reusable logic.
+- `messages.py`: default home for one feature's fixed user-facing copy and typed formatting functions.
+- `messages/`: replacement for a large `messages.py`; split copy by responsibility and keep `__init__.py` small.
 - `cards/` or feature-specific subfolders: generated assets or narrow presentation helpers when already established.
+
+Use either `messages.py` or `messages/`, never both as siblings. Follow `asteroid-v3-feature-guideline` for message ownership, formatting boundaries, and the threshold for package extraction.
 
 Keep repositories under `app/database/repositories/` and models under `app/database/models/`; do not hide persistent storage code inside a feature folder.
 
