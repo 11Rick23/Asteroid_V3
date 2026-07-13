@@ -12,7 +12,9 @@ from app.database.repositories.monthly_powers import MonthlyPowerData, MonthlyPo
 from app.database.repositories.star_grades import StarGradeData, StarGradeRankingData
 from app.features.leveling.domain.math_calculation import next_grade_progress, total_shard_amount
 
-from . import messages
+from .messages import common as common_messages
+from .messages import progression as progression_messages
+from .messages import ranking as ranking_messages
 
 
 class LevelingLayoutView(GuildScopedLayoutView):
@@ -27,7 +29,7 @@ def total_monthly_power(monthly_power: MonthlyPowerData | MonthlyPowerRankingDat
 
 
 def format_ranking_position(ranking: int) -> str:
-    return messages.ranking_position(ranking=ranking)
+    return common_messages.ranking_position(ranking=ranking)
 
 
 def build_text_container(
@@ -77,8 +79,8 @@ async def send_grade_up_message(
         return
     await channel.send(
         embed=discord.Embed(
-            title=messages.LEVEL_UP_TITLE,
-            description=messages.grade_up(
+            title=progression_messages.LEVEL_UP_TITLE,
+            description=progression_messages.grade_up(
                 author_mention=author.mention,
                 old_grade=grade - grade_up_amount,
                 new_grade=grade,
@@ -98,8 +100,8 @@ async def send_prestige_up_message(
         return
     await channel.send(
         embed=discord.Embed(
-            title=messages.PRESTIGE_UP_TITLE,
-            description=messages.prestige_up(
+            title=progression_messages.PRESTIGE_UP_TITLE,
+            description=progression_messages.prestige_up(
                 author_mention=author.mention,
                 old_prestige=prestige - prestige_amount,
                 new_prestige=prestige,
@@ -126,11 +128,14 @@ async def send_prestige_announce(bot: AsteroidBot, member: discord.Member, prest
     channel = as_messageable(bot.get_channel(prestige_announce_channel_id))
     if channel is None or not bot.is_operating_channel(channel):
         return
-    achievement = prestige_role.mention if prestige_role else messages.prestige_name(prestige=prestige)
+    achievement = prestige_role.mention if prestige_role else progression_messages.prestige_name(prestige=prestige)
     await channel.send(
         embed=discord.Embed(
-            title=messages.PRESTIGE_ACHIEVEMENT_TITLE,
-            description=messages.prestige_achievement(member_mention=member.mention, achievement=achievement),
+            title=progression_messages.PRESTIGE_ACHIEVEMENT_TITLE,
+            description=progression_messages.prestige_achievement(
+                member_mention=member.mention,
+                achievement=achievement,
+            ),
             color=AsteroidColor.SUCCESS,
         )
     )
@@ -143,7 +148,7 @@ def build_star_grade_view(
     notice: str | None = None,
 ) -> LevelingLayoutView:
     grade_progress, grade_progress_bar = next_grade_progress(star_grade.grade, star_grade.shard)
-    content = messages.star_grade_details(
+    content = ranking_messages.star_grade_details(
         display_name=user.display_name,
         ranking=star_grade.ranking if isinstance(star_grade, StarGradeRankingData) else None,
         next_grade=star_grade.grade + 1,
@@ -171,13 +176,13 @@ def build_shard_ranking_pages(
     chunks = [star_grades[index : index + page_size] for index in range(0, len(star_grades), page_size)] or [[]]
     for chunk in chunks:
         children: list[discord.ui.Item[GuildScopedLayoutView]] = [
-            discord.ui.TextDisplay(messages.ranking_header(title=title, description=description))
+            discord.ui.TextDisplay(common_messages.ranking_header(title=title, description=description))
         ]
         for star_grade in chunk:
             user = bot.get_user(star_grade.user_id)
-            display_name = user.display_name if user else messages.unknown_member(user_id=star_grade.user_id)
+            display_name = user.display_name if user else common_messages.unknown_member(user_id=star_grade.user_id)
             total_shards = total_shard_amount(star_grade.prestige, star_grade.grade, star_grade.shard)
-            content = messages.shard_ranking_entry(
+            content = ranking_messages.shard_ranking_entry(
                 ranking=format_ranking_position(star_grade.ranking),
                 display_name=display_name,
                 prestige=format_prestige_num(star_grade.prestige),
@@ -197,7 +202,7 @@ def build_shard_ranking_pages(
                     )
                 )
         if not chunk:
-            children.append(discord.ui.TextDisplay(messages.RANKING_NO_DATA))
+            children.append(discord.ui.TextDisplay(common_messages.RANKING_NO_DATA))
         pages.append(discord.ui.Container(*children, accent_color=AsteroidColor.LIGHT_BLUE))
     return pages
 
@@ -208,7 +213,7 @@ def build_power_view(
 ) -> LevelingLayoutView:
     return build_user_view(
         user,
-        messages.power_details(
+        ranking_messages.power_details(
             display_name=user.display_name,
             ranking=monthly_power.ranking if isinstance(monthly_power, MonthlyPowerRankingData) else None,
             text_power=humanize_number(monthly_power.text_power),
@@ -232,11 +237,13 @@ def build_power_ranking_pages(
     for chunk in chunks:
         children: list[discord.ui.Item[GuildScopedLayoutView]] = []
         if show_header:
-            children.append(discord.ui.TextDisplay(messages.ranking_header(title=title, description=description)))
+            children.append(
+                discord.ui.TextDisplay(common_messages.ranking_header(title=title, description=description))
+            )
         for index, monthly_power in enumerate(chunk):
             user = bot.get_user(monthly_power.user_id)
-            display_name = user.display_name if user else messages.unknown_member(user_id=monthly_power.user_id)
-            content = messages.power_ranking_entry(
+            display_name = user.display_name if user else common_messages.unknown_member(user_id=monthly_power.user_id)
+            content = ranking_messages.power_ranking_entry(
                 ranking=format_ranking_position(monthly_power.ranking),
                 display_name=display_name,
                 text_power=humanize_number(monthly_power.text_power),
@@ -256,7 +263,7 @@ def build_power_ranking_pages(
                     )
                 )
         if not chunk:
-            children.append(discord.ui.TextDisplay(messages.RANKING_NO_DATA))
+            children.append(discord.ui.TextDisplay(common_messages.RANKING_NO_DATA))
         pages.append(discord.ui.Container(*children, accent_color=AsteroidColor.PURPLE))
     return pages
 
@@ -269,12 +276,12 @@ def build_hotness_ranking_container(
     description: str,
 ) -> discord.ui.Container:
     children: list[discord.ui.Item[GuildScopedLayoutView]] = [
-        discord.ui.TextDisplay(messages.ranking_header(title=title, description=description))
+        discord.ui.TextDisplay(common_messages.ranking_header(title=title, description=description))
     ]
     for ranking, hotness in enumerate(rankings, start=1):
         user = bot.get_user(hotness.user_id)
-        display_name = user.display_name if user else messages.unknown_member(user_id=hotness.user_id)
-        content = messages.hotness_ranking_entry(
+        display_name = user.display_name if user else common_messages.unknown_member(user_id=hotness.user_id)
+        content = ranking_messages.hotness_ranking_entry(
             ranking=format_ranking_position(ranking),
             display_name=display_name,
             hotness=humanize_number(hotness.hotness),
@@ -291,7 +298,7 @@ def build_hotness_ranking_container(
                 )
             )
     if not rankings:
-        children.append(discord.ui.TextDisplay(messages.RANKING_NO_DATA))
+        children.append(discord.ui.TextDisplay(common_messages.RANKING_NO_DATA))
     return discord.ui.Container(*children, accent_color=AsteroidColor.ORANGE)
 
 
@@ -305,7 +312,7 @@ def build_rank_view(
     total_power = total_monthly_power(monthly_power)
     return build_user_view(
         user,
-        messages.rank_card(
+        ranking_messages.rank_card(
             display_name=user.display_name,
             grade_progress_bar=grade_progress_bar,
             grade_progress=grade_progress,

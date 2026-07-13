@@ -9,9 +9,9 @@ from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
 from app.database.repositories.monthly_powers import MonthlyPowerRankingData
 
-from . import messages
 from .action_power import build_accumulated_action_power_message
 from .build_send_message import LevelingLayoutView, build_power_ranking_pages, build_text_container
+from .messages import ranking as ranking_messages
 
 logger = getLogger(__name__)
 
@@ -21,7 +21,7 @@ def build_monthly_ranking_views(
     monthly_powers: list[MonthlyPowerRankingData],
 ) -> tuple[LevelingLayoutView, LevelingLayoutView, LevelingLayoutView]:
     ranking_text = "\n".join(
-        messages.monthly_ranking_line(ranking=power.ranking, user_id=power.user_id) for power in monthly_powers
+        ranking_messages.monthly_ranking_line(ranking=power.ranking, user_id=power.user_id) for power in monthly_powers
     )
     first_half = build_power_ranking_pages(
         bot,
@@ -42,7 +42,7 @@ def build_monthly_ranking_views(
     return (
         LevelingLayoutView(
             build_text_container(
-                messages.monthly_ranking_announcement(ranking_text=ranking_text),
+                ranking_messages.monthly_ranking_announcement(ranking_text=ranking_text),
                 accent_color=AsteroidColor.SUCCESS,
             )
         ),

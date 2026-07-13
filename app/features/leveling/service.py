@@ -14,7 +14,7 @@ from app.features.leveling.build_send_message import (
 )
 from app.features.leveling.manage_reward_role import sync_grade_prestige_role
 
-from . import messages
+from .messages import voice_xp as voice_xp_messages
 
 logger = getLogger(__name__)
 
@@ -38,7 +38,7 @@ def build_voice_xp_claim_message(
     user: discord.User | discord.Member,
     claim_result: VoiceXPClaimData,
 ) -> str:
-    return messages.voice_xp_claimed(
+    return voice_xp_messages.claimed(
         user_mention=user.mention,
         voice_shard=humanize_number(claim_result.voice_xp_limit.voice_shard),
         voice_power=humanize_number(claim_result.voice_xp_limit.voice_power),

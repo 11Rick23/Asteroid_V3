@@ -12,7 +12,7 @@ from app.features.leveling.build_send_message import (
     build_shard_ranking_pages,
 )
 
-from . import messages
+from .messages import ranking as ranking_messages
 
 RANKING_BOARD_PANEL_ID = "ranking_board"
 RANKING_BOARD_LIMIT = 3
@@ -25,7 +25,7 @@ class RankingBoardPanel:
             RANKING_BOARD_PANEL_ID,
             self.bot.config.leveling.ranking_board_channel_id,
             self.render,
-            offline_description=messages.RANKING_OFFLINE_DESCRIPTION,
+            offline_description=ranking_messages.RANKING_OFFLINE_DESCRIPTION,
         )
 
     async def initialize(self) -> bool:
@@ -47,26 +47,26 @@ class RankingBoardPanel:
         power_pages = build_power_ranking_pages(
             self.bot,
             monthly_powers,
-            title=messages.POWER_RANKING_TITLE,
-            description=messages.power_ranking_description(
-                heading=messages.monthly_power_ranking_heading(limit=RANKING_BOARD_LIMIT),
+            title=ranking_messages.POWER_RANKING_TITLE,
+            description=ranking_messages.power_ranking_description(
+                heading=ranking_messages.monthly_power_ranking_heading(limit=RANKING_BOARD_LIMIT),
                 trailing=AsteroidEmoji.TRANSPARENT,
             ),
         )
         shard_pages = build_shard_ranking_pages(
             self.bot,
             star_grades,
-            title=messages.SHARD_RANKING_TITLE,
-            description=messages.shard_ranking_description(
-                heading=messages.cumulative_shard_ranking_heading(limit=RANKING_BOARD_LIMIT),
+            title=ranking_messages.SHARD_RANKING_TITLE,
+            description=ranking_messages.shard_ranking_description(
+                heading=ranking_messages.cumulative_shard_ranking_heading(limit=RANKING_BOARD_LIMIT),
                 trailing=AsteroidEmoji.TRANSPARENT,
             ),
         )
         hotness_container = build_hotness_ranking_container(
             self.bot,
             hotness,
-            title=messages.HOTNESS_RANKING_TITLE,
-            description=messages.hotness_ranking_description(limit=RANKING_BOARD_LIMIT),
+            title=ranking_messages.HOTNESS_RANKING_TITLE,
+            description=ranking_messages.hotness_ranking_description(limit=RANKING_BOARD_LIMIT),
         )
 
         return PersistentPanelContent(

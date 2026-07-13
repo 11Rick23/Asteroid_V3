@@ -21,7 +21,7 @@ from app.features.leveling.ranking_board import RankingBoardPanel
 from app.features.leveling.setup_command import claim_voice_xp_button
 from app.features.leveling.views import ClaimVoiceXP
 
-from . import messages
+from .messages import voice_xp as voice_xp_messages
 
 logger = getLogger(__name__)
 TOKYO_TZ = ZoneInfo("Asia/Tokyo")
@@ -121,8 +121,8 @@ class LevelingSystemCore(commands.Cog):
         await channel.send(
             view=ClaimVoiceXP(
                 self.bot,
-                title=messages.VOICE_XP_LIMIT_TITLE,
-                description=messages.voice_xp_limit(member_mention=member.mention),
+                title=voice_xp_messages.VOICE_XP_LIMIT_TITLE,
+                description=voice_xp_messages.limit_reached(member_mention=member.mention),
             ),
         )
         logger.debug(

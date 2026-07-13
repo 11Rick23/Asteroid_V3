@@ -10,16 +10,17 @@ from app.common.constants import AsteroidEmoji
 from app.common.layout_pages import LayoutPaginator
 from app.common.pages import PaginatorButton
 from app.core.bot import AsteroidBot
-from app.features.leveling import messages
 from app.features.leveling.build_send_message import build_power_ranking_pages
+from app.features.leveling.messages import common as common_messages
+from app.features.leveling.messages import ranking as ranking_messages
 
 logger = getLogger(__name__)
 
-power_group = app_commands.Group(name="power", description=messages.POWER_GROUP_DESCRIPTION)
+power_group = app_commands.Group(name="power", description=ranking_messages.POWER_GROUP_DESCRIPTION)
 RANKING_PAGE_SIZE = 5
 
 
-@power_group.command(name="top", description=messages.POWER_TOP_DESCRIPTION)
+@power_group.command(name="top", description=ranking_messages.POWER_TOP_DESCRIPTION)
 async def top(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
     monthly_powers = await bot.db.monthly_powers.get_monthly_power_ranking()
@@ -31,17 +32,21 @@ async def top(interaction: discord.Interaction) -> None:
     pages = build_power_ranking_pages(
         bot,
         monthly_powers,
-        title=messages.POWER_RANKING_TITLE,
-        description=messages.power_ranking_description(
-            heading=messages.POWER_TOP_DESCRIPTION,
+        title=ranking_messages.POWER_RANKING_TITLE,
+        description=ranking_messages.power_ranking_description(
+            heading=ranking_messages.POWER_TOP_DESCRIPTION,
             trailing=AsteroidEmoji.TRANSPARENT,
         ),
         page_size=RANKING_PAGE_SIZE,
     )
     paginator = LayoutPaginator(pages=pages, use_default_buttons=False, loop_pages=False, show_disabled=True)
-    paginator.add_button(PaginatorButton("prev", label=messages.PREVIOUS_PAGE_LABEL, style=discord.ButtonStyle.green))
+    paginator.add_button(
+        PaginatorButton("prev", label=common_messages.PREVIOUS_PAGE_LABEL, style=discord.ButtonStyle.green)
+    )
     paginator.add_button(PaginatorButton("page_indicator", style=discord.ButtonStyle.gray))
-    paginator.add_button(PaginatorButton("next", label=messages.NEXT_PAGE_LABEL, style=discord.ButtonStyle.green))
+    paginator.add_button(
+        PaginatorButton("next", label=common_messages.NEXT_PAGE_LABEL, style=discord.ButtonStyle.green)
+    )
     await paginator.respond(interaction)
 
 
