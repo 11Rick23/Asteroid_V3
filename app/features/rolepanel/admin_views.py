@@ -9,6 +9,7 @@ from app.common.command_groups import get_bot
 from app.common.discord_types import as_member
 from app.common.guild_scope import GuildScopedView
 
+from . import messages
 from .service import ROLE_SELECT_LIMIT, role_is_manageable
 
 logger = getLogger(__name__)
@@ -21,13 +22,13 @@ def response_embed(title: str, description: str, *, color: int = 0xB2B1B5) -> di
 
 def role_manage_error(guild: discord.Guild | None, role: discord.Role) -> str | None:
     if guild is None:
-        return "サーバー内で実行してください。"
+        return messages.ROLE_MANAGE_GUILD_REQUIRED
     if role == guild.default_role:
-        return "@everyone はロールパネルに登録できません。"
+        return messages.ROLE_MANAGE_EVERYONE_REJECTED
     if role.managed:
-        return "BOTや外部連携により管理されているロールは登録できません。"
+        return messages.ROLE_MANAGE_MANAGED_REJECTED
     if not role_is_manageable(guild, role):
-        return "このロールはBOTから操作できません。BOTのロール順と権限を確認してください。"
+        return messages.ROLE_MANAGE_UNMANAGEABLE
     return None
 
 
@@ -48,7 +49,7 @@ class RolePanelAdminRoleSelect(discord.ui.RoleSelect["RolePanelAdminRoleEditView
     ):
         super().__init__(
             custom_id=f"rolepanel_admin_roles:{category_id}:{actor_id}",
-            placeholder="カテゴリに表示するロールを選択",
+            placeholder=messages.ADMIN_ROLE_SELECT_PLACEHOLDER,
             min_values=0,
             max_values=ROLE_SELECT_LIMIT,
             default_values=role_default_values(role_ids),
@@ -66,13 +67,17 @@ class RolePanelAdminRoleSelect(discord.ui.RoleSelect["RolePanelAdminRoleEditView
                 f"category_id={self.category_id}"
             )
             await interaction.response.send_message(
-                embed=response_embed("権限がありません", "この操作を実行する権限がありません。"),
+                embed=response_embed(
+                    messages.ROLE_EDIT_PERMISSION_REQUIRED.title, messages.ROLE_EDIT_PERMISSION_REQUIRED.description
+                ),
                 ephemeral=True,
             )
             return
         if interaction.guild is None:
             await interaction.response.send_message(
-                embed=response_embed("実行できません", "サーバー内で実行してください。"),
+                embed=response_embed(
+                    messages.GUILD_EXECUTION_REQUIRED.title, messages.GUILD_EXECUTION_REQUIRED.description
+                ),
                 ephemeral=True,
             )
             return
@@ -88,7 +93,7 @@ class RolePanelAdminRoleSelect(discord.ui.RoleSelect["RolePanelAdminRoleEditView
         updated = await get_bot(interaction).db.role_panel.set_roles(self.category_id, role_ids)
         if updated is None:
             await interaction.response.send_message(
-                embed=response_embed("カテゴリが見つかりません", "指定されたカテゴリが見つかりません。"),
+                embed=response_embed(messages.CATEGORY_NOT_FOUND.title, messages.CATEGORY_NOT_FOUND.description),
                 ephemeral=True,
             )
             return
@@ -101,13 +106,12 @@ class RolePanelAdminRoleSelect(discord.ui.RoleSelect["RolePanelAdminRoleEditView
             f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "
             f"category_id={self.category_id} role_ids={role_ids} rejected_role_ids={rejected_role_ids}"
         )
-        message = f"カテゴリのロールを `{len(role_ids)}` 件に更新しました。"
-        if rejected_roles:
-            message += "\n次のロールはBOTから操作できないため除外しました: " + ", ".join(
-                role.mention for role in rejected_roles
-            )
+        message = messages.admin_role_update(
+            role_count=len(role_ids),
+            rejected_role_mentions=[role.mention for role in rejected_roles],
+        )
         await interaction.followup.send(
-            embed=response_embed("ロールを更新しました", message),
+            embed=response_embed(messages.ROLE_UPDATED_TITLE, message),
             ephemeral=True,
         )
 

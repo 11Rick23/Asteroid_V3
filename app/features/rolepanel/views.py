@@ -8,6 +8,7 @@ from app.common.constants import AsteroidColor
 from app.common.guild_scope import GuildScopedLayoutView, GuildScopedModal
 from app.database.repositories.role_panel import RolePanelCategoryDetail
 
+from . import messages
 from .service import RolePanelService, get_visible_category_roles, member_needs_boost
 
 logger = getLogger(__name__)
@@ -60,7 +61,7 @@ class RolePanelRoleModal(GuildScopedModal):
         options: list[discord.CheckboxGroupOption],
     ) -> None:
         super().__init__(
-            title=f"{category.name[:35]} のロール選択",
+            title=messages.role_select_modal_title(category_name=category.name),
             custom_id=f"rolepanel_roles:{category.category_id}:{member.id}",
             timeout=300,
         )
@@ -92,7 +93,7 @@ class RolePanelRoleModal(GuildScopedModal):
             f"owner_id={self.member_id} category_id={self.category_id}"
         )
         await interaction.response.send_message(
-            embed=_response_embed("操作できません", "このロール選択画面はあなた専用です。"),
+            embed=_response_embed(messages.ROLE_SELECT_OWNER_ONLY.title, messages.ROLE_SELECT_OWNER_ONLY.description),
             ephemeral=True,
         )
         return False
@@ -102,17 +103,15 @@ class RolePanelRoleModal(GuildScopedModal):
         selected_role_ids = {int(value) for checkbox_group in self.checkbox_groups for value in checkbox_group.values}
         message = await self.service.sync_member_roles(interaction, self.category_id, selected_role_ids)
         await interaction.followup.send(
-            embed=_response_embed("ロールを同期しました", message or "ロールを同期しました。"),
+            embed=_response_embed(messages.ROLE_SYNCED_TITLE, message or messages.ROLE_SYNCED),
             ephemeral=True,
         )
 
 
 class RolePanelBoostRequiredModal(GuildScopedModal):
     def __init__(self) -> None:
-        super().__init__(title="ブースター専用ロール", timeout=300)
-        self.add_item(
-            discord.ui.TextDisplay("このカテゴリのロールを入手するにはサーバーをブーストする必要があります。")
-        )
+        super().__init__(title=messages.BOOST_REQUIRED_MODAL_TITLE, timeout=300)
+        self.add_item(discord.ui.TextDisplay(messages.BOOST_REQUIRED_MODAL_CONTENT))
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer(ephemeral=True)
@@ -121,7 +120,7 @@ class RolePanelBoostRequiredModal(GuildScopedModal):
 class RolePanelCategoryButton(discord.ui.Button["RolePanelView"]):
     def __init__(self, service: RolePanelService, category: RolePanelCategoryDetail):
         super().__init__(
-            label="ロールを選択"[:CATEGORY_BUTTON_LABEL_LIMIT],
+            label=messages.ROLE_SELECT_BUTTON_LABEL[:CATEGORY_BUTTON_LABEL_LIMIT],
             style=discord.ButtonStyle.secondary,
             custom_id=f"rolepanel_category:{category.category_id}",
             disabled=not category.roles,
@@ -133,7 +132,7 @@ class RolePanelCategoryButton(discord.ui.Button["RolePanelView"]):
         if interaction.guild is None or not isinstance(interaction.user, discord.Member):
             logger.warning(f"ロールパネルカテゴリボタンをサーバー外で受信しました: category_id={self.category_id}")
             await interaction.response.send_message(
-                embed=_response_embed("実行できません", "サーバー内でのみ使用できます。"),
+                embed=_response_embed(messages.GUILD_ONLY.title, messages.GUILD_ONLY.description),
                 ephemeral=True,
             )
             return
@@ -145,7 +144,7 @@ class RolePanelCategoryButton(discord.ui.Button["RolePanelView"]):
                 f"guild_id={interaction.guild.id} actor_id={interaction.user.id} category_id={self.category_id}"
             )
             await interaction.response.send_message(
-                embed=_response_embed("カテゴリが見つかりません", "このカテゴリは存在しません。"),
+                embed=_response_embed(messages.CATEGORY_MISSING.title, messages.CATEGORY_MISSING.description),
                 ephemeral=True,
             )
             return
@@ -162,7 +161,7 @@ class RolePanelCategoryButton(discord.ui.Button["RolePanelView"]):
         options = build_role_checkbox_options(category, interaction.user)
         if not options:
             await interaction.response.send_message(
-                embed=_response_embed("ロール未設定", "このカテゴリには選択可能なロールが設定されていません。"),
+                embed=_response_embed(messages.ROLE_UNSET.title, messages.ROLE_UNSET.description),
                 ephemeral=True,
             )
             return
@@ -173,32 +172,32 @@ class RolePanelCategoryButton(discord.ui.Button["RolePanelView"]):
 class RolePanelView(GuildScopedLayoutView):
     def __init__(self, service: RolePanelService, categories: list[RolePanelCategoryDetail]):
         super().__init__(timeout=None)
-        self.add_item(
-            discord.ui.TextDisplay(
-                "# 🎭 ロールパネル\nカテゴリごとのボタンから、付け外ししたいロールを選択してください。"
-            )
-        )
+        self.add_item(discord.ui.TextDisplay(messages.PANEL_CONTENT))
 
         if not categories:
             self.add_item(
                 discord.ui.Container(
-                    discord.ui.TextDisplay("### カテゴリ未設定\n管理者がカテゴリを追加するまで利用できません。"),
+                    discord.ui.TextDisplay(messages.PANEL_CATEGORY_UNSET),
                     accent_color=AsteroidColor.GRAY,
                 )
             )
             return
 
         for index, category in enumerate(categories[:PANEL_CATEGORY_LIMIT]):
-            description = category.description or "説明未設定"
-            if category.requires_boost:
-                description = f"{description}\n\n-# サーバーブースター限定"
+            description = category.description or messages.DESCRIPTION_UNSET
             self.add_item(
                 discord.ui.Container(
-                    discord.ui.TextDisplay(f"### {category.name}\n{description}"),
+                    discord.ui.TextDisplay(
+                        messages.category_panel_content(
+                            category_name=category.name,
+                            description=description,
+                            requires_boost=category.requires_boost,
+                        )
+                    ),
                     discord.ui.ActionRow(RolePanelCategoryButton(service, category)),
                     accent_color=ROLE_PANEL_ACCENT_COLORS[index % len(ROLE_PANEL_ACCENT_COLORS)],
                 )
             )
 
         if len(categories) > PANEL_CATEGORY_LIMIT:
-            self.add_item(discord.ui.TextDisplay(f"-# 表示対象は先頭{PANEL_CATEGORY_LIMIT}カテゴリです。"))
+            self.add_item(discord.ui.TextDisplay(messages.category_limit_notice(category_limit=PANEL_CATEGORY_LIMIT)))

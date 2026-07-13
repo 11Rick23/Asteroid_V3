@@ -11,6 +11,8 @@ from app.common.constants import AsteroidColor
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
 
+from . import messages
+
 logger = getLogger(__name__)
 
 op_permissions = discord.PermissionOverwrite(
@@ -118,7 +120,7 @@ class FreeCategoryService:
                 f"channel_id={interaction.channel_id} user_id={interaction.user.id}"
             )
             await interaction.response.send_message(
-                "このコマンドはテキストチャンネルでのみ使えます。",
+                messages.TEXT_CHANNEL_ONLY,
                 ephemeral=ephemeral,
             )
             return None
@@ -128,7 +130,7 @@ class FreeCategoryService:
                 f"channel_id={channel.id} user_id={interaction.user.id}"
             )
             await interaction.response.send_message(
-                "あなたはこのチャンネルの管理者ではありません。",
+                messages.CHANNEL_MANAGER_REQUIRED,
                 ephemeral=ephemeral,
             )
             return None
@@ -163,7 +165,7 @@ class FreeCategoryService:
         """チャンネルをアーカイブカテゴリへ移動し、通知メッセージを送る。"""
         archive_category = self.get_category(channel.guild, self.bot.config.free_category.fc_archive_category_id)
         if archive_category is None:
-            raise ValueError("`fc_archive_category_id` が未設定です。")
+            raise ValueError(messages.ARCHIVE_CATEGORY_NOT_CONFIGURED)
 
         await channel.edit(
             category=archive_category,
@@ -178,9 +180,9 @@ class FreeCategoryService:
 
         embed = discord.Embed(
             color=AsteroidColor.DARK_BLUE,
-            title="このチャンネルはアーカイブ行きになりました。",
+            title=messages.ARCHIVED_TITLE,
         )
-        embed.add_field(name="理由", value=reason, inline=False)
+        embed.add_field(name=messages.ARCHIVE_REASON_FIELD, value=reason, inline=False)
         await channel.send(embed=embed)
 
     async def prepare_free_category_slot(self, guild: discord.Guild) -> None:
@@ -188,9 +190,9 @@ class FreeCategoryService:
         free_category = self.get_category(guild, self.bot.config.free_category.free_category_id)
         minor_category = self.get_category(guild, self.bot.config.free_category.minor_category_id)
         if free_category is None:
-            raise ValueError("`free_category_id` が未設定です。")
+            raise ValueError(messages.FREE_CATEGORY_NOT_CONFIGURED)
         if minor_category is None:
-            raise ValueError("`minor_category_id` が未設定です。")
+            raise ValueError(messages.MINOR_CATEGORY_NOT_CONFIGURED)
 
         free_limit = self.bot.config.free_category.free_category_channel_limit
         free_channels = self.get_channels_in_category(free_category, managed_only=True)
@@ -212,34 +214,34 @@ class FreeCategoryService:
         if minor_limit > 0 and len(minor_channels) > minor_limit and minor_channels:
             channel_to_archive = minor_channels[-1]
             if isinstance(channel_to_archive, discord.TextChannel):
-                await self.archive_channel(channel_to_archive, "マイナーカテゴリーの最下部に位置するため。")
+                await self.archive_channel(channel_to_archive, messages.MINOR_BOTTOM_ARCHIVE_REASON)
 
     async def create_channel(self, interaction: discord.Interaction, channel_name: str) -> discord.TextChannel:
         """フリーカテゴリーに新しいテキストチャンネルを作成する。"""
         guild = interaction.guild
         if guild is None:
-            raise ValueError("サーバー内でのみ利用できます。")
+            raise ValueError(messages.GUILD_ONLY)
 
         free_category = self.get_category(guild, self.bot.config.free_category.free_category_id)
         if free_category is None:
-            raise ValueError("`free_category_id` が未設定です。")
+            raise ValueError(messages.FREE_CATEGORY_NOT_CONFIGURED)
 
         clean_name = channel_name.strip()
         if not clean_name:
-            raise ValueError("チャンネル名を入力してください。")
+            raise ValueError(messages.CHANNEL_NAME_REQUIRED)
 
         await self.prepare_free_category_slot(guild)
 
         overwrites = dict(free_category.overwrites)
         if not isinstance(interaction.user, discord.Member):
-            raise ValueError("サーバー内でのみ利用できます。")
+            raise ValueError(messages.GUILD_ONLY)
         overwrites[interaction.user] = op_permissions
         reason = f"[{generate_timestamp()}] フリーチャンネル作成。"
         new_channel = await guild.create_text_channel(
             name=clean_name,
             category=free_category,
             overwrites=overwrites,
-            topic=f"{interaction.user.mention} のチャンネルです！ \n作成日時 : {generate_timestamp()}",
+            topic=messages.channel_topic(creator_mention=interaction.user.mention, created_at=generate_timestamp()),
             reason=reason,
         )
         await new_channel.move(end=True, offset=-3, category=free_category, reason=reason)
@@ -313,8 +315,8 @@ class FreeCategoryService:
 
             embed = discord.Embed(
                 color=AsteroidColor.LIGHT_GREEN,
-                title="チャンネルがBUMPされました！",
-                description=f"`{before_label}` -> `{after_label}`",
+                title=messages.BUMPED_TITLE,
+                description=messages.changed_value(old_value=before_label, new_value=after_label),
             )
             await message.channel.send(embed=embed)
             logger.debug(
@@ -348,8 +350,8 @@ class FreeCategoryService:
             )
             embed = discord.Embed(
                 color=AsteroidColor.DARK_PURPLE,
-                title="おめでとうございます！",
-                description=f"{message.channel.mention} は殿堂入りしました！",
+                title=messages.PROMOTION_TITLE,
+                description=messages.hall_of_fame_message(channel_mention=message.channel.mention),
             )
             await message.channel.send(embed=embed)
             logger.debug(
@@ -377,8 +379,8 @@ class FreeCategoryService:
             )
             embed = discord.Embed(
                 color=AsteroidColor.DARK_PURPLE,
-                title="おめでとうございます！",
-                description=f"{message.channel.mention} はフリーカテゴリーに昇格しました！",
+                title=messages.PROMOTION_TITLE,
+                description=messages.promoted(channel_mention=message.channel.mention),
             )
             await message.channel.send(embed=embed)
             logger.debug(

@@ -11,6 +11,7 @@ from app.common.constants import AsteroidColor
 from app.common.discord_types import as_text_channel
 from app.core.bot import AsteroidBot
 
+from . import messages
 from .commands import setup_starboard, starboard_group
 
 logger = getLogger(__name__)
@@ -110,11 +111,15 @@ class Starboard(commands.Cog):
                 )
                 return
 
-            starboard_content, starboard_embed = await self._build_starboard(message, star_amount)
+            starboard_message_content, starboard_embed = await self._build_starboard(message, star_amount)
             starboard_embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar.url)
-            starboard_embed.add_field(name="元のメッセージ", value=f"[リンク]({message.jump_url})", inline=False)
+            starboard_embed.add_field(
+                name=messages.ORIGINAL_MESSAGE_FIELD,
+                value=messages.original_message_link(jump_url=message.jump_url),
+                inline=False,
+            )
             starboard_embed.set_footer(text=str(message.id))
-            await starboard_message.edit(content=starboard_content, embed=starboard_embed)
+            await starboard_message.edit(content=starboard_message_content, embed=starboard_embed)
             updated = await self.bot.db.starred_messages.set_star_amount(message.id, star_amount)
             if not updated:
                 logger.warning(f"スターボード更新対象が DB に存在しませんでした: message_id={message.id}")
@@ -130,11 +135,15 @@ class Starboard(commands.Cog):
             logger.warning("スターボードチャンネルが未設定または未解決です。")
             return
 
-        starboard_content, starboard_embed = await self._build_starboard(starred_message, star_amount)
+        starboard_message_content, starboard_embed = await self._build_starboard(starred_message, star_amount)
         starboard_embed.set_author(
             name=starred_message.author.display_name, icon_url=starred_message.author.display_avatar.url
         )
-        starboard_embed.add_field(name="元のメッセージ", value=f"[リンク]({starred_message.jump_url})", inline=False)
+        starboard_embed.add_field(
+            name=messages.ORIGINAL_MESSAGE_FIELD,
+            value=messages.original_message_link(jump_url=starred_message.jump_url),
+            inline=False,
+        )
         starboard_embed.set_footer(text=str(starred_message.id))
 
         lock = self._locks.setdefault(starred_message.id, asyncio.Lock())
@@ -142,7 +151,7 @@ class Starboard(commands.Cog):
             starred_message_data = await self.bot.db.starred_messages.get_starred_message(starred_message.id)
             if starred_message_data is None:
                 first_starboard_message = await starboard_channel.send(
-                    content=starboard_content, embed=starboard_embed
+                    content=starboard_message_content, embed=starboard_embed
                 )
                 await self.bot.db.starred_messages.create_starred_message(
                     starred_message.id,
@@ -162,7 +171,7 @@ class Starboard(commands.Cog):
             starboard_message = self.bot.get_message(starred_message_data.starboard_message_id)
             if starboard_message is None:
                 starboard_message = await starboard_channel.fetch_message(starred_message_data.starboard_message_id)
-            await starboard_message.edit(content=starboard_content, embed=starboard_embed)
+            await starboard_message.edit(content=starboard_message_content, embed=starboard_embed)
             updated = await self.bot.db.starred_messages.set_star_amount(starred_message.id, star_amount)
             if not updated:
                 logger.warning(f"スターボード更新対象が DB に存在しませんでした: message_id={starred_message.id}")
@@ -190,11 +199,18 @@ class Starboard(commands.Cog):
         if images:
             embed.set_image(url=images[0])
         if files:
-            embed.add_field(name="添付ファイル", value="\n".join(files))
+            embed.add_field(name=messages.ATTACHMENT_FIELD, value="\n".join(files))
         channel_mention = getattr(starred_message.channel, "mention", None)
         if not isinstance(channel_mention, str):
             channel_mention = f"<#{starred_message.channel.id}>"
-        return f"{self.get_star_emoji(star_amount)} **{star_amount}** {channel_mention}", embed
+        return (
+            messages.starboard_content(
+                emoji=self.get_star_emoji(star_amount),
+                star_amount=star_amount,
+                channel_mention=channel_mention,
+            ),
+            embed,
+        )
 
     def get_star_emoji(self, star_amount: int) -> str:
         return "🌟" if star_amount < 10 else "💫"

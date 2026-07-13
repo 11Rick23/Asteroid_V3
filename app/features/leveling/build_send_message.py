@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import discord
 
-from app.common.constants import AsteroidColor, AsteroidEmoji
+from app.common.constants import AsteroidColor
 from app.common.discord_types import as_messageable
 from app.common.guild_scope import GuildScopedLayoutView
 from app.common.utils import humanize_number
@@ -11,6 +11,8 @@ from app.database.repositories.leveling_hotness import LevelingHotnessRankingDat
 from app.database.repositories.monthly_powers import MonthlyPowerData, MonthlyPowerRankingData
 from app.database.repositories.star_grades import StarGradeData, StarGradeRankingData
 from app.features.leveling.domain.math_calculation import next_grade_progress, total_shard_amount
+
+from . import messages
 
 
 class LevelingLayoutView(GuildScopedLayoutView):
@@ -25,8 +27,7 @@ def total_monthly_power(monthly_power: MonthlyPowerData | MonthlyPowerRankingDat
 
 
 def format_ranking_position(ranking: int) -> str:
-    medals = ("🥇", "🥈", "🥉")
-    return medals[ranking - 1] if 1 <= ranking <= len(medals) else f"{ranking}位"
+    return messages.ranking_position(ranking=ranking)
 
 
 def build_text_container(
@@ -76,8 +77,12 @@ async def send_grade_up_message(
         return
     await channel.send(
         embed=discord.Embed(
-            title="レベルアップ！",
-            description=f"{author.mention}さんがGrade. {grade - grade_up_amount}からGrade. {grade}へグレードアップ！",
+            title=messages.LEVEL_UP_TITLE,
+            description=messages.grade_up(
+                author_mention=author.mention,
+                old_grade=grade - grade_up_amount,
+                new_grade=grade,
+            ),
             color=discord.Color.random(),
         )
     )
@@ -93,9 +98,11 @@ async def send_prestige_up_message(
         return
     await channel.send(
         embed=discord.Embed(
-            title="プレステージ！",
-            description=(
-                f"{author.mention}さんがPrestige. {prestige - prestige_amount}からPrestige. {prestige}へプレステージ！"
+            title=messages.PRESTIGE_UP_TITLE,
+            description=messages.prestige_up(
+                author_mention=author.mention,
+                old_prestige=prestige - prestige_amount,
+                new_prestige=prestige,
             ),
             color=discord.Color.random(),
         )
@@ -119,11 +126,11 @@ async def send_prestige_announce(bot: AsteroidBot, member: discord.Member, prest
     channel = as_messageable(bot.get_channel(prestige_announce_channel_id))
     if channel is None or not bot.is_operating_channel(channel):
         return
-    achievement = prestige_role.mention if prestige_role else f"プレステージ{prestige}"
+    achievement = prestige_role.mention if prestige_role else messages.prestige_name(prestige=prestige)
     await channel.send(
         embed=discord.Embed(
-            title="プレステージ達成！",
-            description=f"{member.mention}さんが{achievement}を達成しました！\nおめでとうございます！",
+            title=messages.PRESTIGE_ACHIEVEMENT_TITLE,
+            description=messages.prestige_achievement(member_mention=member.mention, achievement=achievement),
             color=AsteroidColor.SUCCESS,
         )
     )
@@ -136,18 +143,18 @@ def build_star_grade_view(
     notice: str | None = None,
 ) -> LevelingLayoutView:
     grade_progress, grade_progress_bar = next_grade_progress(star_grade.grade, star_grade.shard)
-    ranking = f"現在の順位: {star_grade.ranking}位\n\n" if isinstance(star_grade, StarGradeRankingData) else ""
-    content = (
-        f"# {user.display_name}のシャード\n"
-        f"{ranking}"
-        f"{AsteroidEmoji.GRADE}Grade. {star_grade.grade + 1}までの進捗ケージ\n"
-        f"## {grade_progress_bar} {grade_progress}%\n\n"
-        f"### プレステージ数\n{AsteroidEmoji.PRESTIGE} {format_prestige_num(star_grade.prestige)}\n"
-        f"### グレード数\n{AsteroidEmoji.GRADE} {star_grade.grade}\n"
-        f"### シャード数\n{AsteroidEmoji.SHARD} {humanize_number(star_grade.shard)}\n"
-        f"### 累計テキストシャード数\n{AsteroidEmoji.TEXT_SHARD} {humanize_number(star_grade.text_shard)}\n"
-        f"### 累計ボイスシャード数\n{AsteroidEmoji.VOICE_SHARD} {humanize_number(star_grade.voice_shard)}\n"
-        f"### 累計ボーナスシャード\n{AsteroidEmoji.BONUS_SHARD} {humanize_number(star_grade.bonus_shard)}"
+    content = messages.star_grade_details(
+        display_name=user.display_name,
+        ranking=star_grade.ranking if isinstance(star_grade, StarGradeRankingData) else None,
+        next_grade=star_grade.grade + 1,
+        grade_progress_bar=grade_progress_bar,
+        grade_progress=grade_progress,
+        prestige=format_prestige_num(star_grade.prestige),
+        grade=star_grade.grade,
+        shard=humanize_number(star_grade.shard),
+        text_shard=humanize_number(star_grade.text_shard),
+        voice_shard=humanize_number(star_grade.voice_shard),
+        bonus_shard=humanize_number(star_grade.bonus_shard),
     )
     return build_user_view(user, content, notice=notice)
 
@@ -163,17 +170,20 @@ def build_shard_ranking_pages(
     pages: list[discord.ui.Container] = []
     chunks = [star_grades[index : index + page_size] for index in range(0, len(star_grades), page_size)] or [[]]
     for chunk in chunks:
-        children: list[discord.ui.Item[GuildScopedLayoutView]] = [discord.ui.TextDisplay(f"# {title}\n{description}")]
+        children: list[discord.ui.Item[GuildScopedLayoutView]] = [
+            discord.ui.TextDisplay(messages.ranking_header(title=title, description=description))
+        ]
         for star_grade in chunk:
             user = bot.get_user(star_grade.user_id)
-            display_name = user.display_name if user else f"不明なメンバー [{star_grade.user_id}]"
+            display_name = user.display_name if user else messages.unknown_member(user_id=star_grade.user_id)
             total_shards = total_shard_amount(star_grade.prestige, star_grade.grade, star_grade.shard)
-            content = (
-                f"### {format_ranking_position(star_grade.ranking)}: {display_name}\n"
-                f"{AsteroidEmoji.PRESTIGE} {format_prestige_num(star_grade.prestige)}"
-                f"{AsteroidEmoji.TRANSPARENT}{AsteroidEmoji.GRADE} {star_grade.grade}"
-                f"{AsteroidEmoji.TRANSPARENT}{AsteroidEmoji.SHARD} {humanize_number(star_grade.shard)}\n"
-                f"合計: {humanize_number(total_shards)}"
+            content = messages.shard_ranking_entry(
+                ranking=format_ranking_position(star_grade.ranking),
+                display_name=display_name,
+                prestige=format_prestige_num(star_grade.prestige),
+                grade=star_grade.grade,
+                shard=humanize_number(star_grade.shard),
+                total_shards=humanize_number(total_shards),
             )
             if len(children) > 1:
                 children.append(discord.ui.Separator())
@@ -187,7 +197,7 @@ def build_shard_ranking_pages(
                     )
                 )
         if not chunk:
-            children.append(discord.ui.TextDisplay("ランキングデータはありません。"))
+            children.append(discord.ui.TextDisplay(messages.RANKING_NO_DATA))
         pages.append(discord.ui.Container(*children, accent_color=AsteroidColor.LIGHT_BLUE))
     return pages
 
@@ -196,16 +206,15 @@ def build_power_view(
     user: discord.abc.User,
     monthly_power: MonthlyPowerData | MonthlyPowerRankingData,
 ) -> LevelingLayoutView:
-    ranking = (
-        f"現在の順位: {monthly_power.ranking}位\n\n" if isinstance(monthly_power, MonthlyPowerRankingData) else ""
-    )
     return build_user_view(
         user,
-        f"# {user.display_name}のパワー\n"
-        f"{ranking}"
-        f"### テキストパワー数\n{AsteroidEmoji.TEXT_POWER} {humanize_number(monthly_power.text_power)}\n"
-        f"### ボイスパワー数\n{AsteroidEmoji.VOICE_POWER} {humanize_number(monthly_power.voice_power)}\n"
-        f"### アクションパワー数\n{AsteroidEmoji.ACTION_POWER} {humanize_number(monthly_power.action_power)}",
+        messages.power_details(
+            display_name=user.display_name,
+            ranking=monthly_power.ranking if isinstance(monthly_power, MonthlyPowerRankingData) else None,
+            text_power=humanize_number(monthly_power.text_power),
+            voice_power=humanize_number(monthly_power.voice_power),
+            action_power=humanize_number(monthly_power.action_power),
+        ),
     )
 
 
@@ -223,18 +232,17 @@ def build_power_ranking_pages(
     for chunk in chunks:
         children: list[discord.ui.Item[GuildScopedLayoutView]] = []
         if show_header:
-            children.append(discord.ui.TextDisplay(f"# {title}\n{description}"))
+            children.append(discord.ui.TextDisplay(messages.ranking_header(title=title, description=description)))
         for index, monthly_power in enumerate(chunk):
             user = bot.get_user(monthly_power.user_id)
-            display_name = user.display_name if user else f"不明なメンバー [{monthly_power.user_id}]"
-            content = (
-                f"### {format_ranking_position(monthly_power.ranking)}: {display_name}\n"
-                f"{AsteroidEmoji.TEXT_POWER} {humanize_number(monthly_power.text_power)}"
-                f"{AsteroidEmoji.TRANSPARENT}{AsteroidEmoji.VOICE_POWER} "
-                f"{humanize_number(monthly_power.voice_power)}"
-                f"{AsteroidEmoji.TRANSPARENT}{AsteroidEmoji.ACTION_POWER} "
-                f"{humanize_number(monthly_power.action_power)}\n"
-                f"合計: {humanize_number(total_monthly_power(monthly_power))}"
+            display_name = user.display_name if user else messages.unknown_member(user_id=monthly_power.user_id)
+            content = messages.power_ranking_entry(
+                ranking=format_ranking_position(monthly_power.ranking),
+                display_name=display_name,
+                text_power=humanize_number(monthly_power.text_power),
+                voice_power=humanize_number(monthly_power.voice_power),
+                action_power=humanize_number(monthly_power.action_power),
+                total_power=humanize_number(total_monthly_power(monthly_power)),
             )
             if index > 0:
                 children.append(discord.ui.Separator())
@@ -248,7 +256,7 @@ def build_power_ranking_pages(
                     )
                 )
         if not chunk:
-            children.append(discord.ui.TextDisplay("ランキングデータはありません。"))
+            children.append(discord.ui.TextDisplay(messages.RANKING_NO_DATA))
         pages.append(discord.ui.Container(*children, accent_color=AsteroidColor.PURPLE))
     return pages
 
@@ -260,12 +268,16 @@ def build_hotness_ranking_container(
     title: str,
     description: str,
 ) -> discord.ui.Container:
-    children: list[discord.ui.Item[GuildScopedLayoutView]] = [discord.ui.TextDisplay(f"# {title}\n{description}")]
+    children: list[discord.ui.Item[GuildScopedLayoutView]] = [
+        discord.ui.TextDisplay(messages.ranking_header(title=title, description=description))
+    ]
     for ranking, hotness in enumerate(rankings, start=1):
         user = bot.get_user(hotness.user_id)
-        display_name = user.display_name if user else f"不明なメンバー [{hotness.user_id}]"
-        content = (
-            f"### {format_ranking_position(ranking)}: {display_name}\n🔥 合計: {humanize_number(hotness.hotness)}"
+        display_name = user.display_name if user else messages.unknown_member(user_id=hotness.user_id)
+        content = messages.hotness_ranking_entry(
+            ranking=format_ranking_position(ranking),
+            display_name=display_name,
+            hotness=humanize_number(hotness.hotness),
         )
         if len(children) > 1:
             children.append(discord.ui.Separator())
@@ -279,7 +291,7 @@ def build_hotness_ranking_container(
                 )
             )
     if not rankings:
-        children.append(discord.ui.TextDisplay("ランキングデータはありません。"))
+        children.append(discord.ui.TextDisplay(messages.RANKING_NO_DATA))
     return discord.ui.Container(*children, accent_color=AsteroidColor.ORANGE)
 
 
@@ -293,19 +305,24 @@ def build_rank_view(
     total_power = total_monthly_power(monthly_power)
     return build_user_view(
         user,
-        f"# {user.display_name}のランクカード\n"
-        f"次のグレードまで…\n## {grade_progress_bar} {grade_progress}%\n"
-        f"### {humanize_number(total_shards)}シャード - 現在{star_grade.ranking}位\n"
-        f"{AsteroidEmoji.PRESTIGE} {format_prestige_num(star_grade.prestige)}"
-        f"{AsteroidEmoji.TRANSPARENT}{AsteroidEmoji.GRADE} {star_grade.grade}"
-        f"{AsteroidEmoji.TRANSPARENT}{AsteroidEmoji.SHARD} {humanize_number(star_grade.shard)}\n"
-        f"{AsteroidEmoji.TEXT_SHARD} {humanize_number(star_grade.text_shard)}"
-        f"{AsteroidEmoji.TRANSPARENT}{AsteroidEmoji.VOICE_SHARD} {humanize_number(star_grade.voice_shard)}"
-        f"{AsteroidEmoji.TRANSPARENT}{AsteroidEmoji.BONUS_SHARD} {humanize_number(star_grade.bonus_shard)}\n\n"
-        f"### {humanize_number(total_power)}パワー - 現在{monthly_power.ranking}位\n"
-        f"{AsteroidEmoji.TEXT_POWER} {humanize_number(monthly_power.text_power)}"
-        f"{AsteroidEmoji.TRANSPARENT}{AsteroidEmoji.VOICE_POWER} {humanize_number(monthly_power.voice_power)}"
-        f"{AsteroidEmoji.TRANSPARENT}{AsteroidEmoji.ACTION_POWER} {humanize_number(monthly_power.action_power)}",
+        messages.rank_card(
+            display_name=user.display_name,
+            grade_progress_bar=grade_progress_bar,
+            grade_progress=grade_progress,
+            total_shards=humanize_number(total_shards),
+            shard_ranking=star_grade.ranking,
+            prestige=format_prestige_num(star_grade.prestige),
+            grade=star_grade.grade,
+            shard=humanize_number(star_grade.shard),
+            text_shard=humanize_number(star_grade.text_shard),
+            voice_shard=humanize_number(star_grade.voice_shard),
+            bonus_shard=humanize_number(star_grade.bonus_shard),
+            total_power=humanize_number(total_power),
+            power_ranking=monthly_power.ranking,
+            text_power=humanize_number(monthly_power.text_power),
+            voice_power=humanize_number(monthly_power.voice_power),
+            action_power=humanize_number(monthly_power.action_power),
+        ),
     )
 
 

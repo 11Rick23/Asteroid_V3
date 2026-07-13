@@ -32,6 +32,9 @@ mise.toml        ローカルタスク定義
 pyproject.toml   Python 依存関係・Ruff 設定・開発ツール定義
 ```
 
+各機能のユーザー向け表示文言は `app/features/<feature>/messages.py` に置き、固定文言は定数、
+変数を含む文言は型付き関数として管理します。
+
 ## 各機能の要約
 
 機能 | 概要

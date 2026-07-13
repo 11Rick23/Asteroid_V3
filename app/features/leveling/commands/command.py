@@ -12,6 +12,7 @@ from app.common.command_groups import get_bot, register_command, register_setup_
 from app.common.discord_types import as_messageable
 from app.common.permissions import admin_only
 from app.core.bot import AsteroidBot
+from app.features.leveling import messages
 from app.features.leveling.build_send_message import build_rank_view, send_prestige_announce
 from app.features.leveling.manage_reward_role import sync_grade_prestige_role
 from app.features.leveling.service import (
@@ -23,7 +24,7 @@ from app.features.leveling.service import (
 logger = getLogger(__name__)
 
 
-@app_commands.command(name="claim_voice_xp", description="VC経験値を獲得します")
+@app_commands.command(name="claim_voice_xp", description=messages.CLAIM_DESCRIPTION)
 async def claim_voice_xp(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
     await interaction.response.defer()
@@ -34,7 +35,7 @@ async def claim_voice_xp(interaction: discord.Interaction) -> None:
             f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
             f"user_id={interaction.user.id} result=no_rewards"
         )
-        await interaction.followup.send("VC経験値を獲得していません")
+        await interaction.followup.send(messages.VOICE_XP_NOT_EARNED)
         return
 
     logger.debug(
@@ -48,9 +49,9 @@ async def claim_voice_xp(interaction: discord.Interaction) -> None:
     await apply_voice_xp_claim_side_effects(bot, as_messageable(interaction.channel), interaction.user, claim_result)
 
 
-@app_commands.command(name="rank", description="自分の順位を表示します")
-@app_commands.rename(user="ユーザー")
-@app_commands.describe(user="順位を表示するユーザー")
+@app_commands.command(name="rank", description=messages.RANK_DESCRIPTION)
+@app_commands.rename(user=messages.USER_LABEL)
+@app_commands.describe(user=messages.RANK_USER_DESCRIPTION)
 async def rank(interaction: discord.Interaction, user: discord.User | None = None) -> None:
     bot = get_bot(interaction)
     target_user: discord.abc.User = user or interaction.user
@@ -61,7 +62,7 @@ async def rank(interaction: discord.Interaction, user: discord.User | None = Non
             f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
             f"user_id={interaction.user.id} target_id={target_user.id} result=no_power"
         )
-        await interaction.response.send_message(f"{target_user.display_name}はまだパワーを獲得していません")
+        await interaction.response.send_message(messages.user_has_no_power(display_name=target_user.display_name))
         return
     star_grade = await bot.db.star_grades.get_star_grade_ranking(target_user.id)
     if star_grade is None:
@@ -70,7 +71,7 @@ async def rank(interaction: discord.Interaction, user: discord.User | None = Non
             f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
             f"user_id={interaction.user.id} target_id={target_user.id} result=no_shard"
         )
-        await interaction.response.send_message(f"{target_user.display_name}はまだシャードを獲得していません")
+        await interaction.response.send_message(messages.user_has_no_shards(display_name=target_user.display_name))
         return
     logger.debug(
         "ランクを表示しました: command=/rank "
@@ -80,10 +81,11 @@ async def rank(interaction: discord.Interaction, user: discord.User | None = Non
     await interaction.response.send_message(view=build_rank_view(target_user, monthly_power, star_grade))
 
 
-@app_commands.command(name="transfer_mee6", description="MEE6から移行する")
-@app_commands.rename(sync_role="ロール同期", prestige_announce="プレステージ通知")
+@app_commands.command(name="transfer_mee6", description=messages.TRANSFER_DESCRIPTION)
+@app_commands.rename(sync_role=messages.SYNC_ROLE_LABEL, prestige_announce=messages.PRESTIGE_ANNOUNCE_LABEL)
 @app_commands.describe(
-    sync_role="グレード・プレステージロールを同期するか", prestige_announce="プレステージアナウンスを行うか"
+    sync_role=messages.SYNC_ROLE_DESCRIPTION,
+    prestige_announce=messages.PRESTIGE_ANNOUNCE_DESCRIPTION,
 )
 @app_commands.guild_only()
 @admin_only
@@ -94,10 +96,10 @@ async def transfer_mee6(interaction: discord.Interaction, sync_role: bool, prest
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "
         f"sync_role={sync_role} prestige_announce={prestige_announce}"
     )
-    await interaction.response.send_message("データ取得中...")
+    await interaction.response.send_message(messages.FETCHING_MEE6)
     guild = interaction.guild
     if guild is None:
-        await interaction.followup.send("サーバー内でのみ実行できます。")
+        await interaction.followup.send(messages.GUILD_EXECUTION_REQUIRED)
         return
 
     if os.path.exists("mee6_data.json"):
@@ -109,16 +111,14 @@ async def transfer_mee6(interaction: discord.Interaction, sync_role: bool, prest
                 "https://mee6.xyz/api/plugins/levels/leaderboard/705003456984907786?limit=500"
             ) as response:
                 if response.status != 200:
-                    await interaction.followup.send("MEE6からのデータ取得に失敗しました")
+                    await interaction.followup.send(messages.MEE6_FETCH_FAILED)
                     return
                 data = await response.json()
                 with open("mee6_data.json", "w", encoding="utf-8") as f:
                     json.dump(data, f, ensure_ascii=False)
 
     await interaction.edit_original_response(
-        content="データ取得完了、データベースに登録しています..."
-        + ("\nロールの同期が有効です、通常より時間がかかります..." if sync_role else "")
-        + ("\nプレステージアナウンスが有効です、通常より時間がかかります..." if prestige_announce else "")
+        content=messages.mee6_registration_progress(sync_role=sync_role, prestige_announce=prestige_announce)
     )
 
     prestige_roles = bot.config.leveling.prestige_roles_id_list
@@ -150,11 +150,7 @@ async def transfer_mee6(interaction: discord.Interaction, sync_role: bool, prest
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "
         f"migrated_count={migrated_count} sync_role={sync_role} prestige_announce={prestige_announce}"
     )
-    await interaction.followup.send(
-        "移行が完了しました"
-        + ("\nロールの同期を行いました" if sync_role else "")
-        + ("\nプレステージアナウンスを行いました" if prestige_announce else "")
-    )
+    await interaction.followup.send(messages.mee6_completed(sync_role=sync_role, prestige_announce=prestige_announce))
 
 
 def register_leveling_commands(bot: AsteroidBot) -> None:

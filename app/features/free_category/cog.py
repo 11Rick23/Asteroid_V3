@@ -11,13 +11,14 @@ from app.common.error_reporting import report_background_task_error
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
 
+from . import messages
 from .panel import FreeCategoryPanel
 from .service import block_permissions, get_free_category_service, op_permissions
 from .views import CreateChannelButtonView
 
 logger = getLogger(__name__)
 
-free_category_group = app_commands.Group(name="fc", description="フリーカテゴリーに関するコマンド")
+free_category_group = app_commands.Group(name="fc", description=messages.GROUP_DESCRIPTION)
 
 
 class FreeCategory(commands.Cog):
@@ -53,7 +54,7 @@ class FreeCategory(commands.Cog):
         await self.service.maybe_auto_bump(message)
 
 
-@free_category_group.command(name="archive", description="チャンネルをアーカイブ")
+@free_category_group.command(name="archive", description=messages.ARCHIVE_DESCRIPTION)
 @app_commands.guild_only()
 async def archive(interaction: discord.Interaction) -> None:
     service = get_free_category_service(get_bot(interaction))
@@ -63,7 +64,7 @@ async def archive(interaction: discord.Interaction) -> None:
 
     await interaction.response.defer(ephemeral=True, thinking=True)
     try:
-        await service.archive_channel(channel, "運営、またはチャンネル管理者による `/fc archive` コマンド")
+        await service.archive_channel(channel, messages.ARCHIVE_COMMAND_REASON)
     except ValueError as exc:
         await interaction.followup.send(str(exc), ephemeral=True)
         return
@@ -71,12 +72,12 @@ async def archive(interaction: discord.Interaction) -> None:
         f"チャンネルをアーカイブしました: guild_id={channel.guild.id} "
         f"channel_id={channel.id} user_id={interaction.user.id}"
     )
-    await interaction.followup.send("チャンネルをアーカイブしました。", ephemeral=True)
+    await interaction.followup.send(messages.ARCHIVED, ephemeral=True)
 
 
-@free_category_group.command(name="edit", description="チャンネル情報を変更")
-@app_commands.rename(name="チャンネル名", topic="トピック")
-@app_commands.describe(name="新しいチャンネル名", topic="新しいチャンネルトピック")
+@free_category_group.command(name="edit", description=messages.EDIT_DESCRIPTION)
+@app_commands.rename(name=messages.CHANNEL_NAME_LABEL, topic=messages.TOPIC_LABEL)
+@app_commands.describe(name=messages.NEW_CHANNEL_NAME_DESCRIPTION, topic=messages.NEW_TOPIC_DESCRIPTION)
 @app_commands.guild_only()
 async def edit(
     interaction: discord.Interaction,
@@ -90,7 +91,7 @@ async def edit(
 
     if not name and not topic:
         await interaction.response.send_message(
-            "チャンネル名かチャンネルトピックのどちらか一方は必ず入力してください。",
+            messages.EDIT_VALUE_REQUIRED,
             ephemeral=True,
         )
         return
@@ -102,13 +103,13 @@ async def edit(
             f"user_id={interaction.user.id} retry_after={round(retry_after, 1)}"
         )
         await interaction.response.send_message(
-            f"このチャンネルの編集はクールダウン中です。`{round(retry_after, 1)}秒後`に再試行してください。",
+            messages.edit_cooldown(retry_after=retry_after),
             ephemeral=True,
         )
         return
 
     old_name = channel.name
-    old_topic = channel.topic or "未設定"
+    old_topic = channel.topic or messages.TOPIC_UNSET
     service.start_edit_cooldown(channel.id)
     await interaction.response.defer()
 
@@ -123,8 +124,8 @@ async def edit(
         )
         embed = discord.Embed(
             color=discord.Color.random(),
-            title="チャンネル名を変更しました！",
-            description=f"`{old_name}` -> `{name}`",
+            title=messages.NAME_CHANGED_TITLE,
+            description=messages.changed_value(old_value=old_name, new_value=name),
         )
         await interaction.followup.send(embed=embed)
         return
@@ -140,8 +141,8 @@ async def edit(
         )
         embed = discord.Embed(
             color=discord.Color.random(),
-            title="チャンネルトピックを変更しました！",
-            description=f"`{old_topic}` -> `{topic}`",
+            title=messages.TOPIC_CHANGED_TITLE,
+            description=messages.changed_value(old_value=old_topic, new_value=topic),
         )
         await interaction.followup.send(embed=embed)
         return
@@ -158,16 +159,20 @@ async def edit(
     )
     embed = discord.Embed(
         color=discord.Color.random(),
-        title="チャンネル名とトピックを変更しました！",
+        title=messages.NAME_TOPIC_CHANGED_TITLE,
     )
-    embed.add_field(name="name", value=f"`{old_name}` -> `{name}`", inline=False)
-    embed.add_field(name="topic", value=f"`{old_topic}` -> `{topic}`", inline=False)
+    embed.add_field(
+        name=messages.NAME_FIELD, value=messages.changed_value(old_value=old_name, new_value=name), inline=False
+    )
+    embed.add_field(
+        name=messages.TOPIC_FIELD, value=messages.changed_value(old_value=old_topic, new_value=topic), inline=False
+    )
     await interaction.followup.send(embed=embed)
 
 
-@free_category_group.command(name="block", description="指定したユーザーをブロック")
-@app_commands.rename(user="ユーザー")
-@app_commands.describe(user="チャンネルを閲覧できなくするユーザー")
+@free_category_group.command(name="block", description=messages.BLOCK_DESCRIPTION)
+@app_commands.rename(user=messages.USER_LABEL)
+@app_commands.describe(user=messages.BLOCK_USER_DESCRIPTION)
 @app_commands.guild_only()
 async def block(interaction: discord.Interaction, user: discord.Member) -> None:
     service = get_free_category_service(get_bot(interaction))
@@ -184,12 +189,12 @@ async def block(interaction: discord.Interaction, user: discord.Member) -> None:
         f"フリーチャンネルでユーザーをブロックしました: guild_id={channel.guild.id} "
         f"channel_id={channel.id} user_id={interaction.user.id} target_id={user.id}"
     )
-    await interaction.response.send_message(f"`{user.display_name}` をブロックしました！")
+    await interaction.response.send_message(messages.user_blocked(display_name=user.display_name))
 
 
-@free_category_group.command(name="unblock", description="指定したユーザーのブロックを解除")
-@app_commands.rename(user="ユーザー")
-@app_commands.describe(user="チャンネル閲覧不可を解除するユーザー")
+@free_category_group.command(name="unblock", description=messages.UNBLOCK_DESCRIPTION)
+@app_commands.rename(user=messages.USER_LABEL)
+@app_commands.describe(user=messages.UNBLOCK_USER_DESCRIPTION)
 @app_commands.guild_only()
 async def unblock(interaction: discord.Interaction, user: discord.Member) -> None:
     service = get_free_category_service(get_bot(interaction))
@@ -206,12 +211,12 @@ async def unblock(interaction: discord.Interaction, user: discord.Member) -> Non
         f"フリーチャンネルのブロックを解除しました: guild_id={channel.guild.id} "
         f"channel_id={channel.id} user_id={interaction.user.id} target_id={user.id}"
     )
-    await interaction.response.send_message(f"`{user.display_name}` のブロックを解除しました！")
+    await interaction.response.send_message(messages.user_unblocked(display_name=user.display_name))
 
 
-@free_category_group.command(name="op", description="指定したユーザーにチャンネルの管理権限を付与")
-@app_commands.rename(user="ユーザー")
-@app_commands.describe(user="チャンネルの管理権限を付与するユーザー")
+@free_category_group.command(name="op", description=messages.OP_DESCRIPTION)
+@app_commands.rename(user=messages.USER_LABEL)
+@app_commands.describe(user=messages.OP_USER_DESCRIPTION)
 @app_commands.guild_only()
 async def op(interaction: discord.Interaction, user: discord.Member) -> None:
     service = get_free_category_service(get_bot(interaction))
@@ -228,12 +233,12 @@ async def op(interaction: discord.Interaction, user: discord.Member) -> None:
         f"フリーチャンネル管理権限を付与しました: guild_id={channel.guild.id} "
         f"channel_id={channel.id} user_id={interaction.user.id} target_id={user.id}"
     )
-    await interaction.response.send_message(f"`{user.display_name}` にチャンネルの管理権限を付与しました！")
+    await interaction.response.send_message(messages.user_opped(display_name=user.display_name))
 
 
-@free_category_group.command(name="deop", description="指定したユーザーからチャンネルの管理権限を剥奪")
-@app_commands.rename(user="ユーザー")
-@app_commands.describe(user="チャンネルの管理権限を剥奪するユーザー")
+@free_category_group.command(name="deop", description=messages.DEOP_DESCRIPTION)
+@app_commands.rename(user=messages.USER_LABEL)
+@app_commands.describe(user=messages.DEOP_USER_DESCRIPTION)
 @app_commands.guild_only()
 async def deop(interaction: discord.Interaction, user: discord.Member) -> None:
     service = get_free_category_service(get_bot(interaction))
@@ -250,12 +255,12 @@ async def deop(interaction: discord.Interaction, user: discord.Member) -> None:
         f"フリーチャンネル管理権限を剥奪しました: guild_id={channel.guild.id} "
         f"channel_id={channel.id} user_id={interaction.user.id} target_id={user.id}"
     )
-    await interaction.response.send_message(f"`{user.display_name}` からチャンネルの管理権限を剥奪しました！")
+    await interaction.response.send_message(messages.user_deopped(display_name=user.display_name))
 
 
-@free_category_group.command(name="purge", description="指定した件数メッセージを削除")
-@app_commands.rename(count="件数")
-@app_commands.describe(count="削除するメッセージの件数")
+@free_category_group.command(name="purge", description=messages.PURGE_DESCRIPTION)
+@app_commands.rename(count=messages.COUNT_LABEL)
+@app_commands.describe(count=messages.PURGE_COUNT_DESCRIPTION)
 @app_commands.guild_only()
 async def purge(interaction: discord.Interaction, count: app_commands.Range[int, 1, 500]) -> None:
     service = get_free_category_service(get_bot(interaction))
@@ -272,7 +277,7 @@ async def purge(interaction: discord.Interaction, count: app_commands.Range[int,
         f"フリーチャンネルのメッセージを削除しました: guild_id={channel.guild.id} "
         f"channel_id={channel.id} user_id={interaction.user.id} count={len(deleted_messages)}"
     )
-    await interaction.followup.send(f"{len(deleted_messages)}件のメッセージを削除しました！", ephemeral=True)
+    await interaction.followup.send(messages.messages_purged(count=len(deleted_messages)), ephemeral=True)
 
 
 async def setup(bot: AsteroidBot) -> None:
