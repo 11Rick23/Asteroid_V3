@@ -11,6 +11,8 @@ from app.common.constants import AsteroidColor
 from app.common.discord_types import as_messageable
 from app.core.bot import AsteroidBot
 
+from . import messages
+
 logger = getLogger(__name__)
 
 
@@ -36,16 +38,16 @@ class LogIn(commands.Cog):
 
         now = datetime.datetime.now(ZoneInfo("Asia/Tokyo"))
         embed = discord.Embed(
-            title="ログイン完了！",
-            description=f"`{self.bot.user}`としてログインしました。",
+            title=messages.LOGIN_TITLE,
+            description=messages.login_description(bot_user=str(self.bot.user)),
             timestamp=now,
             color=AsteroidColor.SUCCESS,
             url=f"https://discord.com/developers/applications/{self.bot.application_id}/information",
         )
         embed.set_thumbnail(url=self.bot.user.display_avatar.url)
-        embed.add_field(name="ID", value=str(self.bot.user.id), inline=True)
+        embed.add_field(name=messages.LOGIN_ID_FIELD_NAME, value=str(self.bot.user.id), inline=True)
         embed.add_field(
-            name="作成日時 (JST)",
+            name=messages.LOGIN_CREATED_AT_FIELD_NAME,
             value=str(self.bot.user.created_at.astimezone(ZoneInfo("Asia/Tokyo"))),
             inline=True,
         )

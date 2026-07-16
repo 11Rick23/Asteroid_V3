@@ -10,6 +10,8 @@ from app.common.constants import AsteroidColor
 from app.common.discord_types import as_text_channel
 from app.core.bot import AsteroidBot
 
+from . import messages
+
 logger = getLogger(__name__)
 
 discord_message_url_pattern = re.compile(
@@ -65,7 +67,7 @@ class LinkExpander(commands.Cog):
         is_nsfw = isinstance(message.channel, discord.TextChannel) and message.channel.is_nsfw()
         if is_nsfw and not allow_nsfw:
             embed = discord.Embed(
-                description="NSFWメッセージのため非表示\nリンク先の添付ファイルなどに気を付けて参照してください。",
+                description=messages.NSFW_MESSAGE_HIDDEN,
                 color=AsteroidColor.INFO,
                 timestamp=message.created_at,
             )
@@ -91,13 +93,13 @@ class LinkExpander(commands.Cog):
                 banner_image = attachment.url
             file_name = f"[{attachment.filename}]({attachment.url})\n"
             if len(extra_files + file_name) >= 1024:
-                extra_files += "\n..."
+                extra_files += messages.TRUNCATED_ATTACHMENT_LIST_SUFFIX
                 break
             extra_files += file_name
         if banner_image:
             embed.set_image(url=banner_image)
         if extra_files:
-            embed.add_field(name="ファイル", value=extra_files)
+            embed.add_field(name=messages.ATTACHMENT_FIELD_NAME, value=extra_files)
 
         embed_list = [] if not message.content and not message.attachments else [embed]
         embed_list.extend(message.embeds)

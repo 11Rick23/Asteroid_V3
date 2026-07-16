@@ -10,6 +10,8 @@ from app.common.constants import AsteroidColor
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
 
+from . import messages
+
 logger = getLogger(__name__)
 
 NAME_CHANGE_RATE_LIMIT_COUNT = 2
@@ -117,7 +119,7 @@ class VoiceCreateService:
             logger.debug(
                 f"VC外で操作が呼ばれました: channel_id={interaction.channel_id} user_id={interaction.user.id}"
             )
-            await self.send_interaction_message(interaction, "このコマンドはVCチャンネルでのみ使えます。")
+            await self.send_interaction_message(interaction, messages.TEXT_CHANNEL_REQUIRED)
             return None
 
         if not allow_create_channel and channel.id == self.get_voice_create_channel_id():
@@ -125,7 +127,7 @@ class VoiceCreateService:
                 f"VC作成チャンネルへの操作を拒否しました: guild_id={channel.guild.id} "
                 f"channel_id={channel.id} user_id={interaction.user.id}"
             )
-            await self.send_interaction_message(interaction, "VC作成用チャンネル自体は操作できません。")
+            await self.send_interaction_message(interaction, messages.CREATE_CHANNEL_REJECTED)
             return None
 
         if require_manage and (
@@ -136,7 +138,7 @@ class VoiceCreateService:
                 f"VC管理権限不足で操作を拒否しました: guild_id={channel.guild.id} "
                 f"channel_id={channel.id} user_id={interaction.user.id}"
             )
-            await self.send_interaction_message(interaction, "VCの管理権限がありません。")
+            await self.send_interaction_message(interaction, messages.MANAGE_PERMISSION_REQUIRED)
             return None
         return channel
 
@@ -155,8 +157,8 @@ class VoiceCreateService:
             elif overwrite == blocked_permissions:
                 blocked_list.append(overwrite_target)
 
-        owner_mentions = " ".join(member.mention for member in owner_list) or "なし"
-        blocked_mentions = " ".join(member.mention for member in blocked_list) or "なし"
+        owner_mentions = " ".join(member.mention for member in owner_list) or messages.NONE
+        blocked_mentions = " ".join(member.mention for member in blocked_list) or messages.NONE
         return owner_list, blocked_list, owner_mentions, blocked_mentions
 
     def is_private_channel(self, channel: discord.VoiceChannel) -> bool:
@@ -372,7 +374,7 @@ class VoiceCreateService:
         overwrites = dict(after.channel.overwrites)
         overwrites[member] = owner_permissions
         new_channel = await after.channel.category.create_voice_channel(
-            name=f"{member.display_name}のVC",
+            name=messages.default_channel_name(member_display_name=member.display_name),
             reason=f"[{generate_timestamp()}] {member.name} がVCを作成しました。",
             overwrites=overwrites,
         )

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.common.constants import AsteroidEmoji
+from .messages import admin as admin_messages
 
 ACTION_POWER_COMMAND_NAME = "AddActionPower"
 
@@ -21,4 +21,4 @@ def parse_action_power_command(content: str) -> tuple[int, int] | None:
 
 
 def build_accumulated_action_power_message(total_action_power: int) -> str:
-    return f"蓄積アクションパワー: {AsteroidEmoji.ACTION_POWER} {total_action_power}"
+    return admin_messages.action_power_total(total_action_power=total_action_power)

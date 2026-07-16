@@ -12,15 +12,9 @@ from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
 from app.features.welcomer.service import send_first_welcome
 
-logger = getLogger(__name__)
+from . import messages
 
-WELCOME_ASCII = """```
-█▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀█
-█░░╦ ╦╔╗╦ ╔╗╔╗╔╦╗╔╗░░█
-█░░║║║╠─║ ║ ║║║║║╠─░░█
-█░░╚╩╝╚╝╚╝╚╝╚╝╩ ╩╚╝░░█
-█▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄█
-```"""
+logger = getLogger(__name__)
 
 
 async def complete_authentication(bot: AsteroidBot, interaction: discord.Interaction) -> bool:
@@ -87,7 +81,7 @@ class AuthDigitButton(discord.ui.Button["AuthChallengeView"]):
 
 class AuthDeleteButton(discord.ui.Button["AuthChallengeView"]):
     def __init__(self) -> None:
-        super().__init__(label="1文字消す", style=discord.ButtonStyle.blurple, custom_id="auth_delete")
+        super().__init__(label=messages.DELETE_DIGIT_LABEL, style=discord.ButtonStyle.blurple, custom_id="auth_delete")
 
     async def callback(self, interaction: discord.Interaction) -> None:
         view = self.view
@@ -99,7 +93,7 @@ class AuthDeleteButton(discord.ui.Button["AuthChallengeView"]):
 
 class AuthClearButton(discord.ui.Button["AuthChallengeView"]):
     def __init__(self) -> None:
-        super().__init__(label="クリア", style=discord.ButtonStyle.danger, custom_id="auth_clear")
+        super().__init__(label=messages.CLEAR_LABEL, style=discord.ButtonStyle.danger, custom_id="auth_clear")
 
     async def callback(self, interaction: discord.Interaction) -> None:
         view = self.view
@@ -112,7 +106,7 @@ class AuthClearButton(discord.ui.Button["AuthChallengeView"]):
 
 class AuthSubmitButton(discord.ui.Button["AuthChallengeView"]):
     def __init__(self) -> None:
-        super().__init__(label="検証", style=discord.ButtonStyle.success, custom_id="auth_submit")
+        super().__init__(label=messages.SUBMIT_LABEL, style=discord.ButtonStyle.success, custom_id="auth_submit")
 
     async def callback(self, interaction: discord.Interaction) -> None:
         view = self.view
@@ -125,13 +119,13 @@ class AuthSubmitButton(discord.ui.Button["AuthChallengeView"]):
                 f"entered_length={len(view.entered_number)}"
             )
             view.entered_number = ""
-            view.error_message = "数字が一致しませんでした。もう一度入力してください。"
+            view.error_message = messages.AUTH_MISMATCH
             await view.refresh(interaction)
             return
 
         logger.debug(f"認証に成功しました: guild_id={interaction.guild_id} user_id={interaction.user.id}")
         if interaction.guild is None or not isinstance(interaction.user, discord.Member):
-            await interaction.response.send_message("サーバー内で認証してください。", ephemeral=True)
+            await interaction.response.send_message(messages.AUTH_GUILD_ONLY, ephemeral=True)
             return
         await interaction.response.defer()
         await complete_authentication(view.bot, interaction)
@@ -157,7 +151,7 @@ class AuthChallengeView(GuildScopedLayoutView):
             return False
         if interaction.user.id == self.owner_id:
             return True
-        await interaction.response.send_message("この認証画面はあなた専用です。", ephemeral=True)
+        await interaction.response.send_message(messages.AUTH_OWNER_ONLY, ephemeral=True)
         return False
 
     def build(self) -> None:
@@ -165,21 +159,17 @@ class AuthChallengeView(GuildScopedLayoutView):
         if self.completed:
             self.add_item(
                 discord.ui.Container(
-                    discord.ui.TextDisplay(f"# 検証に成功しました！\n{WELCOME_ASCII}"),
+                    discord.ui.TextDisplay(messages.authentication_completed()),
                     accent_color=AsteroidColor.SUCCESS,
                 )
             )
             return
 
-        entered_number = self.entered_number or "未入力"
-        error_text = f"\n\n**{self.error_message}**" if self.error_message else ""
+        entered_number = self.entered_number or messages.AUTH_NOT_ENTERED
         self.add_item(
             discord.ui.Container(
                 discord.ui.TextDisplay(
-                    "# BOT検証を行います\n"
-                    "画像に書かれた数字を、下のボタンで順番に入力してください。\n\n"
-                    f"## **入力:** `{entered_number}`"
-                    f"{error_text}"
+                    messages.authentication_challenge(entered_number=entered_number, error_message=self.error_message)
                 ),
                 discord.ui.MediaGallery(discord.MediaGalleryItem("attachment://captcha.png")),
                 discord.ui.ActionRow(*(AuthDigitButton(str(digit)) for digit in range(1, 6))),
@@ -197,7 +187,7 @@ class AuthChallengeView(GuildScopedLayoutView):
 class AuthStartButton(discord.ui.Button["AuthButton"]):
     def __init__(self, bot: AsteroidBot) -> None:
         super().__init__(
-            label="認証",
+            label=messages.START_LABEL,
             style=discord.ButtonStyle.green,
             custom_id="auth_button",
         )
@@ -213,9 +203,7 @@ class AuthButton(GuildScopedLayoutView):
         self.bot = bot
         self.add_item(
             discord.ui.Container(
-                discord.ui.TextDisplay(
-                    "# サーバーへようこそ！\nチャットを開始する前に、ボタンを押してBOT検証を行ってください。"
-                ),
+                discord.ui.TextDisplay(messages.AUTH_PANEL_CONTENT),
                 discord.ui.ActionRow(AuthStartButton(bot)),
                 accent_color=AsteroidColor.DARK_GREEN,
             )

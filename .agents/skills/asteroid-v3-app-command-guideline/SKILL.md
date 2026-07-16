@@ -1,6 +1,6 @@
 ---
 name: asteroid-v3-app-command-guideline
-description: Use when changing Asteroid_V3 slash commands, app_commands groups, context menus, setup commands, persistent views, buttons, selects, modals, permissions, guild scope checks, ephemeral responses, embeds, Layout / Components V2 responses, names, or command audit logs.
+description: Use when changing Asteroid_V3 slash commands, app_commands groups, context menus, setup commands, persistent views, buttons, selects, modals, permissions, guild scope checks, ephemeral responses, embeds, Layout / Components V2 responses, user-facing text, names, or command audit logs.
 ---
 
 # Asteroid V3 App Command Guideline
@@ -48,6 +48,9 @@ Classify each entry point:
 - Use ephemeral for setup feedback, validation errors, denials, self-service results, and private details.
 - Use public responses for naturally visible workflow results.
 - State-changing admin actions also need structured logs; ephemeral replies are not audit trails.
+- Put command descriptions, public argument labels, response copy, Embed copy, and Layout / Components V2 copy in the owning feature's `messages.py` or responsibility-focused `messages/` package.
+- Follow `asteroid-v3-feature-guideline` for fixed versus dynamic copy and message package splitting.
+- Keep command/subcommand names, Python option identifiers, `custom_id` values, and audit event identifiers in their owning command or UI module because they are public API or protocol identifiers, not editable display copy.
 
 ## Naming And Descriptions
 

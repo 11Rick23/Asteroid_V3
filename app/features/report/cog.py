@@ -11,6 +11,8 @@ from app.core.bot import AsteroidBot
 from app.features.report.service import build_report_embed
 from app.features.report.views import ReportResolveView
 
+from . import messages
+
 logger = getLogger(__name__)
 
 
@@ -21,12 +23,12 @@ class ReportCog(commands.Cog):
     async def cog_load(self) -> None:
         self.bot.add_view(ReportResolveView())
 
-    @app_commands.command(name="report", description="レポートを送信")
-    @app_commands.rename(violator="対象ユーザー", content="違反内容", image="画像")
+    @app_commands.command(name="report", description=messages.COMMAND_DESCRIPTION)
+    @app_commands.rename(violator=messages.VIOLATOR_LABEL, content=messages.CONTENT_LABEL, image=messages.IMAGE_LABEL)
     @app_commands.describe(
-        violator="レポートするユーザー",
-        content="違反した内容を詳しく書いて下さい。",
-        image="違反内容の画像などがあれば添付して下さい。",
+        violator=messages.VIOLATOR_DESCRIPTION,
+        content=messages.CONTENT_DESCRIPTION,
+        image=messages.IMAGE_DESCRIPTION,
     )
     @app_commands.guild_only()
     async def report(
@@ -43,10 +45,10 @@ class ReportCog(commands.Cog):
             f"user_id={interaction.user.id if interaction.user is not None else None} "
             f"violator_id={violator.id} has_image={image is not None}"
         )
-        await interaction.response.send_message(content="レポート送信中…", ephemeral=True)
+        await interaction.response.send_message(content=messages.SENDING, ephemeral=True)
         if interaction.guild is None:
             logger.warning(f"レポート送信を中断しました: guild_id=None reporter_id={interaction.user.id}")
-            await interaction.edit_original_response(content="サーバー内でのみ使用できます。")
+            await interaction.edit_original_response(content=messages.GUILD_ONLY)
             return
 
         report_receive_channel = as_messageable(
@@ -58,14 +60,14 @@ class ReportCog(commands.Cog):
                 f"guild_id={interaction.guild.id} reporter_id={interaction.user.id} "
                 f"channel_id={self.bot.config.report.report_receive_channel_id}"
             )
-            await interaction.edit_original_response(content="レポート送信先チャンネルが見つかりませんでした。")
+            await interaction.edit_original_response(content=messages.DESTINATION_NOT_FOUND)
             return
 
         embed = build_report_embed(interaction.user, content, image)
         ping_role_id = self.bot.config.report.report_ping_role_id
         prefix = f"<@&{ping_role_id}>\n" if ping_role_id else ""
         await report_receive_channel.send(
-            content=f"{prefix}レポートされたユーザー: {violator.mention}",
+            content=messages.destination_content(prefix=prefix, violator_mention=violator.mention),
             embed=embed,
             view=ReportResolveView(),
         )
@@ -74,7 +76,7 @@ class ReportCog(commands.Cog):
             f"guild_id={interaction.guild.id} reporter_id={interaction.user.id} "
             f"violator_id={violator.id} destination_channel_id={getattr(report_receive_channel, 'id', None)}"
         )
-        await interaction.edit_original_response(content="レポート送信完了。\nレポートありがとうございました。")
+        await interaction.edit_original_response(content=messages.COMPLETED)
 
 
 async def setup(bot: AsteroidBot) -> None:

@@ -11,6 +11,8 @@ from discord.ext import commands
 from app.common.constants import AsteroidColor
 from app.core.bot import AsteroidBot
 
+from . import messages
+
 logger = getLogger(__name__)
 
 
@@ -40,10 +42,16 @@ class BumpNotifier(commands.Cog):
             and before.flags.loading
         ):
             embed = discord.Embed(
-                title=f"{after.interaction_metadata.user.display_name}さん、ディス速のUPありがとう！",
-                description=(
-                    f"{discord.utils.format_dt(dt.now() + self.DISSOKU_UP_AVAILABLE_DELTA, style='R')}"
-                    "にこのチャンネルでUP通知を行います"
+                title=messages.thanks_title(
+                    display_name=after.interaction_metadata.user.display_name,
+                    service_name=messages.DISSOKU_THANKS_SERVICE,
+                ),
+                description=messages.next_notice_description(
+                    relative_time=discord.utils.format_dt(
+                        dt.now() + self.DISSOKU_UP_AVAILABLE_DELTA,
+                        style="R",
+                    ),
+                    service_name=messages.UP_SERVICE,
                 ),
                 color=AsteroidColor.INFO,
             )
@@ -51,7 +59,10 @@ class BumpNotifier(commands.Cog):
                 self.last_dissoku_up_notice_dt is not None
                 and (notice_dt := (dt.now() - self.last_dissoku_up_notice_dt).total_seconds()) <= 60
             ):
-                embed.add_field(name="UP RTAが行われました！", value=f"UP通知から{notice_dt}秒でUPが行われました")
+                embed.add_field(
+                    name=messages.rta_title(service_name=messages.UP_SERVICE),
+                    value=messages.rta_description(service_name=messages.UP_SERVICE, elapsed_seconds=notice_dt),
+                )
             await after.reply(content=after.interaction_metadata.user.mention, embed=embed)
             logger.debug(
                 "ディス速UPを検知しました: "
@@ -62,8 +73,8 @@ class BumpNotifier(commands.Cog):
             await asyncio.sleep(self.DISSOKU_UP_AVAILABLE_DELTA.total_seconds())
             await after.channel.send(
                 embed=discord.Embed(
-                    title="前回のディス速のUPから2時間経過しました！",
-                    description="</up:1363739182672904354>を実行しよう！",
+                    title=messages.DISSOKU_REMINDER_TITLE,
+                    description=messages.DISSOKU_REMINDER_DESCRIPTION,
                     color=AsteroidColor.INFO,
                 )
             )
@@ -88,10 +99,16 @@ class BumpNotifier(commands.Cog):
             and "サーバーがリストの最上段に更新されました！" in message.embeds[0].title
         ):
             embed = discord.Embed(
-                title=f"{message.interaction_metadata.user.display_name}さん、DicoallのUPありがとう！",
-                description=(
-                    f"{discord.utils.format_dt(dt.now() + self.DICOALL_UP_AVAILABLE_DELTA, style='R')}"
-                    "にこのチャンネルでUP通知を行います"
+                title=messages.thanks_title(
+                    display_name=message.interaction_metadata.user.display_name,
+                    service_name=messages.DICOALL_THANKS_SERVICE,
+                ),
+                description=messages.next_notice_description(
+                    relative_time=discord.utils.format_dt(
+                        dt.now() + self.DICOALL_UP_AVAILABLE_DELTA,
+                        style="R",
+                    ),
+                    service_name=messages.UP_SERVICE,
                 ),
                 color=AsteroidColor.INFO,
             )
@@ -99,7 +116,10 @@ class BumpNotifier(commands.Cog):
                 self.last_dicoall_up_notice_dt is not None
                 and (notice_dt := (dt.now() - self.last_dicoall_up_notice_dt).total_seconds()) <= 60
             ):
-                embed.add_field(name="UP RTAが行われました！", value=f"UP通知から{notice_dt}秒でUPが行われました")
+                embed.add_field(
+                    name=messages.rta_title(service_name=messages.UP_SERVICE),
+                    value=messages.rta_description(service_name=messages.UP_SERVICE, elapsed_seconds=notice_dt),
+                )
             await message.reply(content=message.interaction_metadata.user.mention, embed=embed)
             logger.debug(
                 "Dicoall UPを検知しました: "
@@ -110,8 +130,8 @@ class BumpNotifier(commands.Cog):
             await asyncio.sleep(self.DICOALL_UP_AVAILABLE_DELTA.total_seconds())
             await message.channel.send(
                 embed=discord.Embed(
-                    title="前回のDicoallのUPから1時間経過しました！",
-                    description="</up:935190259111706754>を実行しよう！",
+                    title=messages.DICOALL_REMINDER_TITLE,
+                    description=messages.DICOALL_REMINDER_DESCRIPTION,
                     color=AsteroidColor.INFO,
                 )
             )
@@ -128,10 +148,13 @@ class BumpNotifier(commands.Cog):
             and "表示順をアップしたよ" in message.embeds[0].description
         ):
             embed = discord.Embed(
-                title=f"{message.interaction_metadata.user.display_name}さん、Bumpありがとう！",
-                description=(
-                    f"{discord.utils.format_dt(dt.now() + self.BUMP_AVAILABLE_DELTA, style='R')}"
-                    "にこのチャンネルでBump通知を行います"
+                title=messages.thanks_title(
+                    display_name=message.interaction_metadata.user.display_name,
+                    service_name=messages.BUMP_THANKS_SERVICE,
+                ),
+                description=messages.next_notice_description(
+                    relative_time=discord.utils.format_dt(dt.now() + self.BUMP_AVAILABLE_DELTA, style="R"),
+                    service_name=messages.BUMP_THANKS_SERVICE,
                 ),
                 color=AsteroidColor.INFO,
             )
@@ -140,7 +163,8 @@ class BumpNotifier(commands.Cog):
                 and (notice_dt := (dt.now() - self.last_bump_notice_dt).total_seconds()) <= 60
             ):
                 embed.add_field(
-                    name="BUMP RTAが行われました！", value=f"BUMP通知から{notice_dt}秒でBUMPが行われました"
+                    name=messages.rta_title(service_name=messages.BUMP_SERVICE),
+                    value=messages.rta_description(service_name=messages.BUMP_SERVICE, elapsed_seconds=notice_dt),
                 )
             await message.reply(content=message.interaction_metadata.user.mention, embed=embed)
             logger.debug(
@@ -152,8 +176,8 @@ class BumpNotifier(commands.Cog):
             await asyncio.sleep(self.BUMP_AVAILABLE_DELTA.total_seconds())
             await message.channel.send(
                 embed=discord.Embed(
-                    title="前回のBumpから2時間経過しました！",
-                    description="</bump:947088344167366698>を実行しよう！",
+                    title=messages.BUMP_REMINDER_TITLE,
+                    description=messages.BUMP_REMINDER_DESCRIPTION,
                     color=AsteroidColor.INFO,
                 )
             )
