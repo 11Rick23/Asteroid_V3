@@ -11,11 +11,11 @@ dependencies = [
     "captcha>=0.7.1",
     "cryptography>=49.0.0",
     "discord-py>=2.7.1",
-    "greenlet>=3.5.5",
+    "greenlet>=3.5.6",
     "pillow>=12.3.0",
     "pydantic>=2.13.5",
     "ruamel-yaml>=0.19.1",
-    "sqlalchemy>=2.0.52",
+    "sqlalchemy>=2.0.54",
 ]
 
 [tool.ruff]
