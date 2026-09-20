@@ -168,8 +168,11 @@ async def remove_shard(
     interaction: discord.Interaction,
     user: discord.Member,
     shard_type: app_commands.Choice[str],
-    amount: int,
+    amount: app_commands.Range[int, 1],
 ) -> None:
+    if amount < 1:
+        await interaction.response.send_message(admin_messages.POSITIVE_AMOUNT_REQUIRED, ephemeral=True)
+        return
     bot = get_bot(interaction)
     shard_type_value = shard_type.value
     update = await bot.db.leveling.remove_shard(user.id, shard_type_value, amount)
@@ -230,8 +233,11 @@ async def remove_power(
     interaction: discord.Interaction,
     user: discord.Member,
     target: app_commands.Choice[str],
-    amount: int,
+    amount: app_commands.Range[int, 1],
 ) -> None:
+    if amount < 1:
+        await interaction.response.send_message(admin_messages.POSITIVE_AMOUNT_REQUIRED, ephemeral=True)
+        return
     bot = get_bot(interaction)
     target_value = target.value
     power = await bot.db.leveling.remove_power(user.id, target_value, amount)

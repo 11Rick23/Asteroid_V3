@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from typing import cast
+from typing import Any, cast
 from unittest.mock import AsyncMock
 
 import discord
@@ -117,3 +117,68 @@ async def test_booster_invalid_duration(duration):
     # Then
     create.assert_not_awaited()
     send.assert_awaited_once_with(admin_command.admin_messages.BOOSTER_INVALID_DURATION, ephemeral=True)
+
+
+@pytest.mark.parametrize("command", [admin_command.remove_shard, admin_command.remove_power])
+def test_remove_amount_range(command):
+    """減算コマンドの数量は1以上に制限する。"""
+    # 機能要件：Discord の入力欄で負数と0を拒否する。
+    # Given / When / Then
+    parameter = next(parameter for parameter in command.parameters if parameter.name == "amount")
+    assert parameter.min_value == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("command", [admin_command.remove_shard, admin_command.remove_power])
+@pytest.mark.parametrize("amount", [-10, 0])
+async def test_rejects_invalid_removal(command, amount):
+    """負数や0を渡しても減算処理を実行せず、非公開で入力エラーを返す。"""
+    # 非機能要件：不正な数量で DB 更新やロール同期を実行しない。
+    # Given
+    repository = SimpleNamespace(remove_shard=AsyncMock(), remove_power=AsyncMock())
+    interaction = SimpleNamespace(
+        client=SimpleNamespace(db=SimpleNamespace(leveling=repository)),
+        response=SimpleNamespace(send_message=AsyncMock()),
+    )
+
+    # When
+    await cast(Any, command.callback)(interaction, SimpleNamespace(id=4), SimpleNamespace(value="text"), amount)
+
+    # Then
+    repository.remove_shard.assert_not_awaited()
+    repository.remove_power.assert_not_awaited()
+    interaction.response.send_message.assert_awaited_once_with(
+        admin_command.admin_messages.POSITIVE_AMOUNT_REQUIRED, ephemeral=True
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["shard", "power"])
+async def test_removes_one(kind, monkeypatch):
+    """数量の下限である1は指定対象からの減算として受け付ける。"""
+    # 機能要件：正の数量による既存の減算と応答を維持する。
+    # Given
+    result = SimpleNamespace(star_grade=SimpleNamespace(grade=0, prestige=0))
+    remove = AsyncMock(return_value=result)
+    repository = SimpleNamespace(**{f"remove_{kind}": remove})
+    interaction = SimpleNamespace(
+        client=SimpleNamespace(db=SimpleNamespace(leveling=repository)),
+        guild_id=1,
+        channel_id=2,
+        user=SimpleNamespace(id=3),
+        response=SimpleNamespace(send_message=AsyncMock()),
+    )
+    monkeypatch.setattr(admin_command, "build_star_grade_view", lambda *args, **kwargs: None)
+    monkeypatch.setattr(admin_command, "build_power_view", lambda *args, **kwargs: None)
+    monkeypatch.setattr(admin_command, "sync_grade_prestige_role", AsyncMock())
+    command = admin_command.remove_shard if kind == "shard" else admin_command.remove_power
+    target_type = "テキスト" if kind == "shard" else "text"
+
+    # When
+    await cast(Any, command.callback)(
+        interaction, SimpleNamespace(id=4, mention="<@4>"), SimpleNamespace(value=target_type), 1
+    )
+
+    # Then
+    remove.assert_awaited_once_with(4, target_type, 1)
+    interaction.response.send_message.assert_awaited_once()
