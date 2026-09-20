@@ -3,19 +3,19 @@ name = "asteroid-v3"
 version = "0.1.0"
 description = "Discordサーバー『ナメック星』にて使用する専属BOT（3代目）"
 readme = "README.md"
-requires-python = ">=3.14.6"
+requires-python = ">=3.14.7"
 dependencies = [
-    "aiohttp>=3.14.1",
+    "aiohttp>=3.14.3",
     "aiomysql>=0.3.2",
     "alembic>=1.18.5",
     "captcha>=0.7.1",
     "cryptography>=49.0.0",
     "discord-py>=2.7.1",
-    "greenlet>=3.5.3",
+    "greenlet>=3.5.6",
     "pillow>=12.3.0",
-    "pydantic>=2.13.4",
+    "pydantic>=2.13.5",
     "ruamel-yaml>=0.19.1",
-    "sqlalchemy>=2.0.51",
+    "sqlalchemy>=2.0.54",
 ]
 
 [tool.ruff]
@@ -40,8 +40,8 @@ testpaths = ["tests"]
 
 [dependency-groups]
 dev = [
-    "ruff>=0.15.20",
+    "ruff>=0.15.22",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
-    "pyright>=1.1.411",
+    "pyright>=1.1.414",
 ]

@@ -9,6 +9,7 @@ from app.common.command_groups import get_bot
 from app.common.permissions import ADMINISTRATOR_PERMISSIONS, admin_only
 from app.core.bot import AsteroidBot
 
+from . import messages
 from .admin_views import RolePanelAdminRoleEditView, RolePanelAdminRoleSelect, response_embed
 from .runtime import get_rolepanel_cog, refresh_panel_if_loaded
 from .service import CATEGORY_SETTINGS_EMBED_BATCH_LIMIT, get_rolepanel_service
@@ -17,11 +18,13 @@ logger = getLogger(__name__)
 
 rolepanel_group = app_commands.Group(
     name="rolepanel",
-    description="ロールパネル管理コマンド",
+    description=messages.GROUP_DESCRIPTION,
     guild_only=True,
     default_permissions=ADMINISTRATOR_PERMISSIONS,
 )
-category_group = app_commands.Group(name="category", description="カテゴリ管理", parent=rolepanel_group)
+category_group = app_commands.Group(
+    name="category", description=messages.CATEGORY_GROUP_DESCRIPTION, parent=rolepanel_group
+)
 
 
 async def category_autocomplete(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[int]]:
@@ -37,12 +40,14 @@ async def category_autocomplete(interaction: discord.Interaction, current: str) 
     return choices
 
 
-@category_group.command(name="add", description="ロールパネルカテゴリを追加します")
-@app_commands.rename(name="カテゴリ名", description="説明文", order="表示順")
+@category_group.command(name="add", description=messages.CATEGORY_ADD_DESCRIPTION)
+@app_commands.rename(
+    name=messages.CATEGORY_NAME_LABEL, description=messages.DESCRIPTION_LABEL, order=messages.ORDER_LABEL
+)
 @app_commands.describe(
-    name="追加するカテゴリ名",
-    description="パネルに表示するカテゴリの説明文",
-    order="カテゴリの表示順。小さい値ほど先に表示されます",
+    name=messages.ADD_CATEGORY_NAME_DESCRIPTION,
+    description=messages.ADD_CATEGORY_DESCRIPTION_DESCRIPTION,
+    order=messages.ADD_CATEGORY_ORDER_DESCRIPTION,
 )
 @admin_only
 async def category_add(
@@ -59,18 +64,22 @@ async def category_add(
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "
         f"category_id={category.category_id} name={name} description_length={len(description)} order={order}"
     )
-    await interaction.response.send_message(
-        embed=response_embed("カテゴリを追加しました", f"カテゴリ `{category.name}` を追加しました。")
-    )
+    copy = messages.category_added(category_name=category.name)
+    await interaction.response.send_message(embed=response_embed(copy.title, copy.description))
 
 
-@category_group.command(name="edit", description="ロールパネルカテゴリを編集します")
-@app_commands.rename(category="カテゴリ", name="カテゴリ名", description="説明文", order="表示順")
+@category_group.command(name="edit", description=messages.CATEGORY_EDIT_DESCRIPTION)
+@app_commands.rename(
+    category=messages.CATEGORY_LABEL,
+    name=messages.CATEGORY_NAME_LABEL,
+    description=messages.DESCRIPTION_LABEL,
+    order=messages.ORDER_LABEL,
+)
 @app_commands.describe(
-    category="編集するカテゴリ",
-    name="変更後のカテゴリ名",
-    description="パネルに表示する変更後の説明文",
-    order="変更後の表示順。小さい値ほど先に表示されます",
+    category=messages.EDIT_CATEGORY_DESCRIPTION,
+    name=messages.EDIT_CATEGORY_NAME_DESCRIPTION,
+    description=messages.EDIT_CATEGORY_DESCRIPTION_DESCRIPTION,
+    order=messages.EDIT_CATEGORY_ORDER_DESCRIPTION,
 )
 @app_commands.autocomplete(category=category_autocomplete)
 @admin_only
@@ -83,7 +92,7 @@ async def category_edit(
 ) -> None:
     if name is None and description is None and order is None:
         await interaction.response.send_message(
-            embed=response_embed("変更内容がありません", "変更内容を1つ以上指定してください。"),
+            embed=response_embed(messages.CATEGORY_NO_CHANGES.title, messages.CATEGORY_NO_CHANGES.description),
             ephemeral=True,
         )
         return
@@ -96,7 +105,7 @@ async def category_edit(
     )
     if updated is None:
         await interaction.response.send_message(
-            embed=response_embed("カテゴリが見つかりません", "指定されたカテゴリが見つかりません。"),
+            embed=response_embed(messages.CATEGORY_NOT_FOUND.title, messages.CATEGORY_NOT_FOUND.description),
             ephemeral=True,
         )
         return
@@ -106,21 +115,20 @@ async def category_edit(
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "
         f"category_id={category} name={name} description_updated={description is not None} order={order}"
     )
-    await interaction.response.send_message(
-        embed=response_embed("カテゴリを更新しました", f"カテゴリ `{updated.name}` を更新しました。")
-    )
+    copy = messages.category_updated(category_name=updated.name)
+    await interaction.response.send_message(embed=response_embed(copy.title, copy.description))
 
 
-@category_group.command(name="remove", description="ロールパネルカテゴリを削除します")
-@app_commands.rename(category="カテゴリ")
-@app_commands.describe(category="削除するカテゴリ")
+@category_group.command(name="remove", description=messages.CATEGORY_REMOVE_DESCRIPTION)
+@app_commands.rename(category=messages.CATEGORY_LABEL)
+@app_commands.describe(category=messages.REMOVE_CATEGORY_DESCRIPTION)
 @app_commands.autocomplete(category=category_autocomplete)
 @admin_only
 async def category_remove(interaction: discord.Interaction, category: int) -> None:
     bot = get_bot(interaction)
     if not await bot.db.role_panel.delete_category(category):
         await interaction.response.send_message(
-            embed=response_embed("カテゴリが見つかりません", "指定されたカテゴリが見つかりません。"),
+            embed=response_embed(messages.CATEGORY_NOT_FOUND.title, messages.CATEGORY_NOT_FOUND.description),
             ephemeral=True,
         )
         return
@@ -130,12 +138,14 @@ async def category_remove(interaction: discord.Interaction, category: int) -> No
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "
         f"category_id={category}"
     )
-    await interaction.response.send_message(embed=response_embed("カテゴリを削除しました", "カテゴリを削除しました。"))
+    await interaction.response.send_message(
+        embed=response_embed(messages.CATEGORY_REMOVED.title, messages.CATEGORY_REMOVED.description)
+    )
 
 
-@rolepanel_group.command(name="edit_role", description="カテゴリ内ロールを編集します")
-@app_commands.rename(category="カテゴリ")
-@app_commands.describe(category="ロールを編集するカテゴリ")
+@rolepanel_group.command(name="edit_role", description=messages.EDIT_ROLE_DESCRIPTION)
+@app_commands.rename(category=messages.CATEGORY_LABEL)
+@app_commands.describe(category=messages.EDIT_ROLE_CATEGORY_DESCRIPTION)
 @app_commands.autocomplete(category=category_autocomplete)
 @admin_only
 async def role_edit(interaction: discord.Interaction, category: int) -> None:
@@ -143,7 +153,7 @@ async def role_edit(interaction: discord.Interaction, category: int) -> None:
     category_data = await bot.db.role_panel.get_category(category)
     if category_data is None:
         await interaction.response.send_message(
-            embed=response_embed("カテゴリが見つかりません", "指定されたカテゴリが見つかりません。"),
+            embed=response_embed(messages.CATEGORY_NOT_FOUND.title, messages.CATEGORY_NOT_FOUND.description),
             ephemeral=True,
         )
         return
@@ -153,8 +163,9 @@ async def role_edit(interaction: discord.Interaction, category: int) -> None:
         f"category_id={category}"
     )
     role_ids = [role.role_id for role in category_data.roles]
+    copy = messages.role_edit_prompt(category_name=category_data.name)
     await interaction.response.send_message(
-        embed=response_embed("ロールを編集", f"`{category_data.name}` に表示するロールを選択してください。"),
+        embed=response_embed(copy.title, copy.description),
         view=RolePanelAdminRoleEditView(
             RolePanelAdminRoleSelect(
                 category,
@@ -167,9 +178,12 @@ async def role_edit(interaction: discord.Interaction, category: int) -> None:
     )
 
 
-@rolepanel_group.command(name="require_boost", description="カテゴリのロールをブースター限定設定を変更します。")
-@app_commands.rename(category="カテゴリ", required="ブースター限定")
-@app_commands.describe(category="設定を変更するカテゴリ", required="ブースター限定にするかどうか")
+@rolepanel_group.command(name="require_boost", description=messages.REQUIRE_BOOST_DESCRIPTION)
+@app_commands.rename(category=messages.CATEGORY_LABEL, required=messages.BOOST_REQUIRED_LABEL)
+@app_commands.describe(
+    category=messages.REQUIRE_BOOST_CATEGORY_DESCRIPTION,
+    required=messages.REQUIRE_BOOST_VALUE_DESCRIPTION,
+)
 @app_commands.autocomplete(category=category_autocomplete)
 @admin_only
 async def required_edit(interaction: discord.Interaction, category: int, required: bool) -> None:
@@ -177,7 +191,7 @@ async def required_edit(interaction: discord.Interaction, category: int, require
     updated = await bot.db.role_panel.update_category(category, requires_boost=required)
     if updated is None:
         await interaction.response.send_message(
-            embed=response_embed("カテゴリが見つかりません", "指定されたカテゴリが見つかりません。"),
+            embed=response_embed(messages.CATEGORY_NOT_FOUND.title, messages.CATEGORY_NOT_FOUND.description),
             ephemeral=True,
         )
         return
@@ -187,16 +201,14 @@ async def required_edit(interaction: discord.Interaction, category: int, require
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "
         f"category_id={category} required={required}"
     )
+    copy = messages.boost_requirement_updated(category_name=updated.name, required=required)
     await interaction.response.send_message(
-        embed=response_embed(
-            "ブースター限定設定を更新しました",
-            f"`{updated.name}` のブースター限定設定を {'有効' if required else '無効'} にしました。",
-        ),
+        embed=response_embed(copy.title, copy.description),
         ephemeral=True,
     )
 
 
-@rolepanel_group.command(name="refresh", description="ロールパネルを再描画します")
+@rolepanel_group.command(name="refresh", description=messages.REFRESH_DESCRIPTION)
 @admin_only
 async def refresh(interaction: discord.Interaction) -> None:
     cog = get_rolepanel_cog(get_bot(interaction))
@@ -206,16 +218,14 @@ async def refresh(interaction: discord.Interaction) -> None:
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} actor_id={interaction.user.id} "
         f"refreshed={refreshed}"
     )
+    copy = messages.refresh_result(refreshed=refreshed)
     await interaction.response.send_message(
-        embed=response_embed(
-            "ロールパネルを再描画しました" if refreshed else "ロールパネルを再描画できませんでした",
-            "ロールパネルを再描画しました。" if refreshed else "ロールパネルを再描画できませんでした。",
-        ),
+        embed=response_embed(copy.title, copy.description),
         ephemeral=True,
     )
 
 
-@rolepanel_group.command(name="list", description="ロールパネル設定を一覧表示します")
+@rolepanel_group.command(name="list", description=messages.LIST_DESCRIPTION)
 @admin_only
 async def list_categories(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)

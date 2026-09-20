@@ -10,9 +10,11 @@ from app.common.discord_types import as_text_channel
 from app.common.pages import Paginator
 from app.common.permissions import admin_only
 
+from . import messages
+
 logger = getLogger(__name__)
 
-starboard_group = app_commands.Group(name="starboard", description="スターボード関連のコマンド")
+starboard_group = app_commands.Group(name="starboard", description=messages.GROUP_DESCRIPTION)
 
 
 async def _find_existing_bot_message(
@@ -25,32 +27,7 @@ async def _find_existing_bot_message(
     return None
 
 
-def _build_setup_summary(total_count: int, recreated_count: int, deleted_count: int) -> str:
-    return (
-        "スターボード再作成が完了しました。\n"
-        f"対象件数: {total_count}\n"
-        f"再作成件数: {recreated_count}\n"
-        f"欠損削除件数: {deleted_count}"
-    )
-
-
-def _build_setup_error(
-    message: str,
-    total_count: int,
-    recreated_count: int,
-    deleted_count: int,
-    processed_count: int,
-) -> str:
-    return (
-        f"{message}\n"
-        f"対象件数: {total_count}\n"
-        f"処理済み件数: {processed_count}\n"
-        f"再作成件数: {recreated_count}\n"
-        f"欠損削除件数: {deleted_count}"
-    )
-
-
-@app_commands.command(name="starboard", description="旧スターボードを再作成")
+@app_commands.command(name="starboard", description=messages.SETUP_DESCRIPTION)
 @app_commands.guild_only()
 @admin_only
 async def setup_starboard(interaction: discord.Interaction) -> None:
@@ -64,21 +41,21 @@ async def setup_starboard(interaction: discord.Interaction) -> None:
     )
     source_channel = as_text_channel(interaction.channel)
     if interaction.guild is None or source_channel is None:
-        await interaction.followup.send("サーバー内チャンネルで実行してください。", ephemeral=True)
+        await interaction.followup.send(messages.SETUP_GUILD_CHANNEL_ONLY, ephemeral=True)
         return
     target_channel = as_text_channel(interaction.guild.get_channel(bot.config.starboard.starboard_channel_id))
     if target_channel is None:
         logger.warning("スターボード再作成先チャンネルが未設定または未解決です。")
-        await interaction.followup.send("スターボードチャンネル設定が不足しています。", ephemeral=True)
+        await interaction.followup.send(messages.SETUP_CHANNEL_MISSING, ephemeral=True)
         return
     if source_channel.id == target_channel.id:
         await interaction.followup.send(
-            "実行チャンネルとスターボードチャンネルが同一です。別の旧スターボードチャンネルで実行してください。",
+            messages.SETUP_SAME_CHANNEL,
             ephemeral=True,
         )
         return
     if bot.user is None:
-        await interaction.followup.send("BOT ユーザー情報が取得できませんでした。", ephemeral=True)
+        await interaction.followup.send(messages.BOT_USER_MISSING, ephemeral=True)
         return
     existing_message = await _find_existing_bot_message(target_channel, bot.user.id)
     if existing_message is not None:
@@ -87,7 +64,7 @@ async def setup_starboard(interaction: discord.Interaction) -> None:
             f"channel_id={target_channel.id} message_id={existing_message.id}"
         )
         await interaction.followup.send(
-            "新しいスターボードチャンネルに既に BOT の投稿があります。再実行はできません。",
+            messages.SETUP_ALREADY_RUN,
             ephemeral=True,
         )
         return
@@ -115,12 +92,12 @@ async def setup_starboard(interaction: discord.Interaction) -> None:
                 f"source_channel_id={source_channel.id} old_starboard_message_id={data.starboard_message_id}"
             )
             await interaction.followup.send(
-                _build_setup_error(
-                    "旧スターボードチャンネルのメッセージ取得権限がありません。処理を中断しました。",
-                    total_count,
-                    recreated_count,
-                    deleted_count,
-                    processed_count - 1,
+                messages.setup_error(
+                    message=messages.SOURCE_READ_FORBIDDEN,
+                    total_count=total_count,
+                    recreated_count=recreated_count,
+                    deleted_count=deleted_count,
+                    processed_count=processed_count - 1,
                 ),
                 ephemeral=True,
             )
@@ -131,12 +108,12 @@ async def setup_starboard(interaction: discord.Interaction) -> None:
                 f"source_channel_id={source_channel.id} old_starboard_message_id={data.starboard_message_id}"
             )
             await interaction.followup.send(
-                _build_setup_error(
-                    "旧スターボードチャンネルのメッセージ取得に失敗しました。処理を中断しました。",
-                    total_count,
-                    recreated_count,
-                    deleted_count,
-                    processed_count - 1,
+                messages.setup_error(
+                    message=messages.SOURCE_READ_FAILED,
+                    total_count=total_count,
+                    recreated_count=recreated_count,
+                    deleted_count=deleted_count,
+                    processed_count=processed_count - 1,
                 ),
                 ephemeral=True,
             )
@@ -146,12 +123,12 @@ async def setup_starboard(interaction: discord.Interaction) -> None:
         except discord.Forbidden:
             logger.warning(f"新スターボードチャンネルへの送信権限がありません: target_channel_id={target_channel.id}")
             await interaction.followup.send(
-                _build_setup_error(
-                    "新しいスターボードチャンネルへの送信権限がありません。処理を中断しました。",
-                    total_count,
-                    recreated_count,
-                    deleted_count,
-                    processed_count - 1,
+                messages.setup_error(
+                    message=messages.DESTINATION_SEND_FORBIDDEN,
+                    total_count=total_count,
+                    recreated_count=recreated_count,
+                    deleted_count=deleted_count,
+                    processed_count=processed_count - 1,
                 ),
                 ephemeral=True,
             )
@@ -159,12 +136,12 @@ async def setup_starboard(interaction: discord.Interaction) -> None:
         except discord.HTTPException:
             logger.exception(f"新スターボードチャンネルへの送信に失敗しました: target_channel_id={target_channel.id}")
             await interaction.followup.send(
-                _build_setup_error(
-                    "新しいスターボードチャンネルへの送信に失敗しました。処理を中断しました。",
-                    total_count,
-                    recreated_count,
-                    deleted_count,
-                    processed_count - 1,
+                messages.setup_error(
+                    message=messages.DESTINATION_SEND_FAILED,
+                    total_count=total_count,
+                    recreated_count=recreated_count,
+                    deleted_count=deleted_count,
+                    processed_count=processed_count - 1,
                 ),
                 ephemeral=True,
             )
@@ -189,26 +166,30 @@ async def setup_starboard(interaction: discord.Interaction) -> None:
         f"total_count={total_count} recreated_count={recreated_count} deleted_count={deleted_count}"
     )
     await interaction.followup.send(
-        _build_setup_summary(total_count, recreated_count, deleted_count),
+        messages.setup_summary(
+            total_count=total_count,
+            recreated_count=recreated_count,
+            deleted_count=deleted_count,
+        ),
         ephemeral=True,
     )
 
 
-@starboard_group.command(name="random", description="ランダムなスターボードを送信")
+@starboard_group.command(name="random", description=messages.RANDOM_DESCRIPTION)
 async def random_starboard(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
     data = await bot.db.starred_messages.get_random_starred_message()
     if data is None:
         logger.warning("ランダムなスターボードが取得できませんでした: reason=no_data")
-        await interaction.response.send_message("ランダムなスターボードを取得できませんでした。", ephemeral=True)
+        await interaction.response.send_message(messages.RANDOM_NOT_FOUND, ephemeral=True)
         return
     if interaction.guild is None:
-        await interaction.response.send_message("サーバー内でのみ使用できます。", ephemeral=True)
+        await interaction.response.send_message(messages.GUILD_ONLY, ephemeral=True)
         return
     channel = as_text_channel(interaction.guild.get_channel(bot.config.starboard.starboard_channel_id))
     if channel is None:
         logger.warning("ランダムスターボード取得時にチャンネルが見つかりませんでした。")
-        await interaction.response.send_message("スターボードチャンネルが見つかりません。", ephemeral=True)
+        await interaction.response.send_message(messages.CHANNEL_NOT_FOUND, ephemeral=True)
         return
     try:
         message = await channel.fetch_message(data.starboard_message_id)
@@ -216,7 +197,7 @@ async def random_starboard(interaction: discord.Interaction) -> None:
         logger.warning(
             f"ランダムスターボード取得時にメッセージが見つかりませんでした: message_id={data.starboard_message_id}"
         )
-        await interaction.response.send_message("ランダムなスターボードを取得できませんでした。", ephemeral=True)
+        await interaction.response.send_message(messages.RANDOM_NOT_FOUND, ephemeral=True)
         return
     logger.debug(
         "ランダムスターボードを送信しました: command=/starboard random "
@@ -230,7 +211,7 @@ def _ranking_emoji(index: int) -> str:
     return ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"][index]
 
 
-@starboard_group.command(name="ranking", description="スターボードのランキングを表示")
+@starboard_group.command(name="ranking", description=messages.RANKING_DESCRIPTION)
 async def starboard_ranking(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
     message_ranking = await bot.db.starred_messages.get_starred_message_ranking(5)
@@ -238,29 +219,38 @@ async def starboard_ranking(interaction: discord.Interaction) -> None:
     given_ranking = await bot.db.given_stars.get_given_star_ranking(5)
     if not message_ranking or not star_ranking or not given_ranking or interaction.guild is None:
         logger.warning("スターボードランキング作成に必要な情報が不足しています。")
-        await interaction.response.send_message("ランキングを作成するための情報が不足しています。")
+        await interaction.response.send_message(messages.RANKING_DATA_MISSING)
         return
     message_lines = [
         (
-            f"{_ranking_emoji(index)} : [{data.starred_message_id}]("
-            f"https://discord.com/channels/{interaction.guild.id}/"
-            f"{data.starred_message_channel_id}/{data.starred_message_id}) (⭐️ {data.star_amount})"
+            messages.message_ranking_line(
+                emoji=_ranking_emoji(index),
+                guild_id=interaction.guild.id,
+                channel_id=data.starred_message_channel_id,
+                message_id=data.starred_message_id,
+                stars=data.star_amount,
+            )
         )
         for index, data in enumerate(message_ranking)
     ]
     star_lines = [
-        f"{_ranking_emoji(index)} : <@{data.user_id}>(⭐️ {data.star_amount})"
+        messages.user_ranking_line(
+            emoji=_ranking_emoji(index),
+            user_id=data.user_id,
+            stars=data.star_amount,
+            compact=True,
+        )
         for index, data in enumerate(star_ranking)
     ]
     given_lines = [
-        f"{_ranking_emoji(index)} : <@{data.user_id}> (⭐️ {data.given_star_amount})"
+        messages.user_ranking_line(emoji=_ranking_emoji(index), user_id=data.user_id, stars=data.given_star_amount)
         for index, data in enumerate(given_ranking)
     ]
-    base_embed = discord.Embed(color=discord.Color.random(), title="スターボードランキング")
+    base_embed = discord.Embed(color=discord.Color.random(), title=messages.RANKING_TITLE)
     embeds = [
-        base_embed.copy().add_field(name="星が最も多いメッセージ", value="\n".join(message_lines)),
-        base_embed.copy().add_field(name="星をたくさん受け取ったユーザー", value="\n".join(star_lines)),
-        base_embed.copy().add_field(name="星をたくさんあげたユーザー", value="\n".join(given_lines)),
+        base_embed.copy().add_field(name=messages.MOST_STARRED_MESSAGE_FIELD, value="\n".join(message_lines)),
+        base_embed.copy().add_field(name=messages.MOST_STARRED_USER_FIELD, value="\n".join(star_lines)),
+        base_embed.copy().add_field(name=messages.MOST_GIVEN_USER_FIELD, value="\n".join(given_lines)),
     ]
     logger.debug(
         "スターボードランキングを表示しました: command=/starboard ranking "

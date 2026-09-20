@@ -10,11 +10,13 @@ from app.common.constants import AsteroidColor
 from app.common.permissions import ADMINISTRATOR_PERMISSIONS, admin_only
 from app.core.bot import AsteroidBot
 
+from . import messages
+
 logger = getLogger(__name__)
 
 suggest_group = app_commands.Group(
     name="suggestion",
-    description="要望に関するコマンド",
+    description=messages.GROUP_DESCRIPTION,
     guild_only=True,
     default_permissions=ADMINISTRATOR_PERMISSIONS,
 )
@@ -31,15 +33,15 @@ async def suggestion_handler(interaction: discord.Interaction, judge: str, reaso
         ):
             await thread.edit(archived=True)
             embed = discord.Embed(
-                color=AsteroidColor.SUCCESS if judge == "可決" else AsteroidColor.WARNING,
-                title=f"この要望は{judge}されました",
+                color=AsteroidColor.SUCCESS if judge == messages.APPROVED else AsteroidColor.WARNING,
+                title=messages.result_title(judgment=judge),
             )
             embed.set_author(name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url)
-            embed.add_field(name="理由", value=reason)
+            embed.add_field(name=messages.REASON_FIELD_NAME, value=reason)
             await interaction.followup.send(embed=embed)
             logger.info(
                 "要望を処理しました: "
-                f"command=/suggestion {'approve' if judge == '可決' else 'deny'} "
+                f"command=/suggestion {'approve' if judge == messages.APPROVED else 'deny'} "
                 f"guild_id={interaction.guild_id} thread_id={thread.id} actor_id={interaction.user.id} "
                 f"judge={judge}"
             )
@@ -51,7 +53,7 @@ async def suggestion_handler(interaction: discord.Interaction, judge: str, reaso
         await interaction.followup.send(
             embed=discord.Embed(
                 color=AsteroidColor.WARNING,
-                description="このコマンドは要望フォーラム下のスレッドにのみ使用できます。",
+                description=messages.FORUM_THREAD_ONLY,
             ),
             ephemeral=True,
         )
@@ -61,25 +63,25 @@ async def suggestion_handler(interaction: discord.Interaction, judge: str, reaso
         f"要望コマンドをスレッド外で拒否しました: channel_id={interaction.channel_id} user_id={interaction.user.id}"
     )
     await interaction.followup.send(
-        embed=discord.Embed(color=AsteroidColor.WARNING, description="このコマンドはスレッドでのみ実行できます。"),
+        embed=discord.Embed(color=AsteroidColor.WARNING, description=messages.THREAD_ONLY),
         ephemeral=True,
     )
 
 
-@suggest_group.command(name="approve", description="要望を可決")
-@app_commands.rename(reason="理由")
-@app_commands.describe(reason="要望を可決する理由")
+@suggest_group.command(name="approve", description=messages.APPROVE_DESCRIPTION)
+@app_commands.rename(reason=messages.REASON_LABEL)
+@app_commands.describe(reason=messages.APPROVE_REASON_DESCRIPTION)
 @admin_only
 async def approve(interaction: discord.Interaction, reason: str) -> None:
-    await suggestion_handler(interaction, "可決", reason)
+    await suggestion_handler(interaction, messages.APPROVED, reason)
 
 
-@suggest_group.command(name="deny", description="要望を否決")
-@app_commands.rename(reason="理由")
-@app_commands.describe(reason="要望を否決する理由")
+@suggest_group.command(name="deny", description=messages.DENY_DESCRIPTION)
+@app_commands.rename(reason=messages.REASON_LABEL)
+@app_commands.describe(reason=messages.DENY_REASON_DESCRIPTION)
 @admin_only
 async def deny(interaction: discord.Interaction, reason: str) -> None:
-    await suggestion_handler(interaction, "否決", reason)
+    await suggestion_handler(interaction, messages.DENIED, reason)
 
 
 async def setup(bot: AsteroidBot) -> None:

@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import asyncio
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database.repositories.leveling_locks import LevelingLocks
 from app.database.repositories.monthly_action_powers import MonthlyActionPowerData
 from app.database.repositories.monthly_powers import MonthlyPowerData
 from app.database.repositories.star_grades import StarGradeData
@@ -42,49 +40,10 @@ class LevelingShardUpdateData:
     prestige_amount: int
 
 
-class LevelingTransactions:
+class LevelingTransactions(LevelingLocks):
     def __init__(self, db):
         self.db = db
-        self._condition = asyncio.Condition()
-        self._monthly_power_reset_requested = False
-        self._resetting_monthly_power = False
-        self._active_user_updates = 0
-        self._user_locks: dict[int, asyncio.Lock] = {}
-
-    @asynccontextmanager
-    async def _user_update(self, user_id: int) -> AsyncIterator[None]:
-        async with self._condition:
-            while self._monthly_power_reset_requested or self._resetting_monthly_power:
-                await self._condition.wait()
-            self._active_user_updates += 1
-
-        lock = self._user_locks.setdefault(user_id, asyncio.Lock())
-        try:
-            async with lock:
-                yield
-        finally:
-            async with self._condition:
-                self._active_user_updates -= 1
-                if self._active_user_updates == 0:
-                    self._condition.notify_all()
-
-    @asynccontextmanager
-    async def _monthly_power_reset(self) -> AsyncIterator[None]:
-        async with self._condition:
-            while self._monthly_power_reset_requested or self._resetting_monthly_power:
-                await self._condition.wait()
-            self._monthly_power_reset_requested = True
-            while self._active_user_updates > 0:
-                await self._condition.wait()
-            self._resetting_monthly_power = True
-
-        try:
-            yield
-        finally:
-            async with self._condition:
-                self._resetting_monthly_power = False
-                self._monthly_power_reset_requested = False
-                self._condition.notify_all()
+        super().__init__()
 
     async def add_action_power(self, user_id: int, amount: int) -> MonthlyActionPowerData:
         async with self._user_update(user_id):

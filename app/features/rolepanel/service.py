@@ -10,6 +10,8 @@ from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
 from app.database.repositories.role_panel import RolePanelCategoryDetail, RolePanelRoleData
 
+from . import messages
+
 logger = getLogger(__name__)
 
 ROLE_SELECT_LIMIT = 25
@@ -169,25 +171,29 @@ class RolePanelService:
         guild: discord.Guild | None = None,
     ) -> discord.Embed:
         embed = discord.Embed(
-            title="ロールパネル",
-            description="カテゴリを選択して、付け外ししたいロールを選んでください。",
+            title=messages.PANEL_TITLE,
+            description=messages.PANEL_DESCRIPTION,
             color=AsteroidColor.GREEN,
         )
         if not categories:
             embed.add_field(
-                name="カテゴリ未設定",
-                value="管理者がカテゴリを追加するまで利用できません。",
+                name=messages.CATEGORY_UNSET_FIELD,
+                value=messages.CATEGORY_UNSET_DESCRIPTION,
                 inline=False,
             )
             return embed
 
         if len(categories) > PANEL_CATEGORY_LIMIT:
-            embed.description = (embed.description or "") + f"\n表示対象は先頭{PANEL_CATEGORY_LIMIT}カテゴリです。"
+            embed.description = (
+                (embed.description or "")
+                + "\n"
+                + messages.panel_category_limit_notice(category_limit=PANEL_CATEGORY_LIMIT)
+            )
 
         for category in categories[:PANEL_CATEGORY_LIMIT]:
             embed.add_field(
                 name=category.name,
-                value=category.description or "説明未設定",
+                value=category.description or messages.DESCRIPTION_UNSET,
                 inline=True,
             )
         return embed
@@ -198,8 +204,8 @@ class RolePanelService:
     ) -> list[discord.Embed]:
         if not categories:
             embed = discord.Embed(
-                title="ロールパネルカテゴリ設定一覧",
-                description="カテゴリはまだ登録されていません。",
+                title=messages.CATEGORY_SETTINGS_TITLE,
+                description=messages.NO_CATEGORIES,
                 color=AsteroidColor.INFO,
             )
             return [embed]
@@ -210,22 +216,23 @@ class RolePanelService:
         ) // CATEGORY_SETTINGS_EMBED_FIELD_LIMIT
         for page_index, start in enumerate(range(0, len(categories), CATEGORY_SETTINGS_EMBED_FIELD_LIMIT), start=1):
             chunk = categories[start : start + CATEGORY_SETTINGS_EMBED_FIELD_LIMIT]
-            title = "ロールパネルカテゴリ設定一覧"
-            if total_pages > 1:
-                title = f"{title} ({page_index}/{total_pages})"
+            title = messages.category_settings_title(page_index=page_index, total_pages=total_pages)
             embed = discord.Embed(
                 title=title,
                 color=AsteroidColor.INFO,
             )
             for category in chunk:
-                prefix = f"表示順: `{category.display_order}`\n説明文:\n"
-                description = category.description or "説明未設定"
+                prefix = messages.CATEGORY_SETTINGS_PREFIX.format(display_order=category.display_order)
+                description = category.description or messages.DESCRIPTION_UNSET
                 max_description_length = EMBED_FIELD_VALUE_LIMIT - len(prefix)
                 if len(description) > max_description_length:
                     description = description[: max_description_length - 3] + "..."
                 embed.add_field(
                     name=category.name,
-                    value=f"{prefix}{description}",
+                    value=messages.category_settings_value(
+                        display_order=category.display_order,
+                        description=description,
+                    ),
                     inline=False,
                 )
             embeds.append(embed)
@@ -239,7 +246,7 @@ class RolePanelService:
     ) -> str | None:
         if interaction.guild is None or not isinstance(interaction.user, discord.Member):
             logger.warning(f"ロールパネル選択をサーバー外で受信しました: category_id={category_id}")
-            return "サーバー内でのみ使用できます。"
+            return messages.SYNC_GUILD_ONLY
 
         category = await self.get_category(category_id)
         if category is None:
@@ -247,7 +254,7 @@ class RolePanelService:
                 "存在しないロールパネルカテゴリが選択されました: "
                 f"guild_id={interaction.guild.id} actor_id={interaction.user.id} category_id={category_id}"
             )
-            return "このカテゴリは存在しません。"
+            return messages.SYNC_CATEGORY_MISSING
 
         if member_needs_boost(interaction.user, category):
             logger.debug(
@@ -255,7 +262,7 @@ class RolePanelService:
                 f"guild_id={interaction.guild.id} actor_id={interaction.user.id} "
                 f"category_id={category_id} required=boost"
             )
-            return "このカテゴリを利用するにはサーバーをブーストする必要があります。"
+            return messages.SYNC_BOOST_REQUIRED
 
         plan = build_role_sync_plan(interaction.user, category, selected_role_ids)
         reason = f"[{generate_timestamp()}] ロールパネルにより同期されました。"
@@ -283,11 +290,8 @@ class RolePanelService:
             f"add_role_ids={[role.id for role in plan.add_roles]} "
             f"remove_role_ids={[role.id for role in plan.remove_roles]}"
         )
-        messages = ["ロールを同期しました。"]
-        if plan.add_roles:
-            messages.append("追加: " + ", ".join(role.mention for role in plan.add_roles))
-        if plan.remove_roles:
-            messages.append("削除: " + ", ".join(role.mention for role in plan.remove_roles))
-        if plan.unmanageable_role_ids:
-            messages.append("一部のロールはBOTの権限またはロール順により操作できませんでした。")
-        return "\n".join(messages)
+        return messages.role_sync_result(
+            added_role_mentions=[role.mention for role in plan.add_roles],
+            removed_role_mentions=[role.mention for role in plan.remove_roles],
+            has_unmanageable_roles=bool(plan.unmanageable_role_ids),
+        )

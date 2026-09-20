@@ -1,6 +1,6 @@
 ---
 name: asteroid-v3-feature-guideline
-description: Use when adding, modifying, or refactoring Asteroid_V3 features, extensions, cogs, event listeners, scheduled tasks, services, views, command modules, guild-scoped behavior, feature config, flags, or feature folders.
+description: Use when adding, modifying, or refactoring Asteroid_V3 features, extensions, cogs, event listeners, scheduled tasks, services, views, command modules, user-facing messages, guild-scoped behavior, feature config, flags, or feature folders.
 ---
 
 # Asteroid V3 Feature Guideline
@@ -35,7 +35,20 @@ Keep `config.example.yaml` and `README.md` aligned when new user-facing config i
 - Views: Discord UI classes and callback authorization.
 - Service: workflows, domain decisions, embed helpers, Discord operation planning.
 - Domain: pure logic, calculations, policy, testable values.
+- Messages: feature-owned user-facing copy and its formatting, without Discord operations or domain decisions.
 - Repository: DB reads/writes in `app/database/repositories/`, not Cog/View/Service.
+
+## User-Facing Messages
+
+- Put feature-owned user-facing copy in `app/features/<feature>/messages.py` by default.
+- Use module constants for fixed copy and typed functions with explicit arguments for copy that contains runtime values.
+- Pass primitive or already-formatted display values into message functions; keep Discord lookups, permission decisions, DB access, and side effects in the caller.
+- A narrow immutable value object is acceptable when one response always carries multiple related values such as a title and description.
+- Do not move logger text, audit identifiers, `custom_id` values, command names, database values, or operational reasons into the message catalog only to eliminate literals.
+- Preserve existing wording, whitespace, Markdown, mentions, emoji, and visibility unless the task explicitly changes the user-facing contract.
+- When a message catalog approaches 300 lines or mixes several independent areas, replace `messages.py` with a `messages/` package and split by responsibility, such as `commands.py`, `views.py`, or `ranking.py`.
+- Keep `messages/__init__.py` small. Re-export only stable names needed by callers; do not rebuild the entire catalog in the package entry point.
+- Do not keep sibling `messages.py` and `messages/` paths at the same time.
 
 ## File Size And Splitting
 
@@ -45,6 +58,7 @@ Split assertively:
 - Discord UI, View, Modal, Select, Button, and command groups are not exceptions.
 - `cog.py` may be longer only as entrance/dependency connector; never as a catch-all.
 - Move growing commands into `commands/`; growing UI into `views/` or purpose-specific modules.
+- Move a growing `messages.py` into a responsibility-focused `messages/` package instead of treating message catalogs as a size exception.
 - Extract domain logic, permission decisions, display data, embed builders, and DB coordination out of callbacks when practical.
 - Existing long files may remain until touched; new/nearby work should move toward focused files.
 

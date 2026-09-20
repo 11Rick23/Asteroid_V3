@@ -11,6 +11,7 @@ from app.database.repositories.monthly_powers import MonthlyPowerRankingData
 
 from .action_power import build_accumulated_action_power_message
 from .build_send_message import LevelingLayoutView, build_power_ranking_pages, build_text_container
+from .messages import ranking as ranking_messages
 
 logger = getLogger(__name__)
 
@@ -19,7 +20,9 @@ def build_monthly_ranking_views(
     bot: AsteroidBot,
     monthly_powers: list[MonthlyPowerRankingData],
 ) -> tuple[LevelingLayoutView, LevelingLayoutView, LevelingLayoutView]:
-    ranking_text = "\n".join(f"> ### {power.ranking}位: <@{power.user_id}>" for power in monthly_powers)
+    ranking_text = "\n".join(
+        ranking_messages.monthly_ranking_line(ranking=power.ranking, user_id=power.user_id) for power in monthly_powers
+    )
     first_half = build_power_ranking_pages(
         bot,
         monthly_powers[:5],
@@ -39,9 +42,7 @@ def build_monthly_ranking_views(
     return (
         LevelingLayoutView(
             build_text_container(
-                "# ということで、今回のtop10は...\n\n"
-                f"{ranking_text or 'ランキングデータはありません。'}\n"
-                "# このようになりました！おめでとうございます！",
+                ranking_messages.monthly_ranking_announcement(ranking_text=ranking_text),
                 accent_color=AsteroidColor.SUCCESS,
             )
         ),

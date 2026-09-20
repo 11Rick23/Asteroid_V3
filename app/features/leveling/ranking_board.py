@@ -12,11 +12,10 @@ from app.features.leveling.build_send_message import (
     build_shard_ranking_pages,
 )
 
+from .messages import ranking as ranking_messages
+
 RANKING_BOARD_PANEL_ID = "ranking_board"
 RANKING_BOARD_LIMIT = 3
-RANKING_BOARD_OFFLINE_DESCRIPTION = (
-    "ご迷惑をおかけいたしますが、ランキングは現在確認できません。時間を空けてもう一度ご確認ください。"
-)
 
 
 class RankingBoardPanel:
@@ -26,7 +25,7 @@ class RankingBoardPanel:
             RANKING_BOARD_PANEL_ID,
             self.bot.config.leveling.ranking_board_channel_id,
             self.render,
-            offline_description=RANKING_BOARD_OFFLINE_DESCRIPTION,
+            offline_description=ranking_messages.RANKING_OFFLINE_DESCRIPTION,
         )
 
     async def initialize(self) -> bool:
@@ -48,32 +47,26 @@ class RankingBoardPanel:
         power_pages = build_power_ranking_pages(
             self.bot,
             monthly_powers,
-            title="パワーランキング",
-            description=(
-                f"月間パワー 現在のTOP{RANKING_BOARD_LIMIT}\n\n"
-                f"{AsteroidEmoji.TEXT_POWER}: テキストパワー\n"
-                f"{AsteroidEmoji.VOICE_POWER}: ボイスパワー\n"
-                f"{AsteroidEmoji.ACTION_POWER}: アクションパワー\n"
-                f"{AsteroidEmoji.TRANSPARENT}"
+            title=ranking_messages.POWER_RANKING_TITLE,
+            description=ranking_messages.power_ranking_description(
+                heading=ranking_messages.monthly_power_ranking_heading(limit=RANKING_BOARD_LIMIT),
+                trailing=AsteroidEmoji.TRANSPARENT,
             ),
         )
         shard_pages = build_shard_ranking_pages(
             self.bot,
             star_grades,
-            title="シャードランキング",
-            description=(
-                f"累計シャード 現在のTOP{RANKING_BOARD_LIMIT}\n\n"
-                f"{AsteroidEmoji.PRESTIGE}: プレステージ\n"
-                f"{AsteroidEmoji.GRADE}: グレード\n"
-                f"{AsteroidEmoji.SHARD}: シャード\n"
-                f"{AsteroidEmoji.TRANSPARENT}"
+            title=ranking_messages.SHARD_RANKING_TITLE,
+            description=ranking_messages.shard_ranking_description(
+                heading=ranking_messages.cumulative_shard_ranking_heading(limit=RANKING_BOARD_LIMIT),
+                trailing=AsteroidEmoji.TRANSPARENT,
             ),
         )
         hotness_container = build_hotness_ranking_container(
             self.bot,
             hotness,
-            title="🔥 急上昇ランキング",
-            description=f"直近24時間の経験値獲得量 TOP{RANKING_BOARD_LIMIT}",
+            title=ranking_messages.HOTNESS_RANKING_TITLE,
+            description=ranking_messages.hotness_ranking_description(limit=RANKING_BOARD_LIMIT),
         )
 
         return PersistentPanelContent(

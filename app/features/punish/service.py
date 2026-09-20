@@ -8,6 +8,8 @@ import discord
 from app.common.utils import generate_timestamp
 from app.core.bot import AsteroidBot
 
+from . import messages
+
 logger = getLogger(__name__)
 
 
@@ -39,13 +41,14 @@ async def send_punish_message(
     probation: str | None,
     duration: str | None = None,
 ) -> None:
-    message = (
-        f"```{user.name} {user.id}\n"
-        f"日付: {datetime.datetime.now().strftime('%m/%d')}\n"
-        f"違反内容: {reason}\n"
-        f"処罰: {punishment}"
-        + (f"\n期間: {duration}" if duration is not None else "")
-        + (f"\n執行猶予: {probation}```" if probation is not None else "```")
+    message = messages.punishment_record(
+        user_name=user.name,
+        user_id=user.id,
+        date_text=datetime.datetime.now().strftime("%m/%d"),
+        reason=reason,
+        punishment=punishment,
+        probation=probation,
+        duration=duration,
     )
     await punishment_board.send(message)
     try:
@@ -59,7 +62,7 @@ async def require_punishment_context(
     interaction: discord.Interaction,
 ) -> tuple[discord.Guild, discord.Member, discord.TextChannel] | None:
     if interaction.guild is None or not isinstance(interaction.user, discord.Member):
-        await interaction.response.send_message("サーバー内でのみ使用できます。", ephemeral=True)
+        await interaction.response.send_message(messages.GUILD_ONLY, ephemeral=True)
         return None
     punishment_board = interaction.guild.get_channel(bot.config.punish.punishment_board_channel_id)
     if not isinstance(punishment_board, discord.TextChannel):
@@ -67,7 +70,7 @@ async def require_punishment_context(
             "処罰板チャンネルが見つかりませんでした: "
             f"guild_id={interaction.guild.id} channel_id={bot.config.punish.punishment_board_channel_id}"
         )
-        await interaction.response.send_message("処罰板チャンネルが見つかりません。", ephemeral=True)
+        await interaction.response.send_message(messages.PUNISHMENT_BOARD_NOT_FOUND, ephemeral=True)
         return None
     return interaction.guild, interaction.user, punishment_board
 

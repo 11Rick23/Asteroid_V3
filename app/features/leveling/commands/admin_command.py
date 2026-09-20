@@ -1,43 +1,43 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from logging import getLogger
 
 import discord
 from discord import app_commands
 
 from app.common.command_groups import get_bot, register_group
-from app.common.permissions import ADMINISTRATOR_PERMISSIONS, admin_only
+from app.common.permissions import admin_only
 from app.common.utils import humanize_number
 from app.core.bot import AsteroidBot
 from app.features.leveling.action_power import build_accumulated_action_power_message
 from app.features.leveling.build_send_message import build_power_view, build_star_grade_view
+from app.features.leveling.commands.admin_groups import admin_power_group, admin_shard_group, leveling_admin_group
+from app.features.leveling.commands.set_command import register_set_commands
+from app.features.leveling.domain.boost_duration import parse_boost_duration
 from app.features.leveling.manage_reward_role import sync_grade_prestige_role
+from app.features.leveling.messages import admin as admin_messages
+from app.features.leveling.messages import common as common_messages
 from app.features.leveling.monthly import run_monthly_ranking
 
 logger = getLogger(__name__)
 
-leveling_admin_group = app_commands.Group(
-    name="leveling",
-    description="管理者用レベリングシステム関連コマンド",
-    guild_only=True,
-    default_permissions=ADMINISTRATOR_PERMISSIONS,
+xp_boost_group = app_commands.Group(
+    name="booster", description=admin_messages.BOOSTER_GROUP_DESCRIPTION, parent=leveling_admin_group
 )
-xp_boost_group = app_commands.Group(name="booster", description="ブースター設定", parent=leveling_admin_group)
-admin_shard_group = app_commands.Group(name="shard", description="シャード管理", parent=leveling_admin_group)
-admin_power_group = app_commands.Group(name="power", description="パワー管理", parent=leveling_admin_group)
 SHARD_TYPE_CHOICES = [
-    app_commands.Choice(name="テキスト", value="テキスト"),
-    app_commands.Choice(name="ボイス", value="ボイス"),
-    app_commands.Choice(name="ボーナス", value="ボーナス"),
+    app_commands.Choice(name=admin_messages.TEXT_LABEL, value=admin_messages.TEXT_LABEL),
+    app_commands.Choice(name=admin_messages.VOICE_LABEL, value=admin_messages.VOICE_LABEL),
+    app_commands.Choice(name=admin_messages.BONUS_LABEL, value=admin_messages.BONUS_LABEL),
 ]
 POWER_TYPE_CHOICES = [
-    app_commands.Choice(name="テキスト", value="text"),
-    app_commands.Choice(name="ボイス", value="voice"),
-    app_commands.Choice(name="アクション", value="action"),
+    app_commands.Choice(name=admin_messages.TEXT_LABEL, value="text"),
+    app_commands.Choice(name=admin_messages.VOICE_LABEL, value="voice"),
+    app_commands.Choice(name=admin_messages.ACTION_LABEL, value="action"),
 ]
 
 
-@leveling_admin_group.command(name="action_power_total", description="現在の合計アクションパワーを確認します")
+@leveling_admin_group.command(name="action_power_total", description=admin_messages.ACTION_POWER_TOTAL_DESCRIPTION)
 @admin_only
 async def action_power_total(interaction: discord.Interaction) -> None:
     bot = get_bot(interaction)
@@ -53,22 +53,48 @@ async def action_power_total(interaction: discord.Interaction) -> None:
     )
 
 
-@xp_boost_group.command(name="add", description="経験値ブースターを追加します")
-@app_commands.rename(role="ロール", name="名前", amount="倍率")
+@xp_boost_group.command(name="add", description=admin_messages.BOOSTER_ADD_DESCRIPTION)
+@app_commands.rename(
+    role=admin_messages.ROLE_LABEL,
+    name=admin_messages.NAME_LABEL,
+    amount=admin_messages.MULTIPLIER_LABEL,
+    duration=admin_messages.DURATION_LABEL,
+)
+@app_commands.describe(
+    amount=admin_messages.BOOSTER_MULTIPLIER_DESCRIPTION,
+    duration=admin_messages.BOOSTER_DURATION_DESCRIPTION,
+)
 @admin_only
-async def xp_boost_add(interaction: discord.Interaction, role: discord.Role, name: str, amount: int) -> None:
+async def xp_boost_add(
+    interaction: discord.Interaction,
+    role: discord.Role,
+    name: str,
+    amount: int,
+    duration: str | None = None,
+) -> None:
     bot = get_bot(interaction)
-    await bot.db.xp_boosts.create_xp_boost(role.id, name, amount, None)
+    end_time = None
+    if duration is not None:
+        delta = parse_boost_duration(duration)
+        if delta is not None:
+            try:
+                end_time = datetime.now(UTC).replace(tzinfo=None) + delta
+            except OverflowError:
+                pass
+        if end_time is None:
+            await interaction.response.send_message(admin_messages.BOOSTER_INVALID_DURATION, ephemeral=True)
+            return
+    await bot.db.xp_boosts.create_xp_boost(role.id, name, amount, end_time)
     logger.info(
-        "XPブースターを追加しました: command=/leveling booster add "
+        "XPブースターを設定しました: command=/leveling booster add "
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
-        f"actor_id={interaction.user.id} role_id={role.id} name={name} amount={amount}"
+        f"actor_id={interaction.user.id} role_id={role.id} name={name} amount={amount} end_time={end_time}"
     )
-    await interaction.response.send_message("経験値ブースターを追加しました。")
+    await interaction.response.send_message(admin_messages.BOOSTER_ADDED)
 
 
-@xp_boost_group.command(name="delete", description="経験値ブースターを削除します")
-@app_commands.rename(role="ロール")
+@xp_boost_group.command(name="delete", description=admin_messages.BOOSTER_DELETE_DESCRIPTION)
+@app_commands.rename(role=admin_messages.ROLE_LABEL)
 @admin_only
 async def xp_boost_delete(interaction: discord.Interaction, role: discord.Role) -> None:
     bot = get_bot(interaction)
@@ -78,11 +104,15 @@ async def xp_boost_delete(interaction: discord.Interaction, role: discord.Role) 
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
         f"actor_id={interaction.user.id} role_id={role.id}"
     )
-    await interaction.response.send_message("経験値ブースターを削除しました。")
+    await interaction.response.send_message(admin_messages.BOOSTER_DELETED)
 
 
-@admin_shard_group.command(name="add", description="ユーザーにシャードを追加します")
-@app_commands.rename(user="ユーザー", shard_type="シャード種類", amount="数量")
+@admin_shard_group.command(name="add", description=admin_messages.SHARD_ADD_DESCRIPTION)
+@app_commands.rename(
+    user=common_messages.USER_LABEL,
+    shard_type=admin_messages.SHARD_TYPE_LABEL,
+    amount=admin_messages.AMOUNT_LABEL,
+)
 @app_commands.choices(shard_type=SHARD_TYPE_CHOICES)
 @admin_only
 async def add_shard(
@@ -98,10 +128,12 @@ async def add_shard(
         view=build_star_grade_view(
             user,
             update.star_grade,
-            notice=(
-                f"{user.mention}に`{humanize_number(amount)}`{shard_type_value}シャードを付与しました\n"
-                f"{update.grade_up_amount}回グレードアップしました、"
-                f"{update.prestige_amount}回プレステージしました"
+            notice=admin_messages.shard_added(
+                user_mention=user.mention,
+                amount=humanize_number(amount),
+                shard_type=shard_type_value,
+                grade_up_amount=update.grade_up_amount,
+                prestige_amount=update.prestige_amount,
             ),
         )
     )
@@ -114,16 +146,23 @@ async def add_shard(
     )
 
 
-@admin_shard_group.command(name="remove", description="ユーザーからシャードを減らします")
-@app_commands.rename(user="ユーザー", shard_type="シャード種類", amount="数量")
+@admin_shard_group.command(name="remove", description=admin_messages.SHARD_REMOVE_DESCRIPTION)
+@app_commands.rename(
+    user=common_messages.USER_LABEL,
+    shard_type=admin_messages.SHARD_TYPE_LABEL,
+    amount=admin_messages.AMOUNT_LABEL,
+)
 @app_commands.choices(shard_type=SHARD_TYPE_CHOICES)
 @admin_only
 async def remove_shard(
     interaction: discord.Interaction,
     user: discord.Member,
     shard_type: app_commands.Choice[str],
-    amount: int,
+    amount: app_commands.Range[int, 1],
 ) -> None:
+    if amount < 1:
+        await interaction.response.send_message(admin_messages.POSITIVE_AMOUNT_REQUIRED, ephemeral=True)
+        return
     bot = get_bot(interaction)
     shard_type_value = shard_type.value
     update = await bot.db.leveling.remove_shard(user.id, shard_type_value, amount)
@@ -131,7 +170,11 @@ async def remove_shard(
         view=build_star_grade_view(
             user,
             update.star_grade,
-            notice=f"{user.mention}から`{humanize_number(amount)}`{shard_type_value}シャードを減らしました",
+            notice=admin_messages.shard_removed(
+                user_mention=user.mention,
+                amount=humanize_number(amount),
+                shard_type=shard_type_value,
+            ),
         )
     )
     await sync_grade_prestige_role(bot, user, update.star_grade)
@@ -143,8 +186,12 @@ async def remove_shard(
     )
 
 
-@admin_power_group.command(name="add", description="ユーザーにパワーを追加します")
-@app_commands.rename(user="ユーザー", target="パワー種類", amount="数量")
+@admin_power_group.command(name="add", description=admin_messages.POWER_ADD_DESCRIPTION)
+@app_commands.rename(
+    user=common_messages.USER_LABEL,
+    target=admin_messages.POWER_TYPE_LABEL,
+    amount=admin_messages.AMOUNT_LABEL,
+)
 @app_commands.choices(target=POWER_TYPE_CHOICES)
 @admin_only
 async def add_power(
@@ -164,16 +211,23 @@ async def add_power(
     await interaction.response.send_message(view=build_power_view(user, power))
 
 
-@admin_power_group.command(name="remove", description="ユーザーからパワーを減らします")
-@app_commands.rename(user="ユーザー", target="パワー種類", amount="数量")
+@admin_power_group.command(name="remove", description=admin_messages.POWER_REMOVE_DESCRIPTION)
+@app_commands.rename(
+    user=common_messages.USER_LABEL,
+    target=admin_messages.POWER_TYPE_LABEL,
+    amount=admin_messages.AMOUNT_LABEL,
+)
 @app_commands.choices(target=POWER_TYPE_CHOICES)
 @admin_only
 async def remove_power(
     interaction: discord.Interaction,
     user: discord.Member,
     target: app_commands.Choice[str],
-    amount: int,
+    amount: app_commands.Range[int, 1],
 ) -> None:
+    if amount < 1:
+        await interaction.response.send_message(admin_messages.POSITIVE_AMOUNT_REQUIRED, ephemeral=True)
+        return
     bot = get_bot(interaction)
     target_value = target.value
     power = await bot.db.leveling.remove_power(user.id, target_value, amount)
@@ -185,9 +239,9 @@ async def remove_power(
     await interaction.response.send_message(view=build_power_view(user, power))
 
 
-@admin_power_group.command(name="aggregate", description="現在のデータで月間ランキングを集計します")
-@app_commands.rename(delete_data="データを削除")
-@app_commands.describe(delete_data="集計後に月間パワーデータを削除するか")
+@admin_power_group.command(name="aggregate", description=admin_messages.AGGREGATE_DESCRIPTION)
+@app_commands.rename(delete_data=admin_messages.DELETE_DATA_LABEL)
+@app_commands.describe(delete_data=admin_messages.AGGREGATE_DELETE_DESCRIPTION)
 @admin_only
 async def aggregate_power_ranking(interaction: discord.Interaction, delete_data: bool = False) -> None:
     bot = get_bot(interaction)
@@ -203,7 +257,7 @@ async def aggregate_power_ranking(interaction: discord.Interaction, delete_data:
             f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
             f"actor_id={interaction.user.id} data_deleted={delete_data}"
         )
-        await interaction.followup.send("月間ランキングを集計できませんでした。", ephemeral=True)
+        await interaction.followup.send(admin_messages.AGGREGATE_FAILED, ephemeral=True)
         return
 
     logger.info(
@@ -212,13 +266,13 @@ async def aggregate_power_ranking(interaction: discord.Interaction, delete_data:
         f"actor_id={interaction.user.id} ranked_count={ranked_count} data_deleted={delete_data}"
     )
     await interaction.followup.send(
-        f"現在のデータで月間ランキングを集計しました。対象者: {ranked_count}人\n"
-        f"集計後のデータ削除: {'実行済み' if delete_data else '未実行'}",
+        admin_messages.aggregate_result(ranked_count=ranked_count, delete_data=delete_data),
         ephemeral=True,
     )
 
 
 def register_leveling_admin_commands(bot: AsteroidBot) -> None:
+    register_set_commands()
     register_group(bot, leveling_admin_group)
 
 

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, select
 
 from app.database.models.xp_boosts import XPBoostModel
 
@@ -48,14 +48,20 @@ class XPBoosts:
         self, role_id: int, name: str, boost_amount: int, boost_end_time: datetime | None
     ) -> None:
         async with self.db.session() as session:
-            session.add(
-                XPBoostModel(
-                    role_id=role_id,
-                    name=name,
-                    boost_amount=boost_amount,
-                    boost_end_time=boost_end_time,
+            model = await session.get(XPBoostModel, role_id)
+            if model is None:
+                session.add(
+                    XPBoostModel(
+                        role_id=role_id,
+                        name=name,
+                        boost_amount=boost_amount,
+                        boost_end_time=boost_end_time,
+                    )
                 )
-            )
+            else:
+                model.name = name
+                model.boost_amount = boost_amount
+                model.boost_end_time = boost_end_time
             await session.commit()
 
     async def delete_xp_boost(self, role_id: int) -> None:
@@ -66,10 +72,11 @@ class XPBoosts:
                 await session.commit()
 
     async def delete_expired_xp_boosts(self) -> None:
+        now = datetime.now(UTC).replace(tzinfo=None)
         async with self.db.session() as session:
             await session.execute(
                 delete(XPBoostModel).where(
-                    XPBoostModel.boost_end_time.is_not(None), XPBoostModel.boost_end_time < func.now()
+                    XPBoostModel.boost_end_time.is_not(None), XPBoostModel.boost_end_time <= now
                 )
             )
             await session.commit()
