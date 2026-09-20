@@ -6,6 +6,7 @@ import discord
 import pytest
 
 from app.database.account_migration import MigrationOptions
+from app.database.leveling_state import ShardState
 from app.features.account_migration import messages
 from app.features.account_migration.discord_state import member_overwrite
 
@@ -39,18 +40,69 @@ async def test_departed_source_uses_saved_roles(world):
 
 
 @pytest.mark.asyncio
-async def test_unassignable_role_rejected_managed_role_skipped(world):
-    """通常ロールを操作できなければ拒否し、連携管理ロールは対象外として明示する。"""
-    # 非機能要件：付与できないロールを移行済みとして扱わない。
+@pytest.mark.parametrize("reason", ["hierarchy", "managed", "permission"])
+async def test_unassignable_roles_are_skipped(world, reason):
+    """操作できないロールを明示して残し、操作可能なロールとレベリングを移行する。"""
+    # 機能要件：ロールの操作権限不足で他のデータの移行を止めない。
+    # 非機能要件：除外したロールと保存済みロールを移行元から削除しない。
     # Given
+    await world.bot.db.leveling_state.set_shards(1, ShardState(100))
+    await world.bot.db.user_roles.save_user_roles(1, [10, 20])
+    if reason == "hierarchy":
+        world.roles[10].is_assignable.return_value = False
+    elif reason == "managed":
+        world.roles[10].managed = True
+    else:
+        world.guild.me.guild_permissions = discord.Permissions.none()
+    excluded = (10, 20) if reason == "permission" else (10,)
+    # When
+    plan = await world.service.preview(world.guild, world.source, 2, MigrationOptions())
+    preview = messages.preview(plan.source, plan.target, plan.options, plan.discord)
+    result = await world.service.execute(world.guild, world.source, plan, world.channel, 99)
+    # Then
+    assert result == messages.COMPLETED
+    assert plan.discord.skipped_roles == excluded
+    assert plan.discord.transferable_roles == (() if reason == "permission" else (20,))
+    assert "除外するロール: <@&10>" in preview
+    assert {role.id for role in world.source.roles} == set(excluded)
+    assert {role.id for role in world.target.roles} == {20, 30}
+    assert {role.role_id for role in await world.bot.db.user_roles.get_user_roles(1)} == set(excluded)
+    source, target = await world.bot.db.account_migration.read_pair(1, 2)
+    assert source.shards.total == 0
+    assert target.shards == ShardState(100)
+    assert world.roles[10] not in [call.args[0] for call in world.source.remove_roles.await_args_list]
+    assert world.roles[10] not in [call.args[0] for call in world.target.add_roles.await_args_list]
+
+
+@pytest.mark.asyncio
+async def test_only_excluded_roles_are_shown(world):
+    """全ロールが対象外でも、空データのエラーにせず除外対象を表示する。"""
+    # 機能要件：ロールだけを選択した場合も除外されるロールを確認できる。
+    # Given
+    world.guild.me.guild_permissions = discord.Permissions.none()
+    # When
+    plan = await world.service.preview(world.guild, world.source, 2, MigrationOptions(False, True, False, False))
+    result = await world.service.execute(world.guild, world.source, plan, world.channel, 99)
+    # Then
+    assert plan.discord.skipped_roles == (10, 20)
+    assert "0件を引き継ぎ、2件を対象外" in messages.preview(plan.source, plan.target, plan.options, plan.discord)
+    assert result == messages.COMPLETED
+    world.source.remove_roles.assert_not_awaited()
+    world.target.add_roles.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_role_permissions_changed_after_preview(world):
+    """プレビュー後に操作できるロールが変わったら、移行前に再確認を求める。"""
+    # 非機能要件：ユーザーが確認した除外対象を確定時に黙って変更しない。
+    # Given
+    plan = await world.service.preview(world.guild, world.source, 2, MigrationOptions())
     world.roles[10].is_assignable.return_value = False
     # When / Then
-    with pytest.raises(ValueError, match="roles"):
-        await world.service.preview(world.guild, world.source, 2, MigrationOptions())
-    world.roles[10].managed = True
-    plan = await world.service.preview(world.guild, world.source, 2, MigrationOptions())
-    assert plan.discord.skipped_roles == (10,)
-    assert plan.discord.transferable_roles == (20,)
+    with pytest.raises(ValueError, match="stale"):
+        await world.service.execute(world.guild, world.source, plan, world.channel, 99)
+    world.target.add_roles.assert_not_awaited()
+    world.channel.send.assert_not_awaited()
 
 
 @pytest.mark.asyncio

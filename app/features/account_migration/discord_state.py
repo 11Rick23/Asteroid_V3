@@ -130,14 +130,16 @@ async def prepare_discord(
         target_roles = tuple(sorted(role.id for role in target.roles if not role.is_default()))
         for role_id in source_roles:
             role = guild.get_role(role_id)
-            if role is None or role.managed or role.is_default():
+            if (
+                role is None
+                or role.managed
+                or role.is_default()
+                or not role.is_assignable()
+                or not guild.me.guild_permissions.manage_roles
+            ):
                 skipped.append(role_id)
-            elif not role.is_assignable():
-                raise ValueError("roles")
             else:
                 transferable.append(role_id)
-        if transferable and not guild.me.guild_permissions.manage_roles:
-            raise ValueError("roles")
     channels: dict[int, discord.TextChannel] = {}
     permissions = []
     if options.free_category:

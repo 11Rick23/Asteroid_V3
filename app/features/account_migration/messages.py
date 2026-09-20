@@ -38,7 +38,6 @@ ROLLBACK_FAILED = "移行に失敗し、一部の変更を巻き戻せません�
 COMMIT_UNCERTAIN = "DBの確定結果を確認できませんでした。二重移行を避けるため、記録と現在のデータを確認してください。"
 ERRORS = {
     "accounts": "移行元と移行先は別の人間のアカウントを指定し、移行先はサーバーに参加している必要があります。",
-    "roles": "Botが移行元のロールを操作できません。Botの管理権限とロールの上下関係を確認してください。",
     "permissions": "Botに対象フリカテの権限を編集する権限がありません。",
     "stale": "プレビュー後にデータが変更されました。コマンドを再実行して内容を確認してください。",
     "empty": "移行元に選択した種類のデータがありません。",
@@ -78,6 +77,11 @@ def preview(source: AccountState, target: AccountState, options: MigrationOption
         if options.roles
         else "ロール: 移行しない"
     )
+    if options.roles and state.skipped_roles:
+        excluded = "、".join(f"<@&{role_id}>" for role_id in state.skipped_roles[:20])
+        if len(state.skipped_roles) > 20:
+            excluded += f" ほか{len(state.skipped_roles) - 20}件（全件は添付ファイルに記載）"
+        lines.append(f"除外するロール: {excluded}\n操作できないロールは移行元に残し、他のデータを移行します。")
     lines.append(
         f"誕生日: {birthday(target)} → {birthday(source)}（移行元は未設定に変更）"
         if options.birthday
@@ -111,7 +115,7 @@ def details(source: AccountState, target: AccountState, state: DiscordState, opt
             f"移行元ロールID: {state.source_roles}",
             f"移行先ロールID: {state.target_roles}",
             f"移動するロールID: {state.transferable_roles}",
-            f"対象外（連携管理・削除済み）ロールID: {state.skipped_roles}",
+            f"対象外（権限不足・Bot以上のロール・連携管理・削除済み）ロールID: {state.skipped_roles}",
         ]
     for item in state.permissions:
         lines += [

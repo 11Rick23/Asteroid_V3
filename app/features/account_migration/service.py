@@ -77,6 +77,7 @@ class MigrationService:
             or options.birthday
             and source_data.birthday
             or discord_plan.state.transferable_roles
+            or discord_plan.state.skipped_roles
             or any(item.source is not None for item in discord_plan.state.permissions)
         ):
             raise ValueError("empty")
