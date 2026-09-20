@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from logging import getLogger
 
 import discord
@@ -11,6 +12,7 @@ from app.common.utils import humanize_number
 from app.core.bot import AsteroidBot
 from app.features.leveling.action_power import build_accumulated_action_power_message
 from app.features.leveling.build_send_message import build_power_view, build_star_grade_view
+from app.features.leveling.domain.boost_duration import parse_boost_duration
 from app.features.leveling.manage_reward_role import sync_grade_prestige_role
 from app.features.leveling.messages import admin as admin_messages
 from app.features.leveling.messages import common as common_messages
@@ -66,15 +68,37 @@ async def action_power_total(interaction: discord.Interaction) -> None:
     role=admin_messages.ROLE_LABEL,
     name=admin_messages.NAME_LABEL,
     amount=admin_messages.MULTIPLIER_LABEL,
+    duration=admin_messages.DURATION_LABEL,
+)
+@app_commands.describe(
+    amount=admin_messages.BOOSTER_MULTIPLIER_DESCRIPTION,
+    duration=admin_messages.BOOSTER_DURATION_DESCRIPTION,
 )
 @admin_only
-async def xp_boost_add(interaction: discord.Interaction, role: discord.Role, name: str, amount: int) -> None:
+async def xp_boost_add(
+    interaction: discord.Interaction,
+    role: discord.Role,
+    name: str,
+    amount: int,
+    duration: str | None = None,
+) -> None:
     bot = get_bot(interaction)
-    await bot.db.xp_boosts.create_xp_boost(role.id, name, amount, None)
+    end_time = None
+    if duration is not None:
+        delta = parse_boost_duration(duration)
+        if delta is not None:
+            try:
+                end_time = datetime.now(UTC).replace(tzinfo=None) + delta
+            except OverflowError:
+                pass
+        if end_time is None:
+            await interaction.response.send_message(admin_messages.BOOSTER_INVALID_DURATION, ephemeral=True)
+            return
+    await bot.db.xp_boosts.create_xp_boost(role.id, name, amount, end_time)
     logger.info(
         "XPブースターを追加しました: command=/leveling booster add "
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
-        f"actor_id={interaction.user.id} role_id={role.id} name={name} amount={amount}"
+        f"actor_id={interaction.user.id} role_id={role.id} name={name} amount={amount} end_time={end_time}"
     )
     await interaction.response.send_message(admin_messages.BOOSTER_ADDED)
 

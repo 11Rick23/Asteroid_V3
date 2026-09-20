@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, select
 
 from app.database.models.xp_boosts import XPBoostModel
 
@@ -66,10 +66,11 @@ class XPBoosts:
                 await session.commit()
 
     async def delete_expired_xp_boosts(self) -> None:
+        now = datetime.now(UTC).replace(tzinfo=None)
         async with self.db.session() as session:
             await session.execute(
                 delete(XPBoostModel).where(
-                    XPBoostModel.boost_end_time.is_not(None), XPBoostModel.boost_end_time < func.now()
+                    XPBoostModel.boost_end_time.is_not(None), XPBoostModel.boost_end_time <= now
                 )
             )
             await session.commit()
