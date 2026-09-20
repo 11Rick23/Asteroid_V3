@@ -25,7 +25,8 @@ async def test_preview_confirm_and_restore_record(world):
     world.source.remove_roles.assert_not_awaited()
     world.target.add_roles.assert_not_awaited()
     world.channel.set_permissions.assert_not_awaited()
-    assert "110/220/330" in messages.preview(plan.source, plan.target, plan.options, plan.discord)
+    assert "シャード: 60 → 660" in messages.preview(plan.source, plan.target, plan.options, plan.discord)
+    assert "110/220/330" in messages.details(plan.source, plan.target, plan.discord, plan.options)
     # When
     result = await world.service.execute(world.guild, world.source, plan, world.channel, 99)
     # Then

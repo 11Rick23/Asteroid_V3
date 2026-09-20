@@ -69,6 +69,8 @@ async def test_confirm_authorization(world, scenario):
     # When / Then
     assert not await view.interaction_check(cast(discord.Interaction, interaction))
     interaction.response.send_message.assert_awaited_once()
+    if scenario != "outside_guild":
+        assert interaction.response.send_message.call_args.kwargs["ephemeral"] is False
     world.channel.send.assert_not_awaited()
 
 
@@ -97,7 +99,9 @@ async def test_double_confirmation_runs_once(world):
     )
     # Then
     service.execute.assert_awaited_once()
-    interaction.followup.send.assert_awaited_once_with(messages.USED, ephemeral=True)
+    interaction.followup.send.assert_awaited_once_with(messages.USED, ephemeral=False)
+    assert interaction.response.defer.call_args.kwargs["ephemeral"] is False
+    interaction.edit_original_response.assert_awaited_once_with(content=messages.COMPLETED, view=None)
 
 
 @pytest.mark.asyncio
@@ -116,4 +120,34 @@ async def test_cancel_does_not_execute(world):
     # Then
     assert view.used
     service.execute.assert_not_awaited()
-    interaction.response.edit_message.assert_awaited_once()
+    interaction.response.edit_message.assert_awaited_once_with(content=messages.CANCELLED, view=None)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("enabled", [True, False])
+async def test_command_responses_are_public(world, enabled):
+    """プレビューと入力エラーを通常メッセージとしてチャンネルに残す。"""
+    # 機能要件：コマンドの確認内容・結果を実行者以外も参照できる。
+    # Given
+    interaction = SimpleNamespace(
+        client=world.bot,
+        guild=world.guild,
+        channel=world.channel,
+        user=world.source,
+        response=SimpleNamespace(defer=AsyncMock()),
+        followup=SimpleNamespace(send=AsyncMock()),
+    )
+    # When
+    await migrate.callback(
+        cast(discord.Interaction, interaction), world.source, world.target, enabled, enabled, enabled, enabled
+    )
+    # Then
+    interaction.response.defer.assert_awaited_once_with(ephemeral=False)
+    response = interaction.followup.send.call_args
+    assert response.kwargs["ephemeral"] is False
+    if enabled:
+        assert response.kwargs["allowed_mentions"].to_dict()["parse"] == []
+        assert response.kwargs["view"].actor_id == world.source.id
+        assert response.kwargs["file"].filename == "account-migration.txt"
+    else:
+        assert response.args == (messages.ERRORS["disabled"],)

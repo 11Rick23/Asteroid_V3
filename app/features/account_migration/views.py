@@ -25,7 +25,7 @@ class MigrationView(GuildScopedView):
         if not await super().interaction_check(interaction):
             return False
         if interaction.user.id != self.actor_id or not is_administrator(interaction.user):
-            await interaction.response.send_message(messages.UNAUTHORIZED, ephemeral=True)
+            await interaction.response.send_message(messages.UNAUTHORIZED, ephemeral=False)
             return False
         return True
 
@@ -33,15 +33,15 @@ class MigrationView(GuildScopedView):
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         if not await self.interaction_check(interaction):
             return
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer(ephemeral=False)
         async with self.lock:
             if self.used:
-                await interaction.followup.send(messages.USED, ephemeral=True)
+                await interaction.followup.send(messages.USED, ephemeral=False)
                 return
             self.used = True
             self.stop()
             if interaction.guild is None or not isinstance(interaction.channel, discord.TextChannel):
-                await interaction.edit_original_response(content=messages.ERRORS["channel"], embed=None, view=None)
+                await interaction.edit_original_response(content=messages.ERRORS["channel"], view=None)
                 return
             try:
                 result = await self.service.execute(
@@ -49,19 +49,19 @@ class MigrationView(GuildScopedView):
                 )
             except ValueError as exc:
                 result = messages.ERRORS.get(str(exc), messages.RANGE_ERROR)
-            await interaction.edit_original_response(content=result, embed=None, view=None, attachments=[])
+            await interaction.edit_original_response(content=result, view=None)
 
     @discord.ui.button(label=messages.CANCEL, style=discord.ButtonStyle.secondary)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
         if not await self.interaction_check(interaction):
             return
         if self.used:
-            await interaction.response.send_message(messages.USED, ephemeral=True)
+            await interaction.response.send_message(messages.USED, ephemeral=False)
             return
         async with self.lock:
             if self.used:
-                await interaction.response.send_message(messages.USED, ephemeral=True)
+                await interaction.response.send_message(messages.USED, ephemeral=False)
                 return
             self.used = True
             self.stop()
-            await interaction.response.edit_message(content=messages.CANCELLED, embed=None, view=None, attachments=[])
+            await interaction.response.edit_message(content=messages.CANCELLED, view=None)

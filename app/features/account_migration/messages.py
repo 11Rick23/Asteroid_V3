@@ -4,38 +4,33 @@ from app.database.account_migration import AccountState, MigrationOptions, merge
 
 from .discord_state import DiscordState, PermissionPair, to_overwrite
 
-COMMAND_DESCRIPTION = "アカウントのデータ移行をプレビューし、確定後に実行します"
+COMMAND_DESCRIPTION = "アカウントのデータを確認して移行します"
 SOURCE_LABEL = "移行元"
 TARGET_LABEL = "移行先"
 LEVELING_LABEL = "レベリング"
 ROLES_LABEL = "ロール"
 BIRTHDAY_LABEL = "誕生日"
 FC_LABEL = "フリカテ権限"
-SOURCE_DESCRIPTION = "データを移動する元のアカウント（退会済みアカウントもIDで指定できます）"
+SOURCE_DESCRIPTION = "移行元アカウント（退会済みの場合はID指定）"
 TARGET_DESCRIPTION = "移行先のサーバーメンバー"
-LEVELING_DESCRIPTION = "シャード・パワー・未受取XPを合算して移動します（初期値: True）"
-ROLES_DESCRIPTION = "移行元の操作可能なロールを移行先へ追加し、移行元から外します（初期値: True）"
-BIRTHDAY_DESCRIPTION = "移行先の誕生日を移行元の値で上書きし、移行元から削除します（初期値: True）"
-FC_DESCRIPTION = "フリカテの個別権限を移行元の設定で上書きし、移行元から削除します（初期値: True）"
+LEVELING_DESCRIPTION = "シャード・パワー・未受取XPを合算して移動（初期値: True）"
+ROLES_DESCRIPTION = "操作可能なロールを移動（初期値: True）"
+BIRTHDAY_DESCRIPTION = "誕生日を移行元の値で上書きして移動（初期値: True）"
+FC_DESCRIPTION = "フリカテ個別権限を移行元の設定で上書きして移動（初期値: True）"
 CONFIRM = "確定して移行"
 CANCEL = "キャンセル"
 PREVIEW_TITLE = "アカウント移行の確認"
 PREVIEW_NOTE = (
-    "選択したデータを移動し、移行元から削除します。\n"
-    "誕生日・フリカテ個別権限は、移行元が未設定なら移行先の設定を削除します。\n"
-    "ロールと権限の詳細は添付ファイルをご確認ください。\n"
-    "このチャンネルに移行記録と復元コマンドを残します。確認の有効期限は5分です。"
+    "対象データは移行元から削除（除外ロールは保持）。\n誕生日・個別権限は未設定も上書き。詳細は添付／確認期限5分。"
 )
-UNAUTHORIZED = "この確認はコマンドを実行した管理者だけが操作できます。"
-USED = "この確認は実行済み、または処理中です。"
+UNAUTHORIZED = "操作できるのは実行した管理者だけです。"
+USED = "処理中または実行済みです。"
 CANCELLED = "移行をキャンセルしました。"
-COMPLETED = "移行が完了しました。このチャンネルに移行記録と復元コマンドを保存しました。"
-RECORD_FAILED = (
-    "移行は完了しましたが、記録の完了表示を更新できませんでした。移行前に保存した復元記録をご確認ください。"
-)
-FAILED = "移行に失敗しました。DBの変更とDiscordの変更を巻き戻しました。"
-ROLLBACK_FAILED = "移行に失敗し、一部の変更を巻き戻せませんでした。記録を確認して手動で復元してください。"
-COMMIT_UNCERTAIN = "DBの確定結果を確認できませんでした。二重移行を避けるため、記録と現在のデータを確認してください。"
+COMPLETED = "移行が完了しました。"
+RECORD_FAILED = "移行済みですが、完了記録の更新に失敗しました。保存済みの記録をご確認ください。"
+FAILED = "移行に失敗しました。変更は巻き戻しました。"
+ROLLBACK_FAILED = "移行に失敗し、一部を復元できませんでした。記録を確認して手動で復元してください。"
+COMMIT_UNCERTAIN = "DBの確定結果が不明です。再実行前に記録と現在のデータをご確認ください。"
 ERRORS = {
     "accounts": "移行元と移行先は別の人間のアカウントを指定し、移行先はサーバーに参加している必要があります。",
     "permissions": "Botに対象フリカテの権限を編集する権限がありません。",
@@ -53,21 +48,17 @@ def birthday(value: AccountState) -> str:
 
 
 def preview(source: AccountState, target: AccountState, options: MigrationOptions, state: DiscordState) -> str:
-    lines = [f"<@{source.user_id}> → <@{target.user_id}>", PREVIEW_NOTE]
+    lines = [f"<@{source.user_id}> → <@{target.user_id}>", "", "移行先の変更"]
     if options.leveling:
         shards, powers, pending = merge_leveling(source, target)
         lines.extend(
             [
-                "シャード（テキスト/ボイス/ボーナス）: "
-                f"{target.shards.text}/{target.shards.voice}/{target.shards.bonus}"
-                f" → {shards.text}/{shards.voice}/{shards.bonus}",
-                "パワー（テキスト/ボイス/アクション）: "
-                f"{target.powers.text}/{target.powers.voice}/{target.powers.action}"
-                f" → {powers.text}/{powers.voice}/{powers.action}",
-                f"未受取XP（ボイスシャード/ボーナス/パワー）: "
-                f"{target.pending.voice_shard}/{target.pending.bonus_shard}/{target.pending.voice_power}"
-                f" → {pending.voice_shard}/{pending.bonus_shard}/{pending.voice_power}",
-                "獲得履歴も移動します。移行元の数量は0になります。",
+                f"シャード: {target.shards.total:,} → {shards.total:,}",
+                f"パワー: {target.powers.text + target.powers.voice + target.powers.action:,}"
+                f" → {powers.text + powers.voice + powers.action:,}",
+                f"未受取XP: シャード {target.pending.voice_shard + target.pending.bonus_shard:,}"
+                f" → {pending.voice_shard + pending.bonus_shard:,}"
+                f"／パワー {target.pending.voice_power:,} → {pending.voice_power:,}",
             ]
         )
     else:
@@ -78,21 +69,17 @@ def preview(source: AccountState, target: AccountState, options: MigrationOption
         else "ロール: 移行しない"
     )
     if options.roles and state.skipped_roles:
-        excluded = "、".join(f"<@&{role_id}>" for role_id in state.skipped_roles[:20])
-        if len(state.skipped_roles) > 20:
-            excluded += f" ほか{len(state.skipped_roles) - 20}件（全件は添付ファイルに記載）"
-        lines.append(f"除外するロール: {excluded}\n操作できないロールは移行元に残し、他のデータを移行します。")
-    lines.append(
-        f"誕生日: {birthday(target)} → {birthday(source)}（移行元は未設定に変更）"
-        if options.birthday
-        else "誕生日: 移行しない"
-    )
+        excluded = "、".join(f"<@&{role_id}>" for role_id in state.skipped_roles[:5])
+        if len(state.skipped_roles) > 5:
+            excluded += f" ほか{len(state.skipped_roles) - 5}件（添付参照）"
+        lines.append(f"除外するロール: {excluded}")
+    lines.append(f"誕生日: {birthday(target)} → {birthday(source)}" if options.birthday else "誕生日: 移行しない")
     lines.append(
         f"フリカテ個別権限: {len(state.permissions)}チャンネルを上書き"
         if options.free_category
         else "フリカテ権限: 移行しない"
     )
-    return "\n\n".join(lines)
+    return "\n".join([*lines, "", PREVIEW_NOTE])
 
 
 def permission_text(value: PermissionPair) -> str:
@@ -109,6 +96,15 @@ def permission_text(value: PermissionPair) -> str:
 def details(source: AccountState, target: AccountState, state: DiscordState, options: MigrationOptions) -> str:
     lines = [preview(source, target, options, state)]
     if options.leveling:
+        shards, powers, pending = merge_leveling(source, target)
+        lines += [
+            "",
+            "移行先の移行後の内訳",
+            f"シャード（テキスト/ボイス/ボーナス）: {shards.text}/{shards.voice}/{shards.bonus}",
+            f"パワー（テキスト/ボイス/アクション）: {powers.text}/{powers.voice}/{powers.action}",
+            f"未受取XP（ボイスシャード/ボーナスシャード/ボイスパワー）: "
+            f"{pending.voice_shard}/{pending.bonus_shard}/{pending.voice_power}",
+        ]
         lines += ["", "移行前の数量（復元コマンド）", restore_commands(source), restore_commands(target)]
     if options.roles:
         lines += [
@@ -143,8 +139,8 @@ def record(source: AccountState, target: AccountState, actor_id: int, options: M
     text = f"アカウント移行: {source.user_id} → {target.user_id}\n実行者: {actor_id}\n状態: {status}"
     if options.leveling:
         text += (
-            "\n移行直前の数量に戻すコマンド（両アカウントで全て実行）:\n```\n"
+            "\n数量の復元（両アカウントで実行）:\n```\n"
             f"{restore_commands(source)}\n{restore_commands(target)}\n```\n"
-            "復元は実行時点の数量を上書きします。獲得履歴・ロール・誕生日・フリカテ権限はsetでは復元されません。"
+            "数量を移行前の値で上書きします。履歴・ロール・誕生日・権限は復元対象外です。"
         )
     return text

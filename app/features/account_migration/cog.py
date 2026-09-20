@@ -48,16 +48,16 @@ async def migrate(
     free_category: bool = True,
 ) -> None:
     if interaction.guild is None or not isinstance(interaction.channel, discord.TextChannel):
-        await interaction.response.send_message(messages.ERRORS["channel"], ephemeral=True)
+        await interaction.response.send_message(messages.ERRORS["channel"], ephemeral=False)
         return
-    await interaction.response.defer(ephemeral=True)
+    await interaction.response.defer(ephemeral=False)
     service = MigrationService(get_bot(interaction))
     try:
         plan = await service.preview(
             interaction.guild, source, target.id, MigrationOptions(leveling, roles, birthday, free_category)
         )
     except ValueError as exc:
-        await interaction.followup.send(messages.ERRORS.get(str(exc), messages.RANGE_ERROR), ephemeral=True)
+        await interaction.followup.send(messages.ERRORS.get(str(exc), messages.RANGE_ERROR), ephemeral=False)
         return
     await interaction.followup.send(
         embed=discord.Embed(
@@ -66,7 +66,7 @@ async def migrate(
         ),
         file=plan.detail_file(),
         view=MigrationView(service, source, plan, interaction.user.id),
-        ephemeral=True,
+        ephemeral=False,
         allowed_mentions=discord.AllowedMentions.none(),
     )
 
