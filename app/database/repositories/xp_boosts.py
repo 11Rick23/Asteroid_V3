@@ -48,14 +48,20 @@ class XPBoosts:
         self, role_id: int, name: str, boost_amount: int, boost_end_time: datetime | None
     ) -> None:
         async with self.db.session() as session:
-            session.add(
-                XPBoostModel(
-                    role_id=role_id,
-                    name=name,
-                    boost_amount=boost_amount,
-                    boost_end_time=boost_end_time,
+            model = await session.get(XPBoostModel, role_id)
+            if model is None:
+                session.add(
+                    XPBoostModel(
+                        role_id=role_id,
+                        name=name,
+                        boost_amount=boost_amount,
+                        boost_end_time=boost_end_time,
+                    )
                 )
-            )
+            else:
+                model.name = name
+                model.boost_amount = boost_amount
+                model.boost_end_time = boost_end_time
             await session.commit()
 
     async def delete_xp_boost(self, role_id: int) -> None:

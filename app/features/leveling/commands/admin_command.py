@@ -96,7 +96,7 @@ async def xp_boost_add(
             return
     await bot.db.xp_boosts.create_xp_boost(role.id, name, amount, end_time)
     logger.info(
-        "XPブースターを追加しました: command=/leveling booster add "
+        "XPブースターを設定しました: command=/leveling booster add "
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
         f"actor_id={interaction.user.id} role_id={role.id} name={name} amount={amount} end_time={end_time}"
     )
