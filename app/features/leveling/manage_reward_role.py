@@ -18,7 +18,7 @@ def get_member_grade_roles(grade: int, grade_roles: list[GradeRoleReward], stack
     sorted_add_grade_roles = [
         role.role_id for role in sorted(add_grade_roles, key=lambda role: role.grade, reverse=True)
     ]
-    return [sorted_add_grade_roles[0]], sorted_add_grade_roles[1:] + [role.role_id for role in remove_grade_roles]
+    return sorted_add_grade_roles[:1], sorted_add_grade_roles[1:] + [role.role_id for role in remove_grade_roles]
 
 
 def get_member_prestige_roles(
