@@ -57,13 +57,13 @@ async def test_unassignable_roles_are_skipped(world, reason):
     excluded = (10, 20) if reason == "permission" else (10,)
     # When
     plan = await world.service.preview(world.guild, world.source, 2, MigrationOptions())
-    preview = messages.preview(plan.source, plan.target, plan.options, plan.discord)
+    fields = messages.preview_fields(plan.source, plan.target, plan.options, plan.discord)
     result = await world.service.execute(world.guild, world.source, plan, world.channel, 99)
     # Then
     assert result == messages.COMPLETED
     assert plan.discord.skipped_roles == excluded
     assert plan.discord.transferable_roles == (() if reason == "permission" else (20,))
-    assert "除外するロール: <@&10>" in preview
+    assert any(name.startswith("⏭️ 除外ロール") and "<@&10>" in value for name, value, _ in fields)
     assert {role.id for role in world.source.roles} == set(excluded)
     assert {role.id for role in world.target.roles} == {20, 30}
     assert {role.role_id for role in await world.bot.db.user_roles.get_user_roles(1)} == set(excluded)
@@ -85,7 +85,9 @@ async def test_only_excluded_roles_are_shown(world):
     result = await world.service.execute(world.guild, world.source, plan, world.channel, 99)
     # Then
     assert plan.discord.skipped_roles == (10, 20)
-    assert "0件を引き継ぎ、2件を対象外" in messages.preview(plan.source, plan.target, plan.options, plan.discord)
+    fields = messages.preview_fields(plan.source, plan.target, plan.options, plan.discord)
+    assert ("🏷️ ロール", "**0件**を引き継ぎ", True) in fields
+    assert ("⏭️ 除外ロール · 2件", "<@&10> <@&20>", False) in fields
     assert result == messages.COMPLETED
     world.source.remove_roles.assert_not_awaited()
     world.target.add_roles.assert_not_awaited()

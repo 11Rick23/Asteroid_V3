@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import io
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from logging import getLogger
 
 import discord
@@ -23,9 +23,10 @@ class MigrationPlan:
     target: AccountState
     options: MigrationOptions
     discord: DiscordState
+    names: dict[int, str] = field(default_factory=dict, compare=False)
 
     def detail_file(self) -> discord.File:
-        content = messages.details(self.source, self.target, self.discord, self.options)
+        content = messages.details(self.source, self.target, self.discord, self.options, self.names)
         return discord.File(io.BytesIO(content.encode("utf-8")), filename="account-migration.txt")
 
 
@@ -81,7 +82,13 @@ class MigrationService:
             or any(item.source is not None for item in discord_plan.state.permissions)
         ):
             raise ValueError("empty")
-        return MigrationPlan(source_data, target_data, options, discord_plan.state)
+        names = {source.id: source.display_name, target_id: discord_plan.target.display_name}
+        for role_id in set(discord_plan.state.source_roles) | set(discord_plan.state.target_roles):
+            role = guild.get_role(role_id)
+            if role is not None:
+                names[role_id] = role.name
+        names.update({channel_id: channel.name for channel_id, channel in discord_plan.channels.items()})
+        return MigrationPlan(source_data, target_data, options, discord_plan.state, names)
 
     async def execute(
         self,
@@ -171,7 +178,8 @@ class MigrationService:
                         )
                 try:
                     await record.edit(
-                        content=messages.record(plan.source, plan.target, actor_id, plan.options, result)
+                        content=messages.record(plan.source, plan.target, actor_id, plan.options, result),
+                        allowed_mentions=discord.AllowedMentions.none(),
                     )
                 except discord.HTTPException:
                     logger.exception("アカウント移行記録の更新に失敗しました: message_id=%s", record.id)

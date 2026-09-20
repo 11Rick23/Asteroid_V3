@@ -9,6 +9,7 @@ from app.core.bot import AsteroidBot
 from app.database.account_migration import MigrationOptions
 
 from . import messages
+from .presentation import preview_embed
 from .service import MigrationService
 from .views import MigrationView
 
@@ -60,10 +61,7 @@ async def migrate(
         await interaction.followup.send(messages.ERRORS.get(str(exc), messages.RANGE_ERROR), ephemeral=False)
         return
     await interaction.followup.send(
-        embed=discord.Embed(
-            title=messages.PREVIEW_TITLE,
-            description=messages.preview(plan.source, plan.target, plan.options, plan.discord),
-        ),
+        embed=preview_embed(plan),
         file=plan.detail_file(),
         view=MigrationView(service, source, plan, interaction.user.id),
         ephemeral=False,
