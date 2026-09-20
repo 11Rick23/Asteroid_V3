@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import date
 
+import pytest
+
 from app.features.birthday.cog import DEFAULT_YEAR, convert_date, validate_date
 
 
@@ -37,3 +39,23 @@ def test_converts_next_year():
 
     # Then
     assert label == "2027年01月03日"
+
+
+@pytest.mark.parametrize(
+    ("today", "expected"),
+    [
+        (date(2026, 1, 1), "2026年02月28日"),
+        (date(2026, 2, 27), "明日"),
+        (date(2026, 2, 28), "今日"),
+        (date(2026, 3, 1), "2027年02月28日"),
+        (date(2027, 3, 1), "2028年02月29日"),
+        (date(2028, 2, 28), "明日"),
+        (date(2028, 2, 29), "今日"),
+        (date(2028, 3, 1), "2029年02月28日"),
+    ],
+)
+def test_converts_leap_birthday(today, expected):
+    """2月29日の誕生日は平年に2月28日、閏年に2月29日として次回の日付を表示する。"""
+    # 機能要件：誕生日の告知と同じ日付で、今日・明日・翌年の誕生日を表示する。
+    # Given / When / Then
+    assert convert_date(today, date(DEFAULT_YEAR, 2, 29)) == expected
