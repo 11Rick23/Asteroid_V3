@@ -9,6 +9,7 @@ logger = getLogger(__name__)
 
 # アルファベット順で記載！
 FEATURE_EXTENSION_MAP = (
+    ("account_migration", "app.features.account_migration.cog"),
     ("auth", "app.features.auth.cog"),
     ("birthday", "app.features.birthday.cog"),
     ("bump_notifier", "app.features.bump_notifier.cog"),

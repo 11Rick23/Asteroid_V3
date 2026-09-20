@@ -16,6 +16,7 @@ logging:
 
 # アルファベット順で記載！
 features:
+  account_migration: true
   auth: true
   birthday: true
   bump_notifier: true

@@ -9,6 +9,7 @@ from app.common.command_groups import get_bot
 from app.common.permissions import admin_only
 from app.database.leveling_state import PowerState, ShardState
 from app.features.leveling.commands.admin_groups import admin_power_group, admin_shard_group
+from app.features.leveling.commands.pending_command import register_pending_command
 from app.features.leveling.manage_reward_role import sync_grade_prestige_role
 from app.features.leveling.messages import restore as messages
 
@@ -98,6 +99,7 @@ async def set_powers(
 
 
 def register_set_commands() -> None:
+    register_pending_command()
     if admin_shard_group.get_command("set") is None:
         admin_shard_group.add_command(set_shards)
     if admin_power_group.get_command("set") is None:
