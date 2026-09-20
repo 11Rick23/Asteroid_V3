@@ -22,6 +22,8 @@ FC_DESCRIPTION = "フリカテ個別権限を移行元の設定で上書きし�
 CONFIRM = "確定して移行"
 CANCEL = "キャンセル"
 PREVIEW_TITLE = "🔄 アカウント移行"
+CHECKING = "🔎 移行前チェック中"
+CHECK_READY = "🔎 移行前チェック"
 PREVIEW_FOOTER = "📎 内訳・除外一覧は添付ファイルへ ｜ 確認期限 5分"
 PREVIEW_NOTE = "対象データは移行元から削除。除外ロールは保持。\n誕生日・個別権限は**未設定も上書き**します。"
 UNAUTHORIZED = "操作できるのは実行した管理者だけです。"
@@ -50,10 +52,6 @@ RANGE_ERROR = "合算後の数量が保存上限を超えるため、移行で�
 
 def birthday(value: AccountState) -> str:
     return value.birthday.strftime("%m/%d") if value.birthday else "未設定"
-
-
-def preview_accounts(source_id: int, target_id: int) -> str:
-    return f"**移行元** <@{source_id}>\n**移行先** <@{target_id}>\n\n以下は移行先の変更です。"
 
 
 def preview_fields(

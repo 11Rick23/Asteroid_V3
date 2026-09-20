@@ -9,7 +9,7 @@ from app.core.bot import AsteroidBot
 from app.database.account_migration import MigrationOptions
 
 from . import messages
-from .presentation import preview_embed
+from .presentation import MigrationCheckView
 from .service import MigrationService
 from .views import MigrationView
 
@@ -45,22 +45,34 @@ async def migrate(
     if interaction.guild is None or not isinstance(interaction.channel, discord.TextChannel):
         await interaction.response.send_message(messages.ERRORS["channel"], ephemeral=True)
         return
-    await interaction.response.defer(ephemeral=True)
+    await interaction.response.send_message(
+        view=MigrationCheckView(source.id, target.id, interaction.user.id),
+        ephemeral=False,
+        allowed_mentions=discord.AllowedMentions.none(),
+    )
     service = MigrationService(get_bot(interaction))
     try:
         plan = await service.preview(
             interaction.guild, source, target.id, MigrationOptions(leveling, roles, birthday, free_category)
         )
     except ValueError as exc:
+        await interaction.edit_original_response(
+            view=MigrationCheckView(source.id, target.id, interaction.user.id, messages.STOPPED),
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
         await interaction.followup.send(messages.ERRORS.get(str(exc), messages.RANGE_ERROR), ephemeral=True)
         return
-    await interaction.channel.send(
-        embed=preview_embed(plan),
-        file=plan.detail_file(),
+    except Exception:
+        await interaction.edit_original_response(
+            view=MigrationCheckView(source.id, target.id, interaction.user.id, messages.STOPPED),
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
+        raise
+    await interaction.edit_original_response(
+        attachments=[plan.detail_file()],
         view=MigrationView(service, source, plan, interaction.user.id),
         allowed_mentions=discord.AllowedMentions.none(),
     )
-    await interaction.delete_original_response()
 
 
 async def setup(bot: AsteroidBot) -> None:

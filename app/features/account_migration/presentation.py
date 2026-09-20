@@ -13,16 +13,36 @@ if TYPE_CHECKING:
     from .service import MigrationPlan
 
 
-def preview_embed(plan: MigrationPlan) -> discord.Embed:
-    embed = discord.Embed(
-        title=messages.PREVIEW_TITLE,
-        description=messages.preview_accounts(plan.source.user_id, plan.target.user_id),
-        color=AsteroidColor.INFO,
-    )
-    for name, value, inline in messages.preview_fields(plan.source, plan.target, plan.options, plan.discord):
-        embed.add_field(name=name, value=value, inline=inline)
-    embed.set_footer(text=messages.PREVIEW_FOOTER)
-    return embed
+class MigrationCheckView(GuildScopedLayoutView):
+    def __init__(self, source_id: int, target_id: int, actor_id: int, status: str = messages.CHECKING) -> None:
+        super().__init__(timeout=None)
+        self.add_item(
+            discord.ui.Container(
+                discord.ui.TextDisplay(f"## {messages.PREVIEW_TITLE}\n**{status}**"),
+                discord.ui.Separator(),
+                discord.ui.TextDisplay(messages.status_accounts(source_id, target_id, actor_id)),
+                accent_color=AsteroidColor.INFO,
+            )
+        )
+
+
+class MigrationPreviewLayout(GuildScopedLayoutView):
+    def __init__(self, plan: MigrationPlan, actor_id: int) -> None:
+        super().__init__(timeout=300)
+        self.add_item(
+            discord.ui.Container(
+                discord.ui.TextDisplay(f"## {messages.CHECK_READY}"),
+                discord.ui.TextDisplay(messages.status_accounts(plan.source.user_id, plan.target.user_id, actor_id)),
+                discord.ui.Separator(),
+                discord.ui.TextDisplay(
+                    messages.status_summary(plan.source, plan.target, plan.options, plan.discord, completed=False)
+                ),
+                discord.ui.Separator(),
+                discord.ui.TextDisplay(f"### ⚠️ 確認事項\n{messages.PREVIEW_NOTE}\n\n-# {messages.PREVIEW_FOOTER}"),
+                accent_color=AsteroidColor.INFO,
+            )
+        )
+        self.add_item(discord.ui.File("attachment://account-migration.txt"))
 
 
 class MigrationStatusView(GuildScopedLayoutView):

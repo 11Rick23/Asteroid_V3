@@ -14,7 +14,7 @@ from app.core.extensions import iter_enabled_extensions
 from app.database.account_migration import MigrationOptions
 from app.features.account_migration import messages
 from app.features.account_migration.cog import migrate, setup
-from app.features.account_migration.presentation import MigrationStatusView
+from app.features.account_migration.presentation import MigrationCheckView, MigrationStatusView
 from app.features.account_migration.views import MigrationView
 from app.features.leveling.commands.pending_command import set_pending
 from tests.support.discord_layout import layout_text
@@ -148,25 +148,40 @@ async def test_command_response_visibility(world, enabled):
         guild=world.guild,
         channel=world.channel,
         user=world.source,
-        response=SimpleNamespace(defer=AsyncMock()),
+        response=SimpleNamespace(defer=AsyncMock(), send_message=AsyncMock()),
         followup=SimpleNamespace(send=AsyncMock()),
         delete_original_response=AsyncMock(),
+        edit_original_response=AsyncMock(),
     )
+    original_read_pair = world.bot.db.account_migration.read_pair
+
+    async def read_pair(*args):
+        interaction.response.send_message.assert_awaited_once()
+        return await original_read_pair(*args)
+
+    world.bot.db.account_migration.read_pair = AsyncMock(side_effect=read_pair)
     # When
     await migrate.callback(
         cast(discord.Interaction, interaction), world.source, world.target, enabled, enabled, enabled, enabled
     )
     # Then
-    interaction.response.defer.assert_awaited_once_with(ephemeral=True)
+    interaction.response.defer.assert_not_awaited()
+    world.channel.send.assert_not_awaited()
+    interaction.delete_original_response.assert_not_awaited()
+    initial = interaction.response.send_message.call_args.kwargs
+    assert initial["ephemeral"] is False
+    assert isinstance(initial["view"], MigrationCheckView)
+    assert messages.CHECKING in layout_text(initial["view"])
+    response = interaction.edit_original_response.call_args
     if enabled:
-        response = world.channel.send.call_args
         assert response.kwargs["allowed_mentions"].to_dict()["parse"] == []
+        assert isinstance(response.kwargs["view"], MigrationView)
+        assert response.kwargs["view"].has_components_v2()
         assert response.kwargs["view"].actor_id == world.source.id
-        assert response.kwargs["file"].filename == "account-migration.txt"
+        assert response.kwargs["attachments"][0].filename == "account-migration.txt"
         interaction.followup.send.assert_not_awaited()
-        interaction.delete_original_response.assert_awaited_once()
     else:
-        world.channel.send.assert_not_awaited()
+        assert messages.STOPPED in layout_text(response.kwargs["view"])
         interaction.followup.send.assert_awaited_once_with(messages.ERRORS["disabled"], ephemeral=True)
 
 

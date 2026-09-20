@@ -4,23 +4,27 @@ import asyncio
 
 import discord
 
-from app.common.guild_scope import GuildScopedView
 from app.common.permissions import is_administrator
 
 from . import messages
-from .presentation import MigrationStatusView
+from .presentation import MigrationPreviewLayout, MigrationStatusView
 from .service import MigrationPlan, MigrationService
 
 
-class MigrationView(GuildScopedView):
+class MigrationView(MigrationPreviewLayout):
     def __init__(self, service: MigrationService, source: discord.User, plan: MigrationPlan, actor_id: int) -> None:
-        super().__init__(timeout=300)
+        super().__init__(plan, actor_id)
         self.service = service
         self.source = source
         self.plan = plan
         self.actor_id = actor_id
         self.used = False
         self.lock = asyncio.Lock()
+        self.confirm = discord.ui.Button(label=messages.CONFIRM, style=discord.ButtonStyle.danger)
+        self.confirm.callback = self._confirm
+        self.cancel = discord.ui.Button(label=messages.CANCEL, style=discord.ButtonStyle.secondary)
+        self.cancel.callback = self._cancel
+        self.add_item(discord.ui.ActionRow(self.confirm, self.cancel))
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if not await super().interaction_check(interaction):
@@ -30,8 +34,7 @@ class MigrationView(GuildScopedView):
             return False
         return True
 
-    @discord.ui.button(label=messages.CONFIRM, style=discord.ButtonStyle.danger)
-    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+    async def _confirm(self, interaction: discord.Interaction) -> None:
         if not await self.interaction_check(interaction):
             return
         await interaction.response.defer(ephemeral=False)
@@ -43,7 +46,7 @@ class MigrationView(GuildScopedView):
             self.stop()
             if interaction.guild is None or not isinstance(interaction.channel, discord.TextChannel):
                 await interaction.followup.send(messages.ERRORS["channel"], ephemeral=True)
-                await interaction.edit_original_response(view=None)
+                await self.show_status(interaction, messages.STOPPED)
                 return
             await self.show_status(interaction, messages.PROCESSING)
             try:
@@ -52,7 +55,7 @@ class MigrationView(GuildScopedView):
                 )
             except ValueError as exc:
                 result = messages.ERRORS.get(str(exc), messages.RANGE_ERROR)
-            except (Exception, asyncio.CancelledError):
+            except Exception, asyncio.CancelledError:
                 await self.show_status(interaction, messages.STOPPED)
                 raise
             if result == messages.COMPLETED:
@@ -71,8 +74,7 @@ class MigrationView(GuildScopedView):
             allowed_mentions=discord.AllowedMentions.none(),
         )
 
-    @discord.ui.button(label=messages.CANCEL, style=discord.ButtonStyle.secondary)
-    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button) -> None:
+    async def _cancel(self, interaction: discord.Interaction) -> None:
         if not await self.interaction_check(interaction):
             return
         if self.used:

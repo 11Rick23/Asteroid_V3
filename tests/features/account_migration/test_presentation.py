@@ -9,7 +9,8 @@ from discord.http import handle_message_parameters
 
 from app.database.account_migration import MigrationOptions
 from app.features.account_migration import messages
-from app.features.account_migration.presentation import MigrationStatusView, preview_embed
+from app.features.account_migration.presentation import MigrationStatusView
+from app.features.account_migration.views import MigrationView
 from tests.support.discord_layout import layout_text
 
 
@@ -41,32 +42,32 @@ async def test_text_attachment_uses_names_and_ids(world):
 
 
 @pytest.mark.asyncio
-async def test_embed_groups_fields_and_bounds_exclusions(world):
+async def test_preview_components_and_bounds_exclusions(world):
     """確認画面は数量・誕生日・権限を別欄にし、大量の除外ロールでも表示上限内に収める。"""
-    # 機能要件：数量を横並びで比較でき、除外の全件はtxtで確認できる。
-    # 非機能要件：DiscordのEmbed文字数制限を超えない。
+    # 機能要件：V2の確認画面で数量を比較でき、除外の全件はtxtで確認できる。
+    # 非機能要件：DiscordのComponents V2の制限を超えない。
     # Given
     plan = await world.service.preview(world.guild, world.source, 2, MigrationOptions())
     ids = tuple(range(100000000000000001, 100000000000000251))
     plan = replace(plan, discord=replace(plan.discord, skipped_roles=ids))
     # When
-    embed = preview_embed(plan)
+    view = MigrationView(world.service, world.source, plan, 1)
+    text = layout_text(view)
     content = messages.details(plan.source, plan.target, plan.discord, plan.options)
     # Then
-    assert embed.description and "<@1>" in embed.description and "<@2>" in embed.description
-    assert embed.fields[0].name == "💎 シャード"
-    assert embed.fields[0].inline is True
-    assert embed.fields[1].name == "⚡ パワー"
-    assert embed.fields[1].inline is True
-    excluded = next(field for field in embed.fields if field.name and field.name.startswith("⏭️"))
-    assert excluded.value is not None
-    assert excluded.value.count("<@&") == 5
-    assert "ほか245件" in excluded.value
+    assert view.has_components_v2()
+    assert "<@1>" in text and "<@2>" in text
+    assert "💎 シャード" in text and "⚡ パワー" in text
+    assert text.count("<@&") == 5
+    assert "ほか245件" in text
     assert f"ID: {ids[-1]}" in content
-    assert len(embed) <= 6000
-    for field in embed.fields:
-        assert field.name is not None and field.value is not None
-        assert len(field.name) <= 256 and len(field.value) <= 1024
+    assert view.content_length() <= 4000
+    assert view.total_children_count <= 40
+    buttons = [item for item in view.walk_children() if isinstance(item, discord.ui.Button)]
+    assert [button.label for button in buttons] == [messages.CONFIRM, messages.CANCEL]
+    assert all(button.view is view for button in buttons)
+    assert view.to_components()[-1]["type"] == discord.ComponentType.action_row.value
+    assert view.timeout == 300
 
 
 @pytest.mark.asyncio
@@ -115,8 +116,8 @@ async def test_status_components_and_restore_commands(world, status):
 
 
 @pytest.mark.asyncio
-async def test_embed_transition_serializes_v2_and_attachment(world):
-    """Embedからの切り替え時は既存の本文とEmbedを消し、txt付きComponents V2として送信できる。"""
+async def test_status_serializes_v2_and_attachment(world):
+    """処理中の画面をtxt付きComponents V2として送信できる。"""
     # 非機能要件：Discord.pyが生成する送信データにV2フラグと添付参照が含まれる。
     # Given
     plan = await world.service.preview(world.guild, world.source, 2, MigrationOptions())
