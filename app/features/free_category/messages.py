@@ -14,8 +14,8 @@ NAME_FIELD = "name"
 TOPIC_FIELD = "topic"
 USER_LABEL = "ユーザー"
 COUNT_LABEL = "件数"
-NEW_CHANNEL_NAME_DESCRIPTION = "新しいチャンネル名"
-NEW_TOPIC_DESCRIPTION = "新しいチャンネルトピック"
+NEW_CHANNEL_NAME_DESCRIPTION = "新しいチャンネル名（1〜100文字）"
+NEW_TOPIC_DESCRIPTION = "新しいチャンネルトピック（1〜500文字）"
 BLOCK_USER_DESCRIPTION = "チャンネルを閲覧できなくするユーザー"
 UNBLOCK_USER_DESCRIPTION = "チャンネル閲覧不可を解除するユーザー"
 OP_USER_DESCRIPTION = "チャンネルの管理権限を付与するユーザー"
@@ -24,6 +24,7 @@ PURGE_COUNT_DESCRIPTION = "削除するメッセージの件数"
 ARCHIVE_COMMAND_REASON = "運営、またはチャンネル管理者による `/fc archive` コマンド"
 ARCHIVED = "チャンネルをアーカイブしました。"
 EDIT_VALUE_REQUIRED = "チャンネル名かチャンネルトピックのどちらか一方は必ず入力してください。"
+EDIT_LENGTH_INVALID = "チャンネル名は1〜100文字、トピックは1〜500文字で指定してください。"
 TOPIC_UNSET = "未設定"
 NAME_CHANGED_TITLE = "チャンネル名を変更しました！"
 TOPIC_CHANGED_TITLE = "チャンネルトピックを変更しました！"
@@ -54,6 +55,12 @@ def edit_cooldown(*, retry_after: float) -> str:
 
 def changed_value(*, old_value: str, new_value: str) -> str:
     return f"`{old_value}` -> `{new_value}`"
+
+
+def changed_topic(*, old_value: str, new_value: str) -> str:
+    if len(old_value) > 500:
+        old_value = old_value[:499] + "…"
+    return changed_value(old_value=old_value, new_value=new_value)
 
 
 def user_blocked(*, display_name: str) -> str:
