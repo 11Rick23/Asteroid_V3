@@ -1,16 +1,20 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from logging import getLogger
 
 import discord
 from discord import app_commands
 
 from app.common.command_groups import get_bot, register_group
-from app.common.permissions import ADMINISTRATOR_PERMISSIONS, admin_only
+from app.common.permissions import admin_only
 from app.common.utils import humanize_number
 from app.core.bot import AsteroidBot
 from app.features.leveling.action_power import build_accumulated_action_power_message
 from app.features.leveling.build_send_message import build_power_view, build_star_grade_view
+from app.features.leveling.commands.admin_groups import admin_power_group, admin_shard_group, leveling_admin_group
+from app.features.leveling.commands.set_command import register_set_commands
+from app.features.leveling.domain.boost_duration import parse_boost_duration
 from app.features.leveling.manage_reward_role import sync_grade_prestige_role
 from app.features.leveling.messages import admin as admin_messages
 from app.features.leveling.messages import common as common_messages
@@ -18,20 +22,8 @@ from app.features.leveling.monthly import run_monthly_ranking
 
 logger = getLogger(__name__)
 
-leveling_admin_group = app_commands.Group(
-    name="leveling",
-    description=admin_messages.ADMIN_GROUP_DESCRIPTION,
-    guild_only=True,
-    default_permissions=ADMINISTRATOR_PERMISSIONS,
-)
 xp_boost_group = app_commands.Group(
     name="booster", description=admin_messages.BOOSTER_GROUP_DESCRIPTION, parent=leveling_admin_group
-)
-admin_shard_group = app_commands.Group(
-    name="shard", description=admin_messages.ADMIN_SHARD_GROUP_DESCRIPTION, parent=leveling_admin_group
-)
-admin_power_group = app_commands.Group(
-    name="power", description=admin_messages.ADMIN_POWER_GROUP_DESCRIPTION, parent=leveling_admin_group
 )
 SHARD_TYPE_CHOICES = [
     app_commands.Choice(name=admin_messages.TEXT_LABEL, value=admin_messages.TEXT_LABEL),
@@ -66,15 +58,37 @@ async def action_power_total(interaction: discord.Interaction) -> None:
     role=admin_messages.ROLE_LABEL,
     name=admin_messages.NAME_LABEL,
     amount=admin_messages.MULTIPLIER_LABEL,
+    duration=admin_messages.DURATION_LABEL,
+)
+@app_commands.describe(
+    amount=admin_messages.BOOSTER_MULTIPLIER_DESCRIPTION,
+    duration=admin_messages.BOOSTER_DURATION_DESCRIPTION,
 )
 @admin_only
-async def xp_boost_add(interaction: discord.Interaction, role: discord.Role, name: str, amount: int) -> None:
+async def xp_boost_add(
+    interaction: discord.Interaction,
+    role: discord.Role,
+    name: str,
+    amount: int,
+    duration: str | None = None,
+) -> None:
     bot = get_bot(interaction)
-    await bot.db.xp_boosts.create_xp_boost(role.id, name, amount, None)
+    end_time = None
+    if duration is not None:
+        delta = parse_boost_duration(duration)
+        if delta is not None:
+            try:
+                end_time = datetime.now(UTC).replace(tzinfo=None) + delta
+            except OverflowError:
+                pass
+        if end_time is None:
+            await interaction.response.send_message(admin_messages.BOOSTER_INVALID_DURATION, ephemeral=True)
+            return
+    await bot.db.xp_boosts.create_xp_boost(role.id, name, amount, end_time)
     logger.info(
-        "XPブースターを追加しました: command=/leveling booster add "
+        "XPブースターを設定しました: command=/leveling booster add "
         f"guild_id={interaction.guild_id} channel_id={interaction.channel_id} "
-        f"actor_id={interaction.user.id} role_id={role.id} name={name} amount={amount}"
+        f"actor_id={interaction.user.id} role_id={role.id} name={name} amount={amount} end_time={end_time}"
     )
     await interaction.response.send_message(admin_messages.BOOSTER_ADDED)
 
@@ -144,8 +158,11 @@ async def remove_shard(
     interaction: discord.Interaction,
     user: discord.Member,
     shard_type: app_commands.Choice[str],
-    amount: int,
+    amount: app_commands.Range[int, 1],
 ) -> None:
+    if amount < 1:
+        await interaction.response.send_message(admin_messages.POSITIVE_AMOUNT_REQUIRED, ephemeral=True)
+        return
     bot = get_bot(interaction)
     shard_type_value = shard_type.value
     update = await bot.db.leveling.remove_shard(user.id, shard_type_value, amount)
@@ -206,8 +223,11 @@ async def remove_power(
     interaction: discord.Interaction,
     user: discord.Member,
     target: app_commands.Choice[str],
-    amount: int,
+    amount: app_commands.Range[int, 1],
 ) -> None:
+    if amount < 1:
+        await interaction.response.send_message(admin_messages.POSITIVE_AMOUNT_REQUIRED, ephemeral=True)
+        return
     bot = get_bot(interaction)
     target_value = target.value
     power = await bot.db.leveling.remove_power(user.id, target_value, amount)
@@ -252,6 +272,7 @@ async def aggregate_power_ranking(interaction: discord.Interaction, delete_data:
 
 
 def register_leveling_admin_commands(bot: AsteroidBot) -> None:
+    register_set_commands()
     register_group(bot, leveling_admin_group)
 
 

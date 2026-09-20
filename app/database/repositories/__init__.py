@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from .account_migration import AccountMigrationRepository
 from .given_stars import GivenStars
 from .leveling import LevelingTransactions
 from .leveling_hotness import LevelingHotness
+from .leveling_state import LevelingStateRepository
 from .monthly_action_powers import MonthlyActionPowers
 from .monthly_powers import MonthlyPowers
 from .role_panel import RolePanel
@@ -16,9 +18,11 @@ from .xp_boosts import XPBoosts
 
 class DatabaseRepositories:
     def __init__(self) -> None:
+        self.account_migration = AccountMigrationRepository(self)
         self.user_roles = UserRoles(self)
         self.given_stars = GivenStars(self)
         self.leveling = LevelingTransactions(self)
+        self.leveling_state = LevelingStateRepository(self)
         self.leveling_hotness = LevelingHotness(self)
         self.starred_messages = StarredMessages(self)
         self.xp_boosts = XPBoosts(self)

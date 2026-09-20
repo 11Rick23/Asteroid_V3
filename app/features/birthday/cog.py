@@ -35,14 +35,11 @@ def validate_date(month: int, day: int) -> bool:
 
 
 def convert_date(today: date, birthday: date) -> str:
+    year = today.year
     if (birthday.month, birthday.day) < (today.month, today.day):
-        try:
-            birthday = birthday.replace(year=today.year + 1)
-        except ValueError:
-            birthday = date(today.year + 1, 2, 28)
-
-    if birthday.year == DEFAULT_YEAR:
-        birthday = birthday.replace(year=today.year)
+        year += 1
+    day = 28 if birthday.month == 2 and birthday.day == 29 and not isleap(year) else birthday.day
+    birthday = date(year, birthday.month, day)
 
     diff = (birthday - today).days
     return {0: messages.TODAY, 1: messages.TOMORROW, 2: messages.DAY_AFTER_TOMORROW}.get(

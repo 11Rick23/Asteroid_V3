@@ -35,6 +35,7 @@ class DatabaseConfig(BaseSection):
 
 
 class FeatureFlags(BaseSection):
+    account_migration: bool = True
     auth: bool = True
     log_login: bool = True
     log_error: bool = True

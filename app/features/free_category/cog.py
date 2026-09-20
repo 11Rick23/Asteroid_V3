@@ -81,12 +81,16 @@ async def archive(interaction: discord.Interaction) -> None:
 @app_commands.guild_only()
 async def edit(
     interaction: discord.Interaction,
-    name: str | None = None,
-    topic: str | None = None,
+    name: app_commands.Range[str, 1, 100] | None = None,
+    topic: app_commands.Range[str, 1, 500] | None = None,
 ) -> None:
     service = get_free_category_service(get_bot(interaction))
     channel = await service.ensure_manageable_text_channel(interaction)
     if channel is None:
+        return
+
+    if (name is not None and not 1 <= len(name) <= 100) or (topic is not None and not 1 <= len(topic) <= 500):
+        await interaction.response.send_message(messages.EDIT_LENGTH_INVALID, ephemeral=True)
         return
 
     if not name and not topic:
@@ -142,7 +146,7 @@ async def edit(
         embed = discord.Embed(
             color=discord.Color.random(),
             title=messages.TOPIC_CHANGED_TITLE,
-            description=messages.changed_value(old_value=old_topic, new_value=topic),
+            description=messages.changed_topic(old_value=old_topic, new_value=topic),
         )
         await interaction.followup.send(embed=embed)
         return
@@ -165,7 +169,7 @@ async def edit(
         name=messages.NAME_FIELD, value=messages.changed_value(old_value=old_name, new_value=name), inline=False
     )
     embed.add_field(
-        name=messages.TOPIC_FIELD, value=messages.changed_value(old_value=old_topic, new_value=topic), inline=False
+        name=messages.TOPIC_FIELD, value=messages.changed_topic(old_value=old_topic, new_value=topic), inline=False
     )
     await interaction.followup.send(embed=embed)
 
