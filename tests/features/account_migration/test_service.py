@@ -9,6 +9,7 @@ from app.database.account_migration import MigrationOptions
 from app.database.leveling_state import ShardState
 from app.features.account_migration import messages
 from app.features.account_migration.discord_state import member_overwrite
+from tests.support.discord_layout import layout_text
 
 
 @pytest.mark.asyncio
@@ -41,11 +42,11 @@ async def test_preview_confirm_and_restore_record(world):
     assert {role.id for role in world.target.roles} == {10, 20, 30}
     assert member_overwrite(world.channel, 1) is None
     assert member_overwrite(world.channel, 2) == (1024, 0)
-    record = world.record.edit.call_args.kwargs["content"]
+    record = layout_text(world.record.edit.call_args.kwargs["view"])
     assert "/leveling shard set ユーザー:1 テキスト:100 ボイス:200 ボーナス:300" in record
     assert "/leveling shard set ユーザー:2 テキスト:10 ボイス:20 ボーナス:30" in record
     assert "/leveling pending set" in record
-    assert len(record) < 2000
+    assert len(record) < 4000
     # 再度同じ内容を確定しても二重に合算しない。
     with pytest.raises(ValueError, match="stale"):
         await world.service.execute(world.guild, world.source, plan, world.channel, 99)
@@ -169,7 +170,7 @@ async def test_rollback_failure_is_reported(world):
     result = await world.service.execute(world.guild, world.source, plan, world.channel, 99)
     # Then
     assert result == messages.ROLLBACK_FAILED
-    assert messages.ROLLBACK_FAILED in world.record.edit.call_args.kwargs["content"]
+    assert messages.ROLLBACK_FAILED in layout_text(world.record.edit.call_args.kwargs["view"])
 
 
 @pytest.mark.asyncio
@@ -190,7 +191,7 @@ async def test_commit_failure_is_reported_as_uncertain(world):
     # Then
     assert result == messages.COMMIT_UNCERTAIN
     assert {role.id for role in world.target.roles} == {10, 20, 30}
-    assert messages.COMMIT_UNCERTAIN in world.record.edit.call_args.kwargs["content"]
+    assert messages.COMMIT_UNCERTAIN in layout_text(world.record.edit.call_args.kwargs["view"])
 
 
 @pytest.mark.asyncio
@@ -207,4 +208,4 @@ async def test_cancelled_execution_restores_changes(world):
         await world.service.execute(world.guild, world.source, plan, world.channel, 99)
     assert {role.id for role in world.source.roles} == {10, 20}
     assert {role.id for role in world.target.roles} == {20, 30}
-    assert messages.FAILED in world.record.edit.call_args.kwargs["content"]
+    assert messages.FAILED in layout_text(world.record.edit.call_args.kwargs["view"])

@@ -3,8 +3,8 @@ from __future__ import annotations
 import discord
 from discord import app_commands
 
-from app.common.command_groups import get_bot, register_group
-from app.common.permissions import ADMINISTRATOR_PERMISSIONS, admin_only
+from app.common.command_groups import get_bot, register_command
+from app.common.permissions import admin_only
 from app.core.bot import AsteroidBot
 from app.database.account_migration import MigrationOptions
 
@@ -13,15 +13,9 @@ from .presentation import preview_embed
 from .service import MigrationService
 from .views import MigrationView
 
-account_group = app_commands.Group(
-    name="account",
-    description=messages.COMMAND_DESCRIPTION,
-    guild_only=True,
-    default_permissions=ADMINISTRATOR_PERMISSIONS,
-)
 
-
-@account_group.command(name="migrate", description=messages.COMMAND_DESCRIPTION)
+@app_commands.command(name="migrate", description=messages.COMMAND_DESCRIPTION)
+@app_commands.guild_only()
 @app_commands.rename(
     source=messages.SOURCE_LABEL,
     target=messages.TARGET_LABEL,
@@ -70,4 +64,4 @@ async def migrate(
 
 
 async def setup(bot: AsteroidBot) -> None:
-    register_group(bot, account_group)
+    register_command(bot, migrate)

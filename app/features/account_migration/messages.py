@@ -28,6 +28,10 @@ UNAUTHORIZED = "操作できるのは実行した管理者だけです。"
 USED = "処理中または実行済みです。"
 CANCELLED = "🚫 移行をキャンセルしました。"
 COMPLETED = "✅ 移行が完了しました。"
+PROCESSING = "⏳ 移行しています…"
+STOPPED = "⏹️ 処理を終了しました。"
+RESTORE_TITLE = "↩️ レベル復元用のコマンド"
+RESTORE_NOTE = "数量を移行前の値で上書きします。履歴・ロール・誕生日・権限は復元対象外です。"
 RECORD_FAILED = "移行済みですが、完了記録の更新に失敗しました。保存済みの記録をご確認ください。"
 FAILED = "移行に失敗しました。変更は巻き戻しました。"
 ROLLBACK_FAILED = "移行に失敗し、一部を復元できませんでした。記録を確認して手動で復元してください。"
@@ -178,7 +182,7 @@ def details(
     if options.leveling:
         lines += [
             "",
-            "[数量の復元コマンド]",
+            "[レベル復元用のコマンド]",
             "両アカウントの数量を移行前の値で上書きします。",
             "履歴・ロール・誕生日・権限は復元対象外です。",
             "",
@@ -204,15 +208,18 @@ def restore_commands(state: AccountState) -> str:
     )
 
 
-def record(source: AccountState, target: AccountState, actor_id: int, options: MigrationOptions, status: str) -> str:
-    text = (
-        f"### 🔄 アカウント移行\n<@{source.user_id}> → <@{target.user_id}>\n"
-        f"実行者: <@{actor_id}>\n\n**状態**: {status}"
-    )
-    if options.leveling:
-        text += (
-            f"\n\n### ↩️ 数量の復元\n**移行元** <@{source.user_id}>\n```\n{restore_commands(source)}\n```\n"
-            f"**移行先** <@{target.user_id}>\n```\n{restore_commands(target)}\n```\n"
-            "数量を移行前の値で上書きします。履歴・ロール・誕生日・権限は復元対象外です。"
-        )
-    return text
+def status_accounts(source_id: int, target_id: int, actor_id: int) -> str:
+    return f"<@{source_id}> → <@{target_id}>\n実行者: <@{actor_id}>"
+
+
+def status_summary(
+    source: AccountState, target: AccountState, options: MigrationOptions, state: DiscordState, *, completed: bool
+) -> str:
+    title = "移行先の変更" if completed else "移行予定"
+    fields = preview_fields(source, target, options, state)[:-1]
+    return f"### {title}\n" + "\n\n".join(f"**{name}**\n{value}" for name, value, _ in fields)
+
+
+def restore_block(state: AccountState, *, source: bool) -> str:
+    label = SOURCE_LABEL if source else TARGET_LABEL
+    return f"**{label}** <@{state.user_id}>\n```\n{restore_commands(state)}\n```"

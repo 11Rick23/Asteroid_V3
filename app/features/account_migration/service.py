@@ -13,6 +13,7 @@ from app.database.leveling_state import PowerState, ShardState
 
 from . import messages
 from .discord_state import DiscordState, prepare_discord
+from .presentation import MigrationStatusView
 
 logger = getLogger(__name__)
 
@@ -121,7 +122,7 @@ class MigrationService:
                     raise ValueError("stale")
                 # 記録できなければ変更を始めない。完了時に同じメッセージの状態を更新する。
                 record = await channel.send(
-                    messages.record(plan.source, plan.target, actor_id, plan.options, "処理中"),
+                    view=MigrationStatusView(plan, actor_id, messages.PROCESSING, include_restore=True),
                     file=plan.detail_file(),
                     allowed_mentions=discord.AllowedMentions.none(),
                 )
@@ -167,7 +168,7 @@ class MigrationService:
                     else:
                         result = messages.COMPLETED
                         logger.info(
-                            "アカウント移行が完了しました: command=/account migrate guild_id=%s actor_id=%s "
+                            "アカウント移行が完了しました: command=/migrate guild_id=%s actor_id=%s "
                             "source_id=%s target_id=%s options=%s record_id=%s",
                             guild.id,
                             actor_id,
@@ -178,7 +179,7 @@ class MigrationService:
                         )
                 try:
                     await record.edit(
-                        content=messages.record(plan.source, plan.target, actor_id, plan.options, result),
+                        view=MigrationStatusView(plan, actor_id, result, include_restore=True),
                         allowed_mentions=discord.AllowedMentions.none(),
                     )
                 except discord.HTTPException:

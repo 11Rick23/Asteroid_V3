@@ -9,6 +9,7 @@ from app.database.account_migration import MigrationOptions
 from app.database.leveling_state import ShardState
 from app.features.account_migration import messages
 from app.features.account_migration.discord_state import member_overwrite
+from tests.support.discord_layout import layout_text
 
 
 @pytest.mark.asyncio
@@ -131,5 +132,5 @@ async def test_failure_to_finish_record_keeps_restore_message(world):
     result = await world.service.execute(world.guild, world.source, plan, world.channel, 99)
     # Then
     assert result == messages.RECORD_FAILED
-    assert "/leveling shard set" in world.channel.send.call_args.args[0]
+    assert "/leveling shard set" in layout_text(world.channel.send.call_args.kwargs["view"])
     assert {role.id for role in world.target.roles} == {10, 20, 30}

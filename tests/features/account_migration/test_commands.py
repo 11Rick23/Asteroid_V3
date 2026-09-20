@@ -13,9 +13,11 @@ from app.core.config import AsteroidConfig, FeatureFlags
 from app.core.extensions import iter_enabled_extensions
 from app.database.account_migration import MigrationOptions
 from app.features.account_migration import messages
-from app.features.account_migration.cog import account_group, migrate, setup
+from app.features.account_migration.cog import migrate, setup
+from app.features.account_migration.presentation import MigrationStatusView
 from app.features.account_migration.views import MigrationView
 from app.features.leveling.commands.pending_command import set_pending
+from tests.support.discord_layout import layout_text
 
 
 def test_flags_and_command_metadata():
@@ -25,8 +27,10 @@ def test_flags_and_command_metadata():
     assert "app.features.account_migration.cog" in list(iter_enabled_extensions(AsteroidConfig()))
     disabled = AsteroidConfig(features=FeatureFlags(account_migration=False))
     assert "app.features.account_migration.cog" not in list(iter_enabled_extensions(disabled))
-    assert account_group.guild_only
-    assert account_group.default_permissions and account_group.default_permissions.administrator
+    assert migrate.guild_only
+    assert migrate.default_permissions and migrate.default_permissions.administrator
+    assert migrate.parent is None
+    assert migrate.qualified_name == "migrate"
     assert migrate.checks
     assert all(parameter.description and parameter.description != "…" for parameter in migrate.parameters)
     assert all(parameter.default is True for parameter in migrate.parameters[2:])
@@ -46,7 +50,7 @@ async def test_setup_registers_once():
     await setup(cast(AsteroidBot, bot))
     await setup(cast(AsteroidBot, bot))
     # Then
-    assert registry == {"account": account_group}
+    assert registry == {"migrate": migrate}
 
 
 @pytest.mark.asyncio
@@ -100,7 +104,13 @@ async def test_double_confirmation_runs_once(world):
     service.execute.assert_awaited_once()
     interaction.followup.send.assert_awaited_once_with(messages.USED, ephemeral=True)
     assert interaction.response.defer.call_args.kwargs["ephemeral"] is False
-    interaction.edit_original_response.assert_awaited_once_with(content=messages.COMPLETED, view=None)
+    edits = interaction.edit_original_response.await_args_list
+    assert len(edits) == 2
+    for call, status in zip(edits, (messages.PROCESSING, messages.COMPLETED), strict=True):
+        assert isinstance(call.kwargs["view"], MigrationStatusView)
+        assert status in layout_text(call.kwargs["view"])
+        assert call.kwargs["content"] is None and call.kwargs["embed"] is None
+        assert call.kwargs["attachments"][0].filename == "account-migration.txt"
 
 
 @pytest.mark.asyncio
@@ -119,7 +129,12 @@ async def test_cancel_does_not_execute(world):
     # Then
     assert view.used
     service.execute.assert_not_awaited()
-    interaction.response.edit_message.assert_awaited_once_with(content=messages.CANCELLED, view=None)
+    interaction.response.edit_message.assert_awaited_once()
+    payload = interaction.response.edit_message.call_args.kwargs
+    assert payload["content"] is None and payload["embed"] is None
+    assert isinstance(payload["view"], MigrationStatusView)
+    assert messages.CANCELLED in layout_text(payload["view"])
+    assert payload["attachments"][0].filename == "account-migration.txt"
 
 
 @pytest.mark.asyncio
@@ -180,7 +195,10 @@ async def test_confirmation_errors_are_private(world, result):
     # Then
     expected = messages.ERRORS["stale"] if result == "stale" else result
     interaction.followup.send.assert_awaited_once_with(expected, ephemeral=True)
-    interaction.edit_original_response.assert_awaited_once_with(view=None)
+    payload = interaction.edit_original_response.call_args.kwargs
+    assert isinstance(payload["view"], MigrationStatusView)
+    assert expected not in layout_text(payload["view"])
+    assert messages.STOPPED in layout_text(payload["view"])
 
 
 @pytest.mark.asyncio
