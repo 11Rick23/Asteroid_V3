@@ -93,12 +93,11 @@ class AccountMigrationRepository:
                 .where(LevelingHotnessEventModel.user_id == source.user_id)
                 .values(user_id=target.user_id)
             )
-        if options.birthday:
+        if options.birthday and source.birthday is not None:
             await session.execute(
                 delete(UserBirthdayModel).where(UserBirthdayModel.user_id.in_([source.user_id, target.user_id]))
             )
-            if source.birthday is not None:
-                session.add(UserBirthdayModel(user_id=target.user_id, date=source.birthday))
+            session.add(UserBirthdayModel(user_id=target.user_id, date=source.birthday))
         if options.roles:
             await session.execute(
                 delete(UserRoleModel).where(UserRoleModel.user_id.in_([source.user_id, target.user_id]))

@@ -41,7 +41,7 @@ async def test_preview_confirm_and_restore_record(world):
     assert {role.id for role in world.source.roles} == set()
     assert {role.id for role in world.target.roles} == {10, 20, 30}
     assert member_overwrite(world.channel, 1) is None
-    assert member_overwrite(world.channel, 2) == (1024, 0)
+    assert member_overwrite(world.channel, 2) == (1024, 2048)
     record = layout_text(world.record.edit.call_args.kwargs["view"])
     assert "/leveling shard set ユーザー:1 テキスト:100 ボイス:200 ボーナス:300" in record
     assert "/leveling shard set ユーザー:2 テキスト:10 ボイス:20 ボーナス:30" in record

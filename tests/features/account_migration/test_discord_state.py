@@ -109,16 +109,42 @@ async def test_role_permissions_changed_after_preview(world):
 
 
 @pytest.mark.asyncio
-async def test_target_only_permissions_are_removed(world):
-    """移行元に設定のないフリカテでは、移行先の個別設定を削除する。"""
-    # 機能要件：フリカテ権限は合算せず、移行元の設定で上書きする。
+async def test_target_only_permissions_are_preserved(world):
+    """移行元に設定のないフリカテでは、移行先の個別設定を保持する。"""
+    # 機能要件：移行先にだけある設定は操作権限の有無にかかわらず変更しない。
     # Given
     world.channel.overwrites.pop(world.source)
+    world.channel.permissions_for.return_value = discord.Permissions.none()
     plan = await world.service.preview(world.guild, world.source, 2, MigrationOptions())
     # When
     await world.service.execute(world.guild, world.source, plan, world.channel, 99)
     # Then
-    assert member_overwrite(world.channel, 2) is None
+    assert plan.discord.permissions == ()
+    assert member_overwrite(world.channel, 2) == (0, 2048)
+    world.channel.set_permissions.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("source_view", [True, False, None])
+async def test_permission_conflicts_prefer_source(world, source_view):
+    """許可・拒否が競合する項目だけ移行元を優先し、未設定の項目は移行先を保持する。"""
+    # 機能要件：権限の項目ごとに設定を引き継ぎ、移行元の個別設定を削除する。
+    # Given
+    world.channel.overwrites[world.source] = discord.PermissionOverwrite(view_channel=source_view)
+    world.channel.overwrites[world.target] = discord.PermissionOverwrite(
+        view_channel=not source_view if source_view is not None else True,
+        send_messages=False,
+    )
+    plan = await world.service.preview(world.guild, world.source, 2, MigrationOptions())
+    # When
+    result = await world.service.execute(world.guild, world.source, plan, world.channel, 99)
+    # Then
+    assert result == messages.COMPLETED
+    actual = world.channel.overwrites[world.target]
+    assert actual.view_channel is (source_view if source_view is not None else True)
+    assert actual.send_messages is False
+    assert member_overwrite(world.channel, 1) is None
+    assert plan.discord.permissions[0].migrated == member_overwrite(world.channel, 2)
 
 
 @pytest.mark.asyncio

@@ -20,6 +20,15 @@ class ChannelPermissions:
     source: PermissionPair
     target: PermissionPair
 
+    @property
+    def migrated(self) -> PermissionPair:
+        if self.source is None:
+            return self.target
+        source_allow, source_deny = self.source
+        target_allow, target_deny = self.target or (0, 0)
+        specified = source_allow | source_deny
+        return source_allow | (target_allow & ~specified), source_deny | (target_deny & ~specified)
+
 
 @dataclass(frozen=True, slots=True)
 class DiscordState:
@@ -71,13 +80,13 @@ class DiscordMigration:
         permission_source = cast(discord.Member, self.source)
         for value in self.state.permissions:
             channel = self.channels[value.channel_id]
-            if value.source != value.target:
+            if value.migrated != value.target:
                 self.undo.append(
                     lambda channel=channel, value=value: channel.set_permissions(
                         self.target, overwrite=to_overwrite(value.target), reason=reason
                     )
                 )
-                await channel.set_permissions(self.target, overwrite=to_overwrite(value.source), reason=reason)
+                await channel.set_permissions(self.target, overwrite=to_overwrite(value.migrated), reason=reason)
             if value.source is not None:
                 self.undo.append(
                     lambda channel=channel, value=value: channel.set_permissions(
@@ -154,7 +163,7 @@ async def prepare_discord(
                 continue
             before = member_overwrite(channel, source_user.id)
             after = member_overwrite(channel, target_id)
-            if before is None and after is None:
+            if before is None:
                 continue
             if not channel.permissions_for(guild.me).manage_roles:
                 raise ValueError("permissions")

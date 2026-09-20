@@ -57,6 +57,7 @@ async def test_birthday_only_and_rollback(commit):
     # Given
     db = SQLiteDatabase()
     await db.leveling_state.set_shards(1, ShardState(100, 0, 0))
+    await db.user_birthdays.upsert_data(1, date(2000, 2, 29))
     await db.user_birthdays.upsert_data(2, date(2000, 1, 1))
     source, target = await db.account_migration.read_pair(1, 2)
     # When
@@ -68,8 +69,33 @@ async def test_birthday_only_and_rollback(commit):
             await session.commit()
     # Then
     actual_source, actual_target = await db.account_migration.read_pair(1, 2)
-    assert actual_source == source
-    assert actual_target.birthday == (None if commit else target.birthday)
+    assert actual_source.shards == source.shards
+    assert actual_source.birthday == (None if commit else source.birthday)
+    assert actual_target.birthday == (source.birthday if commit else target.birthday)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("source_date", [None, date(2000, 2, 29)])
+@pytest.mark.parametrize("target_date", [None, date(2000, 1, 1)])
+async def test_birthday_preserves_target_when_source_unset(source_date, target_date):
+    """誕生日は移行元の設定がある場合だけ移動し、未設定で移行先を消さない。"""
+    # 機能要件：両方に登録されている誕生日は移行元を優先する。
+    # Given
+    db = SQLiteDatabase()
+    for user_id, value in ((1, source_date), (2, target_date)):
+        if value is not None:
+            await db.user_birthdays.upsert_data(user_id, value)
+    source, target = await db.account_migration.read_pair(1, 2)
+    # When
+    async with db.session() as session:
+        await db.account_migration.apply(
+            cast(AsyncSession, session), source, target, MigrationOptions(False, False, True, False), (), ()
+        )
+        await session.commit()
+    # Then
+    actual_source, actual_target = await db.account_migration.read_pair(1, 2)
+    assert actual_source.birthday is None
+    assert actual_target.birthday == (source_date if source_date is not None else target_date)
 
 
 @pytest.mark.parametrize(

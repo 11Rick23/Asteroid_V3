@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import replace
+from datetime import date
 
 import discord
 import pytest
@@ -12,6 +13,26 @@ from app.features.account_migration import messages
 from app.features.account_migration.presentation import MigrationStatusView
 from app.features.account_migration.views import MigrationView
 from tests.support.discord_layout import layout_text
+
+
+@pytest.mark.asyncio
+async def test_unset_source_preserves_target_in_preview_and_record(world):
+    """未設定の誕生日と権限を保持する結果を確認画面・txt・完了記録に表示する。"""
+    # 機能要件：表示と実際の移行結果が一致する。
+    # Given
+    await world.bot.db.user_birthdays.upsert_data(2, date(2000, 3, 4))
+    plan = await world.service.preview(world.guild, world.source, 2, MigrationOptions())
+    # When
+    preview = layout_text(MigrationView(world.service, world.source, plan, 99))
+    detail = messages.details(plan.source, plan.target, plan.discord, plan.options)
+    result = await world.service.execute(world.guild, world.source, plan, world.channel, 99)
+    # Then
+    assert result == messages.COMPLETED
+    assert "03/04（変更なし）" in preview
+    assert "移行先: 03/04 → 03/04" in detail
+    assert "→ 許可: read_messages; 拒否: send_messages" in detail
+    assert "03/04（変更なし）" in layout_text(world.record.edit.call_args.kwargs["view"])
+    assert (await world.bot.db.account_migration.read_pair(1, 2))[1].birthday == date(2000, 3, 4)
 
 
 @pytest.mark.asyncio

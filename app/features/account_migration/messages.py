@@ -17,15 +17,18 @@ SOURCE_DESCRIPTION = "移行元アカウント（退会済みの場合はID指�
 TARGET_DESCRIPTION = "移行先のサーバーメンバー"
 LEVELING_DESCRIPTION = "シャード・パワー・未受取XPを合算して移動（初期値: True）"
 ROLES_DESCRIPTION = "操作可能なロールを移動（初期値: True）"
-BIRTHDAY_DESCRIPTION = "誕生日を移行元の値で上書きして移動（初期値: True）"
-FC_DESCRIPTION = "フリカテ個別権限を移行元の設定で上書きして移動（初期値: True）"
+BIRTHDAY_DESCRIPTION = "設定済みの誕生日を移動。競合時は移行元を優先（初期値: True）"
+FC_DESCRIPTION = "設定済みのフリカテ個別権限を移動。競合時は移行元を優先（初期値: True）"
 CONFIRM = "確定して移行"
 CANCEL = "キャンセル"
 PREVIEW_TITLE = "🔄 アカウント移行"
 CHECKING = "🔎 移行前チェック中"
 CHECK_READY = "🔎 移行前チェック"
 PREVIEW_FOOTER = "📎 内訳・除外一覧は添付ファイルへ ｜ 確認期限 5分"
-PREVIEW_NOTE = "対象データは移行元から削除。除外ロールは保持。\n誕生日・個別権限は**未設定も上書き**します。"
+PREVIEW_NOTE = (
+    "対象データは移行元から削除。除外ロールは保持。\n"
+    "誕生日・個別権限は**未設定なら移行先を保持、競合時は移行元を優先**します。"
+)
 UNAUTHORIZED = "操作できるのは実行した管理者だけです。"
 USED = "処理中または実行済みです。"
 CANCELLED = "🚫 移行をキャンセルしました。"
@@ -82,10 +85,20 @@ def preview_fields(
         fields.append(("💎 レベリング", "移行しない", False))
     fields += [
         ("🏷️ ロール", f"**{len(state.transferable_roles)}件**を引き継ぎ" if options.roles else "移行しない", True),
-        ("🎂 誕生日", f"{birthday(target)} → **{birthday(source)}**" if options.birthday else "移行しない", True),
+        (
+            "🎂 誕生日",
+            (
+                f"{birthday(target)} → **{birthday(source)}**"
+                if source.birthday is not None
+                else f"{birthday(target)}（変更なし）"
+            )
+            if options.birthday
+            else "移行しない",
+            True,
+        ),
         (
             "🔑 フリカテ権限",
-            f"**{len(state.permissions)}件**を上書き" if options.free_category else "移行しない",
+            f"**{len(state.permissions)}件**を引き継ぎ" if options.free_category else "移行しない",
             False,
         ),
     ]
@@ -156,7 +169,7 @@ def details(
             "",
             "[誕生日]",
             f"移行元: {birthday(source)} → 未設定",
-            f"移行先: {birthday(target)} → {birthday(source)}",
+            f"移行先: {birthday(target)} → {birthday(source if source.birthday is not None else target)}",
         ]
     if options.roles:
         for title, role_ids in (
@@ -168,14 +181,14 @@ def details(
             lines += ["", f"[{title}]"]
             lines += [f"  {plain_identity(role_id, names)}" for role_id in role_ids] or ["  なし"]
     if options.free_category:
-        lines += ["", "[フリカテ個別権限]", "移行元の設定で上書きします。未設定の場合は移行先の個別設定を削除します。"]
+        lines += ["", "[フリカテ個別権限]", "移行元で設定済みの項目を優先し、未設定の項目は移行先の設定を保持します。"]
         if not state.permissions:
             lines.append("対象チャンネルなし")
     for item in state.permissions:
         lines += [
             f"チャンネル: {plain_identity(item.channel_id, names)}",
             f"  移行元: {permission_text(item.source)} → 個別設定なし",
-            f"  移行先: {permission_text(item.target)} → {permission_text(item.source)}",
+            f"  移行先: {permission_text(item.target)} → {permission_text(item.migrated)}",
         ]
     if options.leveling:
         lines += [
