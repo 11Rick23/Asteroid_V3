@@ -13,12 +13,39 @@ from tests.support.discord_layout import layout_text
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("source_role_ids", [(10, 20), (20,)])
+async def test_shared_roles_stay_on_source(world, source_role_ids):
+    """共通ロールは両アカウントに残し、移行先にないロールだけ移動する。"""
+    # 機能要件：共通ロールをDiscordと保存済みロールの両方で保持する。
+    # 非機能要件：保持するロールには付与・剥奪のAPIを呼ばない。
+    # Given
+    world.source.roles = [world.roles[role_id] for role_id in source_role_ids]
+    await world.bot.db.user_roles.save_user_roles(1, list(source_role_ids))
+    plan = await world.service.preview(world.guild, world.source, 2, MigrationOptions(False, True, False, False))
+    # When
+    result = await world.service.execute(world.guild, world.source, plan, world.record, 99)
+    # Then
+    assert result == messages.COMPLETED
+    assert {role.id for role in world.source.roles} == {20}
+    assert {role.id for role in world.target.roles} == set(source_role_ids) | {20, 30}
+    assert {role.role_id for role in await world.bot.db.user_roles.get_user_roles(1)} == {20}
+    moving_ids = set(source_role_ids) - {20}
+    assert {call.args[0].id for call in world.source.remove_roles.await_args_list} == moving_ids
+    assert {call.args[0].id for call in world.target.add_roles.await_args_list} == moving_ids
+    record = layout_text(world.record.edit.call_args.kwargs["view"])
+    assert f"**{len(moving_ids)}件**を移動" in record
+    assert "共通 **1件**は移行元にも保持" in record
+    detail = messages.details(plan.source, plan.target, plan.discord, plan.options)
+    assert "[共通ロール（移行元にも保持）]" in detail
+
+
+@pytest.mark.asyncio
 async def test_departed_source_uses_saved_roles(world):
     """退会済みの移行元には保存済みロールを使い、メンバー不在でも個別権限を移せる。"""
     # 機能要件：旧アカウントが参加していなくても管理者が引き継げる。
     # Given
     source = Mock(spec=discord.User, id=1, bot=False)
-    await world.bot.db.user_roles.save_user_roles(1, [10])
+    await world.bot.db.user_roles.save_user_roles(1, [10, 20])
     world.channel.overwrites = {
         discord.Object(id=1, type=discord.User): discord.PermissionOverwrite(view_channel=True)
     }
@@ -34,10 +61,11 @@ async def test_departed_source_uses_saved_roles(world):
     result = await world.service.execute(world.guild, source, plan, world.record, 99)
     # Then
     assert result == messages.COMPLETED
-    assert plan.discord.transferable_roles == (10,)
+    assert plan.discord.moving_roles == (10,)
+    assert plan.discord.shared_roles == (20,)
     world.target.add_roles.assert_awaited_once()
     assert member_overwrite(world.channel, 2) == (1024, 0)
-    assert (await world.bot.db.user_roles.get_user_roles(1)) == []
+    assert {role.role_id for role in await world.bot.db.user_roles.get_user_roles(1)} == {20}
 
 
 @pytest.mark.asyncio
@@ -65,9 +93,9 @@ async def test_unassignable_roles_are_skipped(world, reason):
     assert plan.discord.skipped_roles == excluded
     assert plan.discord.transferable_roles == (() if reason == "permission" else (20,))
     assert any(name.startswith("⏭️ 除外ロール") and "<@&10>" in value for name, value, _ in fields)
-    assert {role.id for role in world.source.roles} == set(excluded)
+    assert {role.id for role in world.source.roles} == {10, 20}
     assert {role.id for role in world.target.roles} == {20, 30}
-    assert {role.role_id for role in await world.bot.db.user_roles.get_user_roles(1)} == set(excluded)
+    assert {role.role_id for role in await world.bot.db.user_roles.get_user_roles(1)} == {10, 20}
     source, target = await world.bot.db.account_migration.read_pair(1, 2)
     assert source.shards.total == 0
     assert target.shards == ShardState(100)
@@ -87,7 +115,7 @@ async def test_only_excluded_roles_are_shown(world):
     # Then
     assert plan.discord.skipped_roles == (10, 20)
     fields = messages.preview_fields(plan.source, plan.target, plan.options, plan.discord)
-    assert ("🏷️ ロール", "**0件**を引き継ぎ", True) in fields
+    assert ("🏷️ ロール", "**0件**を移動\n共通 **1件**は移行元にも保持", True) in fields
     assert ("⏭️ 除外ロール · 2件", "<@&10> <@&20>", False) in fields
     assert result == messages.COMPLETED
     world.source.remove_roles.assert_not_awaited()
