@@ -31,7 +31,7 @@ async def test_departed_source_uses_saved_roles(world):
     world.guild.fetch_member.side_effect = fetch_member
     # When
     plan = await world.service.preview(world.guild, source, 2, MigrationOptions())
-    result = await world.service.execute(world.guild, source, plan, world.channel, 99)
+    result = await world.service.execute(world.guild, source, plan, world.record, 99)
     # Then
     assert result == messages.COMPLETED
     assert plan.discord.transferable_roles == (10,)
@@ -59,7 +59,7 @@ async def test_unassignable_roles_are_skipped(world, reason):
     # When
     plan = await world.service.preview(world.guild, world.source, 2, MigrationOptions())
     fields = messages.preview_fields(plan.source, plan.target, plan.options, plan.discord)
-    result = await world.service.execute(world.guild, world.source, plan, world.channel, 99)
+    result = await world.service.execute(world.guild, world.source, plan, world.record, 99)
     # Then
     assert result == messages.COMPLETED
     assert plan.discord.skipped_roles == excluded
@@ -83,7 +83,7 @@ async def test_only_excluded_roles_are_shown(world):
     world.guild.me.guild_permissions = discord.Permissions.none()
     # When
     plan = await world.service.preview(world.guild, world.source, 2, MigrationOptions(False, True, False, False))
-    result = await world.service.execute(world.guild, world.source, plan, world.channel, 99)
+    result = await world.service.execute(world.guild, world.source, plan, world.record, 99)
     # Then
     assert plan.discord.skipped_roles == (10, 20)
     fields = messages.preview_fields(plan.source, plan.target, plan.options, plan.discord)
@@ -103,7 +103,7 @@ async def test_role_permissions_changed_after_preview(world):
     world.roles[10].is_assignable.return_value = False
     # When / Then
     with pytest.raises(ValueError, match="stale"):
-        await world.service.execute(world.guild, world.source, plan, world.channel, 99)
+        await world.service.execute(world.guild, world.source, plan, world.record, 99)
     world.target.add_roles.assert_not_awaited()
     world.channel.send.assert_not_awaited()
 
@@ -117,7 +117,7 @@ async def test_target_only_permissions_are_preserved(world):
     world.channel.permissions_for.return_value = discord.Permissions.none()
     plan = await world.service.preview(world.guild, world.source, 2, MigrationOptions())
     # When
-    await world.service.execute(world.guild, world.source, plan, world.channel, 99)
+    await world.service.execute(world.guild, world.source, plan, world.record, 99)
     # Then
     assert plan.discord.permissions == ()
     assert member_overwrite(world.channel, 2) == (0, 2048)
@@ -137,7 +137,7 @@ async def test_permission_conflicts_prefer_source(world, source_view):
     )
     plan = await world.service.preview(world.guild, world.source, 2, MigrationOptions())
     # When
-    result = await world.service.execute(world.guild, world.source, plan, world.channel, 99)
+    result = await world.service.execute(world.guild, world.source, plan, world.record, 99)
     # Then
     assert result == messages.COMPLETED
     actual = world.channel.overwrites[world.target]
@@ -149,14 +149,17 @@ async def test_permission_conflicts_prefer_source(world, source_view):
 
 @pytest.mark.asyncio
 async def test_failure_to_finish_record_keeps_restore_message(world):
-    """完了表示の更新に失敗しても、処理前に送った復元コマンドを保持する。"""
+    """完了表示の更新に失敗しても、同じメッセージに保存した復元コマンドを保持する。"""
     # 非機能要件：移行結果と通知の失敗を区別する。
     # Given
     plan = await world.service.preview(world.guild, world.source, 2, MigrationOptions())
-    world.record.edit = AsyncMock(side_effect=discord.HTTPException(Mock(status=500, reason="error"), "failed"))
+    world.record.edit = AsyncMock(
+        side_effect=[world.record, discord.HTTPException(Mock(status=500, reason="error"), "failed")]
+    )
     # When
-    result = await world.service.execute(world.guild, world.source, plan, world.channel, 99)
+    result = await world.service.execute(world.guild, world.source, plan, world.record, 99)
     # Then
     assert result == messages.RECORD_FAILED
-    assert "/leveling shard set" in layout_text(world.channel.send.call_args.kwargs["view"])
+    assert "/leveling shard set" in layout_text(world.record.edit.await_args_list[0].kwargs["view"])
+    world.channel.send.assert_not_awaited()
     assert {role.id for role in world.target.roles} == {10, 20, 30}

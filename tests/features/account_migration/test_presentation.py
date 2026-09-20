@@ -25,7 +25,7 @@ async def test_unset_source_preserves_target_in_preview_and_record(world):
     # When
     preview = layout_text(MigrationView(world.service, world.source, plan, 99))
     detail = messages.details(plan.source, plan.target, plan.discord, plan.options)
-    result = await world.service.execute(world.guild, world.source, plan, world.channel, 99)
+    result = await world.service.execute(world.guild, world.source, plan, world.record, 99)
     # Then
     assert result == messages.COMPLETED
     assert "03/04（変更なし）" in preview
@@ -98,9 +98,11 @@ async def test_record_mentions_do_not_notify_members(world):
     # Given
     plan = await world.service.preview(world.guild, world.source, 2, MigrationOptions())
     # When
-    await world.service.execute(world.guild, world.source, plan, world.channel, 99)
+    await world.service.execute(world.guild, world.source, plan, world.record, 99)
     # Then
-    for call in (world.channel.send.call_args, world.record.edit.call_args):
+    world.channel.send.assert_not_awaited()
+    assert world.record.edit.await_count == 2
+    for call in world.record.edit.await_args_list:
         assert call.kwargs["allowed_mentions"].to_dict()["parse"] == []
         assert "content" not in call.kwargs and "embed" not in call.kwargs
         assert isinstance(call.kwargs["view"], MigrationStatusView)

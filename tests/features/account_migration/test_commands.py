@@ -83,13 +83,14 @@ async def test_double_confirmation_runs_once(world):
     # 非機能要件：遅延したボタン応答による二重移行を防ぐ。
     # Given
     plan = await world.service.preview(world.guild, world.source, 2, MigrationOptions())
-    service = Mock(execute=AsyncMock(return_value=messages.COMPLETED))
+    service = Mock(execute=AsyncMock(wraps=world.service.execute))
     view = MigrationView(service, world.source, plan, 1)
     interaction = SimpleNamespace(
         client=world.bot,
         guild_id=100,
         guild=world.guild,
         channel=world.channel,
+        message=world.record,
         user=world.source,
         response=SimpleNamespace(defer=AsyncMock()),
         followup=SimpleNamespace(send=AsyncMock()),
@@ -102,15 +103,18 @@ async def test_double_confirmation_runs_once(world):
     )
     # Then
     service.execute.assert_awaited_once()
+    assert service.execute.call_args.args[3] is interaction.message
+    world.channel.send.assert_not_awaited()
+    interaction.edit_original_response.assert_not_awaited()
     interaction.followup.send.assert_awaited_once_with(messages.USED, ephemeral=True)
     assert interaction.response.defer.call_args.kwargs["ephemeral"] is False
-    edits = interaction.edit_original_response.await_args_list
+    edits = world.record.edit.await_args_list
     assert len(edits) == 2
     for call, status in zip(edits, (messages.PROCESSING, messages.COMPLETED), strict=True):
         assert isinstance(call.kwargs["view"], MigrationStatusView)
         assert status in layout_text(call.kwargs["view"])
-        assert call.kwargs["content"] is None and call.kwargs["embed"] is None
-        assert call.kwargs["attachments"][0].filename == "account-migration.txt"
+        assert "/leveling shard set" in layout_text(call.kwargs["view"])
+    assert edits[0].kwargs["attachments"][0].filename == "account-migration.txt"
 
 
 @pytest.mark.asyncio
@@ -188,7 +192,7 @@ async def test_command_response_visibility(world, enabled):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("result", ["stale", messages.FAILED])
 async def test_confirmation_errors_are_private(world, result):
-    """確定時のエラーは実行者だけに表示し、公開プレビューをエラー文に置き換えない。"""
+    """確定時のエラーを実行者へ通知し、保存済みの移行結果を別の表示で上書きしない。"""
     # 機能要件：再確認の案内と実行失敗をephemeralにする。
     # Given
     plan = await world.service.preview(world.guild, world.source, 2, MigrationOptions())
@@ -200,6 +204,7 @@ async def test_confirmation_errors_are_private(world, result):
         guild_id=100,
         guild=world.guild,
         channel=world.channel,
+        message=world.record,
         user=world.source,
         response=SimpleNamespace(defer=AsyncMock()),
         followup=SimpleNamespace(send=AsyncMock()),
@@ -210,10 +215,14 @@ async def test_confirmation_errors_are_private(world, result):
     # Then
     expected = messages.ERRORS["stale"] if result == "stale" else result
     interaction.followup.send.assert_awaited_once_with(expected, ephemeral=True)
-    payload = interaction.edit_original_response.call_args.kwargs
-    assert isinstance(payload["view"], MigrationStatusView)
-    assert expected not in layout_text(payload["view"])
-    assert messages.STOPPED in layout_text(payload["view"])
+    if result == "stale":
+        payload = interaction.edit_original_response.call_args.kwargs
+        assert isinstance(payload["view"], MigrationStatusView)
+        assert expected not in layout_text(payload["view"])
+        assert messages.STOPPED in layout_text(payload["view"])
+    else:
+        interaction.edit_original_response.assert_not_awaited()
+    world.channel.send.assert_not_awaited()
 
 
 @pytest.mark.asyncio

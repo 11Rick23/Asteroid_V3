@@ -44,32 +44,32 @@ class MigrationView(MigrationPreviewLayout):
                 return
             self.used = True
             self.stop()
-            if interaction.guild is None or not isinstance(interaction.channel, discord.TextChannel):
+            if (
+                interaction.guild is None
+                or not isinstance(interaction.channel, discord.TextChannel)
+                or interaction.message is None
+            ):
                 await interaction.followup.send(messages.ERRORS["channel"], ephemeral=True)
                 await self.show_status(interaction, messages.STOPPED)
                 return
-            await self.show_status(interaction, messages.PROCESSING)
             try:
                 result = await self.service.execute(
-                    interaction.guild, self.source, self.plan, interaction.channel, interaction.user.id
+                    interaction.guild, self.source, self.plan, interaction.message, interaction.user.id
                 )
             except ValueError as exc:
                 result = messages.ERRORS.get(str(exc), messages.RANGE_ERROR)
-            except Exception, asyncio.CancelledError:
+                await self.show_status(interaction, messages.STOPPED)
+            except Exception:
                 await self.show_status(interaction, messages.STOPPED)
                 raise
-            if result == messages.COMPLETED:
-                await self.show_status(interaction, messages.COMPLETED)
-            else:
+            if result != messages.COMPLETED:
                 await interaction.followup.send(result, ephemeral=True)
-                status = messages.COMPLETED if result == messages.RECORD_FAILED else messages.STOPPED
-                await self.show_status(interaction, status)
 
     async def show_status(self, interaction: discord.Interaction, status: str) -> None:
         await interaction.edit_original_response(
             content=None,
             embed=None,
-            view=MigrationStatusView(self.plan, self.actor_id, status),
+            view=MigrationStatusView(self.plan, self.actor_id, status, include_restore=True),
             attachments=[self.plan.detail_file()],
             allowed_mentions=discord.AllowedMentions.none(),
         )

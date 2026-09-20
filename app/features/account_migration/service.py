@@ -96,10 +96,10 @@ class MigrationService:
         guild: discord.Guild,
         source: discord.User,
         plan: MigrationPlan,
-        channel: discord.TextChannel,
+        record: discord.Message,
         actor_id: int,
     ) -> str:
-        if not self.bot.is_operating_guild(guild) or channel.guild.id != guild.id:
+        if not self.bot.is_operating_guild(guild) or record.guild is None or record.guild.id != guild.id:
             raise ValueError("accounts")
         repository = self.bot.db.account_migration
         async with self.bot.db.leveling.user_updates(plan.source.user_id, plan.target.user_id):
@@ -121,9 +121,9 @@ class MigrationService:
                 if discord_plan.state != plan.discord:
                     raise ValueError("stale")
                 # 記録できなければ変更を始めない。完了時に同じメッセージの状態を更新する。
-                record = await channel.send(
+                await record.edit(
                     view=MigrationStatusView(plan, actor_id, messages.PROCESSING, include_restore=True),
-                    file=plan.detail_file(),
+                    attachments=[plan.detail_file()],
                     allowed_mentions=discord.AllowedMentions.none(),
                 )
                 cancelled: asyncio.CancelledError | None = None

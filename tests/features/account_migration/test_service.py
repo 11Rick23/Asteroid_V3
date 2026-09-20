@@ -31,7 +31,7 @@ async def test_preview_confirm_and_restore_record(world):
     )
     assert "110/220/330" in messages.details(plan.source, plan.target, plan.discord, plan.options)
     # When
-    result = await world.service.execute(world.guild, world.source, plan, world.channel, 99)
+    result = await world.service.execute(world.guild, world.source, plan, world.record, 99)
     # Then
     assert result == messages.COMPLETED
     source, target = await world.bot.db.account_migration.read_pair(1, 2)
@@ -49,7 +49,7 @@ async def test_preview_confirm_and_restore_record(world):
     assert len(record) < 4000
     # 再度同じ内容を確定しても二重に合算しない。
     with pytest.raises(ValueError, match="stale"):
-        await world.service.execute(world.guild, world.source, plan, world.channel, 99)
+        await world.service.execute(world.guild, world.source, plan, world.record, 99)
 
 
 @pytest.mark.asyncio
@@ -67,7 +67,7 @@ async def test_stale_preview_has_no_side_effects(world, change):
         world.channel.overwrites = {}
     # When / Then
     with pytest.raises(ValueError, match="stale"):
-        await world.service.execute(world.guild, world.source, plan, world.channel, 99)
+        await world.service.execute(world.guild, world.source, plan, world.record, 99)
     world.channel.send.assert_not_awaited()
     world.target.add_roles.assert_not_awaited()
 
@@ -81,7 +81,7 @@ async def test_disabled_options_are_untouched(world):
     plan = await world.service.preview(world.guild, world.source, 2, MigrationOptions(True, False, False, False))
     await world.bot.db.user_birthdays.upsert_data(2, date(2000, 3, 4))
     # When
-    result = await world.service.execute(world.guild, world.source, plan, world.channel, 99)
+    result = await world.service.execute(world.guild, world.source, plan, world.record, 99)
     # Then
     assert result == messages.COMPLETED
     world.channel.set_permissions.assert_not_awaited()
@@ -91,16 +91,17 @@ async def test_disabled_options_are_untouched(world):
 
 @pytest.mark.asyncio
 async def test_logging_failure_stops_before_changes(world):
-    """復元記録を送れない場合は移行を開始しない。"""
+    """確認メッセージに復元記録を保存できない場合は移行を開始しない。"""
     # 非機能要件：移行前の数量が記録されないまま失われることを防ぐ。
     # Given
     plan = await world.service.preview(world.guild, world.source, 2, MigrationOptions())
-    world.channel.send.side_effect = RuntimeError("send failed")
+    world.record.edit.side_effect = RuntimeError("edit failed")
     # When / Then
-    with pytest.raises(RuntimeError, match="send failed"):
-        await world.service.execute(world.guild, world.source, plan, world.channel, 99)
+    with pytest.raises(RuntimeError, match="edit failed"):
+        await world.service.execute(world.guild, world.source, plan, world.record, 99)
     world.target.add_roles.assert_not_awaited()
     world.channel.set_permissions.assert_not_awaited()
+    world.channel.send.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -132,7 +133,7 @@ async def test_failure_rolls_back_discord_and_database(world, failure):
 
         world.bot.db.account_migration.apply = AsyncMock(side_effect=fail_after_write)
     # When
-    result = await world.service.execute(world.guild, world.source, plan, world.channel, 99)
+    result = await world.service.execute(world.guild, world.source, plan, world.record, 99)
     # Then
     assert result == messages.FAILED
     assert {role.id for role in world.source.roles} == {10, 20}
@@ -167,7 +168,7 @@ async def test_rollback_failure_is_reported(world):
     world.bot.db.account_migration.apply = AsyncMock(side_effect=RuntimeError("write failed"))
     world.source.add_roles.side_effect = RuntimeError("restore failed")
     # When
-    result = await world.service.execute(world.guild, world.source, plan, world.channel, 99)
+    result = await world.service.execute(world.guild, world.source, plan, world.record, 99)
     # Then
     assert result == messages.ROLLBACK_FAILED
     assert messages.ROLLBACK_FAILED in layout_text(world.record.edit.call_args.kwargs["view"])
@@ -187,7 +188,7 @@ async def test_commit_failure_is_reported_as_uncertain(world):
 
     world.bot.db.account_migration.apply = AsyncMock(side_effect=break_commit)
     # When
-    result = await world.service.execute(world.guild, world.source, plan, world.channel, 99)
+    result = await world.service.execute(world.guild, world.source, plan, world.record, 99)
     # Then
     assert result == messages.COMMIT_UNCERTAIN
     assert {role.id for role in world.target.roles} == {10, 20, 30}
@@ -205,7 +206,7 @@ async def test_cancelled_execution_restores_changes(world):
     world.bot.db.account_migration.apply = AsyncMock(side_effect=asyncio.CancelledError())
     # When / Then
     with pytest.raises(asyncio.CancelledError):
-        await world.service.execute(world.guild, world.source, plan, world.channel, 99)
+        await world.service.execute(world.guild, world.source, plan, world.record, 99)
     assert {role.id for role in world.source.roles} == {10, 20}
     assert {role.id for role in world.target.roles} == {20, 30}
     assert messages.FAILED in layout_text(world.record.edit.call_args.kwargs["view"])

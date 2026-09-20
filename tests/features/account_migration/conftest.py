@@ -56,7 +56,7 @@ def world():
             channel.overwrites[user] = overwrite
 
     channel.set_permissions = AsyncMock(side_effect=set_permissions)
-    record = Mock(id=600, edit=AsyncMock())
+    record = Mock(spec=discord.Message, id=600, guild=guild, channel=channel, edit=AsyncMock())
     channel.send = AsyncMock(return_value=record)
     guild.fetch_channels = AsyncMock(return_value=[channel])
     bot = SimpleNamespace(
