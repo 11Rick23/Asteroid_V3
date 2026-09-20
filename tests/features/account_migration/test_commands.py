@@ -69,8 +69,7 @@ async def test_confirm_authorization(world, scenario):
     # When / Then
     assert not await view.interaction_check(cast(discord.Interaction, interaction))
     interaction.response.send_message.assert_awaited_once()
-    if scenario != "outside_guild":
-        assert interaction.response.send_message.call_args.kwargs["ephemeral"] is False
+    assert interaction.response.send_message.call_args.kwargs["ephemeral"] is True
     world.channel.send.assert_not_awaited()
 
 
@@ -99,7 +98,7 @@ async def test_double_confirmation_runs_once(world):
     )
     # Then
     service.execute.assert_awaited_once()
-    interaction.followup.send.assert_awaited_once_with(messages.USED, ephemeral=False)
+    interaction.followup.send.assert_awaited_once_with(messages.USED, ephemeral=True)
     assert interaction.response.defer.call_args.kwargs["ephemeral"] is False
     interaction.edit_original_response.assert_awaited_once_with(content=messages.COMPLETED, view=None)
 
@@ -125,9 +124,9 @@ async def test_cancel_does_not_execute(world):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("enabled", [True, False])
-async def test_command_responses_are_public(world, enabled):
-    """プレビューと入力エラーを通常メッセージとしてチャンネルに残す。"""
-    # 機能要件：コマンドの確認内容・結果を実行者以外も参照できる。
+async def test_command_response_visibility(world, enabled):
+    """プレビューは公開し、入力エラーは実行者だけに表示する。"""
+    # 機能要件：公開する確認内容とephemeralのエラーを分ける。
     # Given
     interaction = SimpleNamespace(
         client=world.bot,
@@ -136,18 +135,69 @@ async def test_command_responses_are_public(world, enabled):
         user=world.source,
         response=SimpleNamespace(defer=AsyncMock()),
         followup=SimpleNamespace(send=AsyncMock()),
+        delete_original_response=AsyncMock(),
     )
     # When
     await migrate.callback(
         cast(discord.Interaction, interaction), world.source, world.target, enabled, enabled, enabled, enabled
     )
     # Then
-    interaction.response.defer.assert_awaited_once_with(ephemeral=False)
-    response = interaction.followup.send.call_args
-    assert response.kwargs["ephemeral"] is False
+    interaction.response.defer.assert_awaited_once_with(ephemeral=True)
     if enabled:
+        response = world.channel.send.call_args
         assert response.kwargs["allowed_mentions"].to_dict()["parse"] == []
         assert response.kwargs["view"].actor_id == world.source.id
         assert response.kwargs["file"].filename == "account-migration.txt"
+        interaction.followup.send.assert_not_awaited()
+        interaction.delete_original_response.assert_awaited_once()
     else:
-        assert response.args == (messages.ERRORS["disabled"],)
+        world.channel.send.assert_not_awaited()
+        interaction.followup.send.assert_awaited_once_with(messages.ERRORS["disabled"], ephemeral=True)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("result", ["stale", messages.FAILED])
+async def test_confirmation_errors_are_private(world, result):
+    """確定時のエラーは実行者だけに表示し、公開プレビューをエラー文に置き換えない。"""
+    # 機能要件：再確認の案内と実行失敗をephemeralにする。
+    # Given
+    plan = await world.service.preview(world.guild, world.source, 2, MigrationOptions())
+    execute = AsyncMock(side_effect=ValueError("stale")) if result == "stale" else AsyncMock(return_value=result)
+    service = Mock(execute=execute)
+    view = MigrationView(service, world.source, plan, 1)
+    interaction = SimpleNamespace(
+        client=world.bot,
+        guild_id=100,
+        guild=world.guild,
+        channel=world.channel,
+        user=world.source,
+        response=SimpleNamespace(defer=AsyncMock()),
+        followup=SimpleNamespace(send=AsyncMock()),
+        edit_original_response=AsyncMock(),
+    )
+    # When
+    await view.confirm.callback(cast(discord.Interaction, interaction))
+    # Then
+    expected = messages.ERRORS["stale"] if result == "stale" else result
+    interaction.followup.send.assert_awaited_once_with(expected, ephemeral=True)
+    interaction.edit_original_response.assert_awaited_once_with(view=None)
+
+
+@pytest.mark.asyncio
+async def test_repeated_cancel_is_private(world):
+    """処理済みの確認画面への操作はephemeralで案内する。"""
+    # 機能要件：重複操作の案内をチャンネルに残さない。
+    # Given
+    plan = await world.service.preview(world.guild, world.source, 2, MigrationOptions())
+    view = MigrationView(world.service, world.source, plan, 1)
+    view.used = True
+    interaction = SimpleNamespace(
+        client=world.bot,
+        guild_id=100,
+        user=world.source,
+        response=SimpleNamespace(send_message=AsyncMock()),
+    )
+    # When
+    await view.cancel.callback(cast(discord.Interaction, interaction))
+    # Then
+    interaction.response.send_message.assert_awaited_once_with(messages.USED, ephemeral=True)

@@ -49,24 +49,24 @@ async def migrate(
     free_category: bool = True,
 ) -> None:
     if interaction.guild is None or not isinstance(interaction.channel, discord.TextChannel):
-        await interaction.response.send_message(messages.ERRORS["channel"], ephemeral=False)
+        await interaction.response.send_message(messages.ERRORS["channel"], ephemeral=True)
         return
-    await interaction.response.defer(ephemeral=False)
+    await interaction.response.defer(ephemeral=True)
     service = MigrationService(get_bot(interaction))
     try:
         plan = await service.preview(
             interaction.guild, source, target.id, MigrationOptions(leveling, roles, birthday, free_category)
         )
     except ValueError as exc:
-        await interaction.followup.send(messages.ERRORS.get(str(exc), messages.RANGE_ERROR), ephemeral=False)
+        await interaction.followup.send(messages.ERRORS.get(str(exc), messages.RANGE_ERROR), ephemeral=True)
         return
-    await interaction.followup.send(
+    await interaction.channel.send(
         embed=preview_embed(plan),
         file=plan.detail_file(),
         view=MigrationView(service, source, plan, interaction.user.id),
-        ephemeral=False,
         allowed_mentions=discord.AllowedMentions.none(),
     )
+    await interaction.delete_original_response()
 
 
 async def setup(bot: AsteroidBot) -> None:
