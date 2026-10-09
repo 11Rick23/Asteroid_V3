@@ -16,7 +16,7 @@ FC_LABEL = "フリカテ権限"
 SOURCE_DESCRIPTION = "移行元アカウント（退会済みの場合はID指定）"
 TARGET_DESCRIPTION = "移行先のサーバーメンバー"
 LEVELING_DESCRIPTION = "シャード・パワー・未受取XPを合算して移動（初期値: True）"
-ROLES_DESCRIPTION = "操作可能なロールを移動（初期値: True）"
+ROLES_DESCRIPTION = "操作可能なロールを移動。共通ロールは移行元にも保持（初期値: True）"
 BIRTHDAY_DESCRIPTION = "設定済みの誕生日を移動。競合時は移行元を優先（初期値: True）"
 FC_DESCRIPTION = "設定済みのフリカテ個別権限を移動。競合時は移行元を優先（初期値: True）"
 CONFIRM = "確定して移行"
@@ -26,7 +26,7 @@ CHECKING = "🔎 移行前チェック中"
 CHECK_READY = "🔎 移行前チェック"
 PREVIEW_FOOTER = "📎 内訳・除外一覧は添付ファイルへ ｜ 確認期限 5分"
 PREVIEW_NOTE = (
-    "対象データは移行元から削除。除外ロールは保持。\n"
+    "対象データは移行元から削除。共通・除外ロールは保持。\n"
     "誕生日・個別権限は**未設定なら移行先を保持、競合時は移行元を優先**します。"
 )
 UNAUTHORIZED = "操作できるのは実行した管理者だけです。"
@@ -84,7 +84,13 @@ def preview_fields(
     else:
         fields.append(("💎 レベリング", "移行しない", False))
     fields += [
-        ("🏷️ ロール", f"**{len(state.transferable_roles)}件**を引き継ぎ" if options.roles else "移行しない", True),
+        (
+            "🏷️ ロール",
+            f"**{len(state.moving_roles)}件**を移動\n共通 **{len(state.shared_roles)}件**は移行元にも保持"
+            if options.roles
+            else "移行しない",
+            True,
+        ),
         (
             "🎂 誕生日",
             (
@@ -151,7 +157,7 @@ def details(
         f"移行元: {plain_identity(source.user_id, names)}",
         f"移行先: {plain_identity(target.user_id, names)}",
         f"移行対象: {'、'.join(enabled)}",
-        "対象データは移行元から削除します。除外ロールは保持します。",
+        "対象データは移行元から削除します。共通・除外ロールは保持します。",
     ]
     if options.leveling:
         shards, powers, pending = merge_leveling(source, target)
@@ -175,7 +181,8 @@ def details(
         for title, role_ids in (
             ("移行元のロール（移行前）", state.source_roles),
             ("移行先のロール（移行前）", state.target_roles),
-            ("移動するロール", state.transferable_roles),
+            ("移動するロール", state.moving_roles),
+            ("共通ロール（移行元にも保持）", state.shared_roles),
             ("除外ロール（移行元に保持）", state.skipped_roles),
         ):
             lines += ["", f"[{title}]"]
