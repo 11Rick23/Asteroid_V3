@@ -18,7 +18,7 @@ COPY launch_app.py ./launch_app.py
 RUN .venv/bin/python -m compileall app launch_app.py
 
 
-FROM python:3.14-slim-trixie AS runtime
+FROM python:3.15-slim-trixie AS runtime
 
 ENV TZ=Asia/Tokyo
 
