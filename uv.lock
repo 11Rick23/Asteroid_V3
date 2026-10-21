@@ -196,7 +196,7 @@ requires-dist = [
     { name = "pillow", specifier = ">=12.3.0" },
     { name = "pydantic", specifier = ">=2.13.5" },
     { name = "ruamel-yaml", specifier = ">=0.19.1" },
-    { name = "sqlalchemy", specifier = ">=2.0.55" },
+    { name = "sqlalchemy", specifier = ">=2.1.5" },
 ]
 
 [package.metadata.requires-dev]
