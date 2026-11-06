@@ -250,3 +250,23 @@ mise run db:revision "変更内容"
 ```
 
 生成されたマイグレーションは必ず確認し、意図したテーブル、カラム、制約、index、default だけが含まれていることを確認してください。
+
+## レベリングP2の隔離検証
+
+新レベリングDBのP2基盤は専用metadata・Repository・Alembic経路で実装・検証済みです。
+既存Botは旧DBを使用し続けます。P2の進捗・未検証項目は
+[LEVELING_P2_REPORT.md](LEVELING_P2_REPORT.md)を参照してください。
+
+`alembic-leveling-p2.ini` は `asteroid_p2_test` と専用Unix socketに限定した検証用です。
+既存の `alembic.ini`、起動時revision検査、旧revisionは変更しません。
+専用MySQLを用意した上で、以下を隔離Python環境から実行します。
+以下は初回検証時の環境パスです。2026-11-06の再検証では既存 `.venv/bin` を使用しました。
+一時環境の再作成状況と検証コマンドは検証レポート末尾を参照してください。
+
+```bash
+ASTEROID_P2_MYSQL_TEST=1 /private/tmp/asteroid-p2-venv/bin/alembic -c alembic-leveling-p2.ini upgrade head
+ASTEROID_P2_MYSQL_TEST=1 /private/tmp/asteroid-p2-venv/bin/python -m pytest tests/database/repositories/leveling_v2 -q
+```
+
+統合テストfixtureは専用テストDB内の新schemaを再作成します。
+環境変数未指定時はMySQLテストをskipするため、通常テストの成功だけではMySQL検証完了にはなりません。
