@@ -130,7 +130,7 @@ class MigrationService:
                 try:
                     await discord_plan.apply()
                     merged_roles = tuple(sorted(set(plan.discord.target_roles) | set(plan.discord.transferable_roles)))
-                    remaining = tuple(sorted(set(current_source.saved_roles) - set(plan.discord.transferable_roles)))
+                    remaining = tuple(sorted(set(current_source.saved_roles) - set(plan.discord.moving_roles)))
                     await repository.apply(
                         session, current_source, current_target, plan.options, merged_roles, remaining
                     )

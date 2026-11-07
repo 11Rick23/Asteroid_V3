@@ -38,6 +38,14 @@ class DiscordState:
     skipped_roles: tuple[int, ...] = ()
     permissions: tuple[ChannelPermissions, ...] = ()
 
+    @property
+    def moving_roles(self) -> tuple[int, ...]:
+        return tuple(role_id for role_id in self.transferable_roles if role_id not in self.target_roles)
+
+    @property
+    def shared_roles(self) -> tuple[int, ...]:
+        return tuple(role_id for role_id in self.source_roles if role_id in self.target_roles)
+
 
 def member_overwrite(channel: discord.TextChannel, user_id: int) -> PermissionPair:
     for target, value in channel.overwrites.items():
@@ -65,13 +73,12 @@ class DiscordMigration:
 
     async def apply(self) -> None:
         reason = f"account migration: {self.source.id} -> {self.target.id}"
-        for role_id in self.state.transferable_roles:
+        for role_id in self.state.moving_roles:
             role = self.guild.get_role(role_id)
             if role is None:
                 raise ValueError("stale")
-            if role_id not in self.state.target_roles:
-                self.undo.append(lambda role=role: self.target.remove_roles(role, reason=reason))
-                await self.target.add_roles(role, reason=reason)
+            self.undo.append(lambda role=role: self.target.remove_roles(role, reason=reason))
+            await self.target.add_roles(role, reason=reason)
             if isinstance(self.source, discord.Member) and role_id in self.state.source_roles:
                 source = self.source
                 self.undo.append(lambda role=role, source=source: source.add_roles(role, reason=reason))
