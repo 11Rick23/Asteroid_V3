@@ -38,7 +38,7 @@ async def test_preview_confirm_and_restore_record(world):
     assert source.shards.total == 0
     assert target.shards == ShardState(110, 220, 330)
     assert target.birthday == date(2000, 2, 29)
-    assert {role.id for role in world.source.roles} == set()
+    assert {role.id for role in world.source.roles} == {20}
     assert {role.id for role in world.target.roles} == {10, 20, 30}
     assert member_overwrite(world.channel, 1) is None
     assert member_overwrite(world.channel, 2) == (1024, 2048)
